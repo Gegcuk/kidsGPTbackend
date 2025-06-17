@@ -19,6 +19,7 @@ class KidsGpTbackendApplicationTests {
 
     @Test
     void contextLoads() {
+        // Verify that the Spring context starts without exceptions
     }
 
     @Test
