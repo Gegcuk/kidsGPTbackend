@@ -41,6 +41,9 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v3
 
+      - name: Grant execute permission to Maven wrapper
+        run: chmod +x mvnw
+
       - name: Wait for MySQL to accept connections
         run: |
           until mysqladmin ping -h 127.0.0.1 -ubestuser -pbestuser --silent; do
