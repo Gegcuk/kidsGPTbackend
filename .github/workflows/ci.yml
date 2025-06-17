@@ -1,43 +1,45 @@
-name: Java CI with Maven
-
 on:
   push:
-    branches: [ "main" ]
+    branches: [ master, main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ master, main ]
 
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
+
     services:
       mysql:
-        image: mysql:8
+        image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: kidsgptdb
+          MYSQL_DATABASE: kidsgpt
           MYSQL_USER: bestuser
           MYSQL_PASSWORD: bestuser
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: maven
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
       - name: Wait for MySQL
         run: |
-          for i in {1..10}; do
-            mysql -h 127.0.0.1 -u root -proot -e 'SELECT 1' && break
+          until mysqladmin ping -h 127.0.0.1 --silent; do
+            echo "Waiting for MySQL..."
             sleep 5
           done
-      - name: Run tests
-        env:
-          DB_URL: jdbc:mysql://127.0.0.1:3306/kidsgptdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
-          DB_USERNAME: bestuser
-          DB_PASSWORD: bestuser
-        run: mvn -B test
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'corretto'
+          java-version: '17'
+
+      - name: Build & verify
+        run: ./mvnw clean verify
