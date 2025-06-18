@@ -1,0 +1,154 @@
+# KidsGPT – Project Overview
+
+*A kid‑friendly, AI‑powered learning companion for home and school*
+
+---
+
+## 1. Purpose & Vision
+
+KidsGPT turns conversational AI into an **engaging, safe, and curriculum‑aligned personal tutor** for children aged 6 – 12.  It blends voice‑first interaction, playful gamification, and parental oversight to help kids:
+
+* **Explore knowledge** independently ("Why is the sky blue?")
+* **Practise core subjects** (math drills, reading fluency, science facts)
+* **Create** (interactive stories, custom quizzes, school projects)
+* **Build healthy habits** through daily missions, XP, and badges
+
+The long‑term vision is a platform that can plug into classroom LMSs while protecting child privacy and meeting COPPA/GDPR‑K requirements.
+
+---
+
+## 2. Target Personas
+
+| Persona                  | Needs                                        | Pain Points KidsGPT Solves                                        |
+| ------------------------ | -------------------------------------------- | ----------------------------------------------------------------- |
+| **Child Learner** (8 yo) | Instant answers, fun games, creative outlets | Boredom, fear of getting answers “wrong”, limited reading ability |
+| **Parent**               | Visibility, safety controls, progress data   | Online safety worries, fragmented educational apps                |
+| **Teacher / School**     | Curriculum alignment, quick formative checks | Time constraints, engagement of mixed‑ability class               |
+
+---
+
+## 3. Core Feature Map
+
+| Screen / Module              | Key Capabilities                                         | Backed by Endpoints (P1 first)                                    |
+| ---------------------------- | -------------------------------------------------------- | ----------------------------------------------------------------- |
+| **Home Dashboard**           | AI avatar, daily mission preview, XP bar, theme picker   | `/dashboard`, `/missions/today`, `/notifications`                 |
+| **Chat & Voice**             | Natural Q\&A, tap‑to‑talk, help alert, transcript export | `/chat`, `/voice/transcribe`, `/chat/history`, `/chat/help-alert` |
+| **Daily Missions**           | Smart tasks, streaks, custom parent missions             | `/missions/today`, `/missions/custom`, `/missions/complete`       |
+| **Story Creator**            | Guided prompts, live story, PDF export                   | `/story/start`, `/story/continue`, `/story/:id/export/pdf`        |
+| **Learning Games**           | Adaptive quizzes, custom game builder                    | `/games/:gameId`, `/games/recommended`, `/games/custom`           |
+| **Progress & Rewards**       | Badge wall, skill graphs, goal tracker                   | `/progress/badges`, `/progress/skills`, `/progress/goals`         |
+| **Parent Dashboard**         | Time limits, content filters, chat log, rewards          | `/parent/settings`, `/parent/chat-history`, `/parent/rewards`     |
+| **School Project Assistant** | Topic research, outline builder, poster/video            | `/projects/start`, `/projects/structure`, `/projects/poster`      |
+
+---
+
+## 4. Gamification Model
+
+* **XP & Levels** – awarded for missions, correct quiz answers, story completions.
+* **Badges** – milestone achievements ("100 math problems solved").
+* **Streaks** – consecutive‑day mission completion.
+* **Rewards API** lets parents attach real‑world perks to goals.
+
+---
+
+## 5. Safety, Privacy & Moderation
+
+1. **Parental Gate** – PIN‑protected flows for settings, purchases, history clearing.
+2. **Chat Moderation Pipeline**
+
+   * Real‑time local heuristics (block bad words)
+   * Server‑side LLM moderation (`/content/flag`) for nuanced review.
+3. **Data Minimisation** – store only necessary PII; separate kid/parent auth domains.
+4. **Session Expire** endpoint lets parents remotely log kids out.
+5. Compliance targets: **COPPA, GDPR‑K, UK Age‑Appropriate Design Code**.
+
+---
+
+## 6. Technical Architecture (high level)
+
+```text
+ ┌────────────┐   HTTPS   ┌───────────────────────────┐
+ │ React App  ├──────────►│ Spring Boot API Gateway   │
+ └────────────┘           │  • Auth / RBAC           │
+        ▲                 │  • Rate‑limiting         │
+        │ WebSocket       └─────────┬─────────────────┘
+        │                                 │
+        │                                 ▼
+  Speech SDK (Edge)              ┌───────────────┐
+  Offline Mode Cache ◄──────────►│  Core API     │  (modules: Chat, Missions,…)
+                                  └───────────────┘
+                                        │
+                       ┌─────────────────┴──────────────┐
+                       ▼                                ▼
+                Postgres DB                    Vector DB (embeddings)
+```
+
+* **Frontend**: React Native / Expo (mobile) + React Web (PWA)
+* **Backend**: Spring Boot 3, Kotlin, JPMS, Hexagonal Architecture
+* **AI Services**: OpenAI GPT‑4o, Whisper V3, DALLE 3 (images)
+* **Storage**: Postgres 16, Redis cache, MinIO for media
+* **CI/CD**: GitHub Actions → Docker → Fly.io / AWS Fargate
+
+---
+
+## 7. Data Contracts & Conventions
+
+* All APIs **JSON UTF‑8** (`application/json`), camelCase fields.
+* File uploads via `multipart/form-data`.
+* Standard envelope for success & error (`code`,`message`,`data`).
+* DTO naming: `XxxRequest`, `XxxDto`, `SimpleSuccessResponse`.
+* Pagination: `page`, `size`, `totalPages`, `totalElements`.
+
+For full contract list see **`API endpoints.docx`** (generated table of \~180 endpoints with DTO mapping & priority).
+
+---
+
+## 8. MVP Scope (P1 Endpoints)
+
+MVP focuses on:
+
+1. Child auth & profile (register, login, dashboard).
+2. Chat (text/voice), daily missions, basic games.
+3. Parent safety settings & chat history.
+4. Core progress tracking.
+
+Everything labelled **P2 / P3** is roadmap.
+
+---
+
+## 9. Non‑Functional Requirements
+
+| Requirement               | Target                          |
+| ------------------------- | ------------------------------- |
+| Latency (chat round‑trip) | ≤ 300 ms average                |
+| Uptime                    | 99.5 % monthly                  |
+| Concurrent users (year‑1) | 20 k peak                       |
+| WCAG 2.1 AA               | All public screens              |
+| Localisation              | EN (UK/US) MVP, ES + FR roadmap |
+
+---
+
+## 10. Future Roadmap Highlights
+
+* **Real‑time classroom mode** (teacher dashboards, group missions)
+* **Edge LLM distillation** for offline‑first answers
+* **Marketplace** for community‑built games & stories
+* **Fine‑tuned recommendation model** on anonymised usage data
+
+---
+
+## 11. Contribution & Repository Layout
+
+```
+/README.md ──▶ (this file)
+/api         ── Spring Boot modules
+/app         ── React PWA & RN mobile code
+/docs        ── Diagrams, OpenAPI YAML, ADRs
+/scripts     ── Dev tooling, DB migrations
+```
+
+**Main branches**: `main` (stable), `dev` (integration).  Conventional Commits & semantic versioning.
+
+---
+
+> *Put questions in **GitHub Discussions ▸ Q\&A** or open an **Issue** tagged `help‑wanted`.  Happy coding!*
