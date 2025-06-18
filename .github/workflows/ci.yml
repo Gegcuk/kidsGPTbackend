@@ -1,5 +1,6 @@
 name: Continuous Integration
 
+# 1️⃣  Run on every push or PR to the main development branches
 on:
   push:
     branches: [master, main]
@@ -10,29 +11,33 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # 2️⃣  Spin up an ephemeral MySQL service for integration tests
     services:
       mysql:
         image: mysql:8.0
         env:
-          MYSQL_ROOT_PASSWORD: root
+          MYSQL_ROOT_PASSWORD: bestuser
           MYSQL_DATABASE: kidsgptdb
-          MYSQL_USER: ciuser
-          MYSQL_PASSWORD: cipass
+          MYSQL_USER: bestuser
+          MYSQL_PASSWORD: bestuser
         ports: ["3306:3306"]
-        options: >-
+        options: >-               # health-check so the job waits for MySQL
           --health-cmd="mysqladmin ping --silent"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
 
+    # 3️⃣  Vars Spring picks up in application-test.properties
     env:
       TEST_DB_URL: jdbc:mysql://127.0.0.1:3306/kidsgptdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      TEST_DB_USERNAME: ciuser
-      TEST_DB_PASSWORD: cipass
+      TEST_DB_USERNAME: bestuser
+      TEST_DB_PASSWORD: bestuser
 
     steps:
+      # Checkout the code
       - uses: actions/checkout@v4
 
+      # Wait until MySQL is actually ready
       - name: Wait for MySQL
         run: |
           until mysqladmin ping -h 127.0.0.1 -uciuser -pcipass --silent; do
@@ -40,11 +45,17 @@ jobs:
             sleep 4
           done
 
+      # Install JDK 17
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
+      # Ensure the Maven wrapper is executable (Windows commits lose the +x bit)
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      # Run unit + integration tests
       - name: Build & test
         run: ./mvnw --batch-mode clean verify
