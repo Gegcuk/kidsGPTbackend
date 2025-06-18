@@ -23,6 +23,6 @@ class EchoControllerTest {
     void echoReturnsMessage() throws Exception {
         mockMvc.perform(get("/echo").param("msg", "hi"))
                 .andExpect(status().isOk())
-                .andExpect(content().string("hi"));
+                .andExpect(content().string("hi1"));
     }
 }
