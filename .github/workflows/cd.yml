@@ -1,4 +1,5 @@
 name: Continuous Deployment
+
 on:
   push:
     branches: [master]
@@ -9,7 +10,7 @@ env:
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    permissions: {contents: read, packages: write}
+    permissions: { contents: read, packages: write }
 
     steps:
       - uses: actions/checkout@v4
@@ -21,7 +22,7 @@ jobs:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
 
-      - name: Build & push
+      - name: Build & push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
