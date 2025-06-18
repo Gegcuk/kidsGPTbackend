@@ -9,7 +9,7 @@ public class EchoController {
 
     @GetMapping("/echo")
     public String echo(@RequestParam(value = "msg", defaultValue = "Hello") String message){
-        return message;
+        return message + "1";
     }
 
 }
