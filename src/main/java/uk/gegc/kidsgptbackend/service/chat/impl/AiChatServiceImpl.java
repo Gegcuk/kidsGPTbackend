@@ -1,6 +1,11 @@
 package uk.gegc.kidsgptbackend.service.chat.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.messages.AbstractMessage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.moderation.ModerationModel;
 import org.springframework.ai.moderation.ModerationPrompt;
 import org.springframework.ai.moderation.ModerationResponse;
@@ -13,6 +18,7 @@ import org.springframework.util.StreamUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
 import uk.gegc.kidsgptbackend.model.user.User;
@@ -49,6 +55,8 @@ public class AiChatServiceImpl implements AiChatService {
             "%s What do you think about it?"
     };
     private final Random random = new Random();
+    private static final Logger logger = LoggerFactory.getLogger(AiChatServiceImpl.class);
+
 
     @Override
     public ChatMessageResponse chat(ChatMessageRequest request, Principal principal) {
@@ -72,19 +80,24 @@ public class AiChatServiceImpl implements AiChatService {
         String decorated = String.format(TEMPLATES[random.nextInt(TEMPLATES.length)], request.message());
         String systemText = loadSystemPrompt(user);
 
-        String replyText;
+        ChatResponse chatResponse;
         try {
-            replyText = chatClient.prompt()
+            chatResponse = chatClient.prompt()
                     .system(systemText)
                     .user(decorated)
                     .call()
-                    .content();
+                    .chatResponse();
         } catch (Exception e) {
-            throw new RuntimeException("LLM rate-limited", e);
+            throw new RateLimitException("LLM rate-limited", e);
         }
+        String replyText = Optional.ofNullable(chatResponse)
+                .map(ChatResponse::getResult)
+                .map(Generation::getOutput)
+                .map(AbstractMessage::getText)
+                .orElse("");
 
         if (!validateSafety(replyText)) {
-            replyText = "Hmm, let’s try another question! What else interests you?";
+            replyText = "Oops, that topic's a bit tricky. Let's chat about something else fun!";
         }
 
         ChatMessage assistantMsg = new ChatMessage();
@@ -94,8 +107,14 @@ public class AiChatServiceImpl implements AiChatService {
         messageRepository.save(assistantMsg);
 
         long latency = Duration.between(start, Instant.now()).toMillis();
-        return new ChatMessageResponse(replyText, "gpt-4o-mini", latency, 0, context.getId());
-    }
+        int tokensUsed = Optional.ofNullable(chatResponse)
+                .map(ChatResponse::getMetadata)
+                .map(meta -> meta.getUsage().getTotalTokens())
+                .orElse(0);
+        String modelUsed = Optional.ofNullable(chatResponse)
+                .map(resp -> resp.getMetadata().getModel())
+                .orElse("gpt-4o-mini");
+        return new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, context.getId());    }
 
     private ChatContext resolveContext(ChatMessageRequest request, Principal principal) {
         if (request.contextId() != null) {
@@ -120,7 +139,13 @@ public class AiChatServiceImpl implements AiChatService {
 
     private boolean validateSafety(String text) {
         ModerationResponse response = moderationClient.call(new ModerationPrompt(text));
-        return response.getResult().getOutput().getResults().stream()
+        boolean safe = response.getResult().getOutput().getResults().stream()
                 .noneMatch(ModerationResult::isFlagged);
+        if (!safe) {
+            response.getResult().getOutput().getResults().stream()
+                    .filter(ModerationResult::isFlagged)
+                    .forEach(r -> logger.warn("Moderation violation: {}", r.getCategories()));
+        }
+        return safe;
     }
 }
