@@ -201,6 +201,9 @@
                         </goals>
                     </execution>
                 </executions>
+                  <configuration>
+                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
