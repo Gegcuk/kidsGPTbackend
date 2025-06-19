@@ -36,12 +36,15 @@ public class JwtAuthenticationFilterTest {
     @Mock
     JwtTokenProvider jwtTokenProvider;
 
+    @Mock
+    uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository revokedTokenRepository;
+
     JwtAuthenticationFilter authenticationFilter;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        authenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider);
+        authenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider, revokedTokenRepository);
         SecurityContextHolder.clearContext();
     }
 
@@ -107,6 +110,25 @@ public class JwtAuthenticationFilterTest {
 
         verify(jwtTokenProvider, never()).validateToken(anyString());
         verify(filterChain).doFilter(httpServletRequest, httpServletResponse);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+    }
+
+    @Test
+    @DisplayName("Bearer revoked-token → filterChain invoked, no Authentication set")
+    void revokedToken_shouldNotSetAuthentication() throws ServletException, IOException {
+        String token = "revoked-token";
+
+        when(httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION)).thenReturn("Bearer " + token);
+        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
+        when(revokedTokenRepository.existsByToken(token)).thenReturn(true);
+
+        authenticationFilter.doFilterInternal(httpServletRequest, httpServletResponse, filterChain);
+
+        verify(jwtTokenProvider).validateToken(token);
+        verify(revokedTokenRepository).existsByToken(token);
+        verify(jwtTokenProvider, never()).getAuthentication(anyString());
+        verify(filterChain).doFilter(httpServletRequest, httpServletResponse);
+
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
     }
 }
