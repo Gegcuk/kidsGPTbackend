@@ -62,18 +62,22 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthTokensResponse login(AuthLoginRequest request) {
+    public AuthTokensResponse login(AuthLoginRequest loginRequest) {
         try {
             Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(request.usernameOrEmail(), request.password())
+                    new UsernamePasswordAuthenticationToken(loginRequest.usernameOrEmail(), loginRequest.password())
             );
 
-            String access = jwtTokenProvider.generateAccessToken(authentication);
-            String refresh = jwtTokenProvider.generateRefreshToken(authentication);
+            String accessToken = jwtTokenProvider.generateAccessToken(authentication);
+            String refreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+            long accessExpiresInMs = jwtTokenProvider.getAccessTokenValidityInMs();
+            long refreshExpiresInMs = jwtTokenProvider.getRefreshTokenValidityInMs();
 
-            return new AuthTokensResponse(access, refresh);
+            return new AuthTokensResponse(accessToken, refreshToken, accessExpiresInMs, refreshExpiresInMs);
         } catch (AuthenticationException ex) {
-            throw new UnauthorizedException("Invalid credentials");
+            throw new UnauthorizedException("Invalid username or password");
+        } catch (Exception exception) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
     }
 
