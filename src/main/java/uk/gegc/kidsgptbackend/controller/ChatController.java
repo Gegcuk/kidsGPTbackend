@@ -25,13 +25,6 @@ public class ChatController {
             @Valid @RequestBody ChatMessageRequest request,
             @AuthenticationPrincipal User principal
     ) {
-        if (request.tone() == null ||
-                !("FRIENDLY".equalsIgnoreCase(request.tone()) ||
-                        "FORMAL".equalsIgnoreCase(request.tone()) ||
-                        "FUN".equalsIgnoreCase(request.tone()))) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
-
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
