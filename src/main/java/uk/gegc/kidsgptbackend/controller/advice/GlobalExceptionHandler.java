@@ -90,13 +90,14 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ResponseStatusException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
-    public ErrorResponse handleIllegalState(ResponseStatusException ex) {
-        return new ErrorResponse(
+    public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
+        ErrorResponse body = new ErrorResponse(
                 LocalDateTime.now(),
-                HttpStatus.CONFLICT.value(),
-                "Conflict",
-                List.of(ex.getMessage())
+                ex.getStatusCode().value(),
+                ex.getReason(),
+                List.of(ex.getReason())
         );
+        return new ResponseEntity<>(body, ex.getStatusCode());
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
