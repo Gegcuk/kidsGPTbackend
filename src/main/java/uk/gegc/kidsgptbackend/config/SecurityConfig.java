@@ -1,4 +1,5 @@
 package uk.gegc.kidsgptbackend.config;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,6 +15,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository;
 import uk.gegc.kidsgptbackend.security.JwtAuthenticationFilter;
 import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
 
@@ -24,12 +26,17 @@ import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
 public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
+    private final RevokedTokenRepository revokedTokenRepository;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity httpSecurity) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity httpSecurity, RevokedTokenRepository revokedTokenRepository) throws Exception {
         httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
                                 "/api/v1/auth/register",
@@ -52,7 +59,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtTokenProvider),
+                        new JwtAuthenticationFilter(jwtTokenProvider, revokedTokenRepository),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .cors(Customizer.withDefaults());

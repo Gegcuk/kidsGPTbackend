@@ -18,11 +18,14 @@ import uk.gegc.kidsgptbackend.mapper.UserMapper;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.Set;
 
 @Service
@@ -35,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     private final UserMapper userMapper;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
+    private final RevokedTokenRepository revokedTokenRepository;
 
     @Override
     public UserDto register(RegisterUserRequest request) {
@@ -79,6 +83,16 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception exception) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid username or password");
         }
+    }
+
+    @Override
+    public void logout(String token) {
+        var claims = jwtTokenProvider.getClaims(token);
+        LocalDateTime expires = claims.getExpiration().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        uk.gegc.kidsgptbackend.model.auth.RevokedToken revoked = new uk.gegc.kidsgptbackend.model.auth.RevokedToken();
+        revoked.setToken(token);
+        revoked.setExpiresAt(expires);
+        revokedTokenRepository.save(revoked);
     }
 
 }
