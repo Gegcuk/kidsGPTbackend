@@ -13,6 +13,7 @@ import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
+import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 import uk.gegc.kidsgptbackend.exception.UnauthorizedException;
 import uk.gegc.kidsgptbackend.mapper.UserMapper;
 import uk.gegc.kidsgptbackend.model.user.Role;
@@ -93,6 +94,13 @@ public class AuthServiceImpl implements AuthService {
         revoked.setToken(token);
         revoked.setExpiresAt(expires);
         revokedTokenRepository.save(revoked);
+    }
+
+    @Override
+    public UserProfileDto getProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        return userMapper.toProfileDto(user);
     }
 
 }

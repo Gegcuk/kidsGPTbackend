@@ -3,6 +3,7 @@ package uk.gegc.kidsgptbackend.mapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
+import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
@@ -33,6 +34,20 @@ public class UserMapper {
                 user.getCreatedAt(),
                 user.getLastLoginDate(),
                 user.getUpdatedAt()
+        );
+    }
+
+    public UserProfileDto toProfileDto(User user) {
+        RoleName role = user.getRoles().stream()
+                .findFirst()
+                .map(Role::getRole)
+                .map(RoleName::valueOf)
+                .orElse(null);
+        return new UserProfileDto(
+                user.getId(),
+                user.getUsername(),
+                role,
+                user.getCreatedAt()
         );
     }
 
