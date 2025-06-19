@@ -141,4 +141,15 @@ public class AuthServiceImplTest {
         assertThatThrownBy(() -> authService.login(req))
                 .isInstanceOf(UnauthorizedException.class);
     }
+
+    @Test
+    @DisplayName("login: unexpected exception throws 401 ResponseStatusException")
+    void login_unexpectedError_throws() {
+        AuthLoginRequest req = new AuthLoginRequest("bob", "pass");
+        when(authenticationManager.authenticate(any())).thenThrow(new RuntimeException("boom"));
+
+        assertThatThrownBy(() -> authService.login(req))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining(String.valueOf(HttpStatus.UNAUTHORIZED.value()));
+    }
 }
