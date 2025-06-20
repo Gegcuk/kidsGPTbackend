@@ -18,9 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import uk.gegc.kidsgptbackend.exception.ApiError;
-import uk.gegc.kidsgptbackend.exception.ResourceNotFoundException;
-import uk.gegc.kidsgptbackend.exception.UnauthorizedException;
+import uk.gegc.kidsgptbackend.exception.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -110,6 +108,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 List.of("Database error: " + ex.getMostSpecificCause().getMessage())
         );
     }
+
+    @ExceptionHandler(RateLimitException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ErrorResponse handleRateLimit(RateLimitException ex) {
+        return new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.TOO_MANY_REQUESTS.value(),
+                "Too Many Requests",
+                List.of(ex.getMessage())
+        );
+    }
+
+    @ExceptionHandler(ModerationServiceException.class)
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    public ErrorResponse handleModerationUnavailable(ModerationServiceException ex) {
+        return new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                "Service Unavailable",
+                List.of(ex.getMessage())
+        );
+    }
+
 
     @ExceptionHandler(UnauthorizedException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)

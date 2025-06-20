@@ -34,6 +34,10 @@ public class User implements Persistable<UUID> {
     @Column(name = "email", nullable = false)
     private String email;
 
+    @Column(name = "age")
+    private Integer age;
+
+
     @Column(name = "password", nullable = false)
     private String hashedPassword;
 
