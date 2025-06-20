@@ -47,6 +47,7 @@ class ChatControllerStandaloneTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+        Mockito.reset(chatService);
     }
 
     @TestConfiguration
