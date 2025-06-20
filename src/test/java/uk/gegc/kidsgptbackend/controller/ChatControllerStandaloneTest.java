@@ -1,6 +1,7 @@
 package uk.gegc.kidsgptbackend.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -11,11 +12,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import org.springframework.security.core.userdetails.User;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
 
 import java.security.Principal;
@@ -39,6 +43,11 @@ class ChatControllerStandaloneTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
 
     @TestConfiguration
     static class TestConfig {
@@ -71,11 +80,25 @@ class ChatControllerStandaloneTest {
         ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID());
         when(chatService.chat(any(ChatMessageRequest.class), any(Principal.class))).thenReturn(resp);
 
+        User principal = new User(
+                "alice",
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
         mockMvc.perform(post("/api/v1/chat")
-                        .with(SecurityMockMvcRequestPostProcessors.user("alice"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isOk());
+
+        SecurityContextHolder.clearContext();
 
         verify(chatService).chat(any(ChatMessageRequest.class), any(Principal.class));
     }
