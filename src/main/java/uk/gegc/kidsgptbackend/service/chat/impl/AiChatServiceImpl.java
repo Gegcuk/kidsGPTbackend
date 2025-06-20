@@ -18,6 +18,7 @@ import org.springframework.util.StreamUtils;
 import org.springframework.ai.chat.client.ChatClient;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
@@ -138,7 +139,13 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private boolean validateSafety(String text) {
-        ModerationResponse response = moderationClient.call(new ModerationPrompt(text));
+        ModerationResponse response;
+        try {
+            response = moderationClient.call(new ModerationPrompt(text));
+        } catch (Exception ex) {
+            logger.error("Moderation service call failed", ex);
+            throw new ModerationServiceException("Moderation service unavailable", ex);
+        }
         boolean safe = response.getResult().getOutput().getResults().stream()
                 .noneMatch(ModerationResult::isFlagged);
         if (!safe) {

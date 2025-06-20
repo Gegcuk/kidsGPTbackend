@@ -13,6 +13,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
@@ -94,6 +95,18 @@ class AiChatServiceImplTest {
         Generation gen = new Generation(m);
         ChatResponseMetadata meta = ChatResponseMetadata.builder().model("model").build();
         return ChatResponse.builder().generations(List.of(gen)).metadata(meta).build();
+    }
+
+    @Test
+    @DisplayName("chat: moderation failure throws ModerationServiceException")
+    void chat_moderationFailure_exception() {
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        when(moderationClient.call(any(ModerationPrompt.class)))
+                .thenThrow(new RuntimeException("down"));
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ModerationServiceException.class);
     }
 
     @Test
