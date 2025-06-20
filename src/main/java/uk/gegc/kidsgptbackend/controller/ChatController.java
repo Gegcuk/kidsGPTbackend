@@ -29,7 +29,8 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        ChatMessageResponse response = chatService.chat(request, (Principal) principal);
+        Principal p = principal::getUsername;
+        ChatMessageResponse response = chatService.chat(request, p);
         return ResponseEntity.ok(response);
     }
 }
