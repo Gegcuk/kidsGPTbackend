@@ -20,6 +20,7 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
+import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
 
 import java.util.UUID;
 
@@ -48,6 +49,8 @@ class ChatControllerIntegrationTest {
 
     @MockitoBean
     AiChatService aiChatService;
+    @MockitoBean
+    ChatMessageService chatMessageService;
 
     @org.junit.jupiter.api.BeforeEach
     void setupUser() {
@@ -103,6 +106,18 @@ class ChatControllerIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         assertThat(response).contains("\"reply\":\"ok\"");
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/chat/{id}/messages with token → 200")
+    void getMessages_withToken_returnsOk() throws Exception {
+        when(chatMessageService.getMessages(any(), any(), any())).thenReturn(org.springframework.data.domain.Page.empty());
+
+        String token = obtainAccessToken();
+        java.util.UUID id = java.util.UUID.randomUUID();
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/chat/" + id + "/messages")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
     }
 
 }
