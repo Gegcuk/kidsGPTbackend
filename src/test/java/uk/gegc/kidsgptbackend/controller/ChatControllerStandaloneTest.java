@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
@@ -33,15 +34,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = ChatController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(ChatControllerStandaloneTest.TestConfig.class)
 class ChatControllerStandaloneTest {
 
     @Autowired
     MockMvc mockMvc;
 
-    @Autowired
+    @MockitoBean
     AiChatService chatService;
-    @Autowired
+    @MockitoBean
     ChatMessageService messageService;
 
     @Autowired
@@ -53,22 +53,25 @@ class ChatControllerStandaloneTest {
         Mockito.reset(chatService, messageService);
     }
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        AiChatService aiChatService() {
-            return Mockito.mock(AiChatService.class);
-        }
-
-        @Bean
-        ChatMessageService chatMessageService() {
-            return Mockito.mock(ChatMessageService.class);
-        }
-        @Bean
-        ObjectMapper objectMapper() {
-            return new ObjectMapper();
-        }
-    }
+//    @TestConfiguration
+//    static class TestConfig {
+//        @Bean
+//        AiChatService aiChatService() {
+//            return Mockito.mock(AiChatService.class);
+//        }
+//
+//        @Bean
+//        ChatMessageService chatMessageService() {
+//            return Mockito.mock(ChatMessageService.class);
+//        }
+//        @Bean
+//        ObjectMapper objectMapper() {
+//            ObjectMapper mapper = new ObjectMapper();
+//            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+//            mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//            return mapper;
+//        }
+//    }
 
     @Test
     @DisplayName("POST /api/v1/chat with null principal → 401")
