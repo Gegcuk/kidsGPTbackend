@@ -60,6 +60,7 @@ class ChatControllerStandaloneTest {
             return Mockito.mock(AiChatService.class);
         }
 
+        @Bean
         ChatMessageService chatMessageService() {
             return Mockito.mock(ChatMessageService.class);
         }
