@@ -15,12 +15,14 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import org.springframework.security.core.userdetails.User;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
+import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
 
 import java.security.Principal;
 import java.util.UUID;
@@ -32,14 +34,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = ChatController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(ChatControllerStandaloneTest.TestConfig.class)
 class ChatControllerStandaloneTest {
 
     @Autowired
     MockMvc mockMvc;
 
-    @Autowired
+    @MockitoBean
     AiChatService chatService;
+    @MockitoBean
+    ChatMessageService messageService;
 
     @Autowired
     ObjectMapper objectMapper;
@@ -47,20 +50,28 @@ class ChatControllerStandaloneTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
-        Mockito.reset(chatService);
+        Mockito.reset(chatService, messageService);
     }
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        AiChatService aiChatService() {
-            return Mockito.mock(AiChatService.class);
-        }
-        @Bean
-        ObjectMapper objectMapper() {
-            return new ObjectMapper();
-        }
-    }
+//    @TestConfiguration
+//    static class TestConfig {
+//        @Bean
+//        AiChatService aiChatService() {
+//            return Mockito.mock(AiChatService.class);
+//        }
+//
+//        @Bean
+//        ChatMessageService chatMessageService() {
+//            return Mockito.mock(ChatMessageService.class);
+//        }
+//        @Bean
+//        ObjectMapper objectMapper() {
+//            ObjectMapper mapper = new ObjectMapper();
+//            mapper.registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule());
+//            mapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+//            return mapper;
+//        }
+//    }
 
     @Test
     @DisplayName("POST /api/v1/chat with null principal → 401")
@@ -102,5 +113,41 @@ class ChatControllerStandaloneTest {
         SecurityContextHolder.clearContext();
 
         verify(chatService).chat(any(ChatMessageRequest.class), any(Principal.class));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/chat/{id}/messages with null principal → 401")
+    void getMessages_nullPrincipal_returnsUnauthorized() throws Exception {
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/chat/" + UUID.randomUUID() + "/messages"))
+                .andExpect(status().isUnauthorized());
+
+        verify(messageService, never()).getMessages(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/chat/{id}/messages with principal → 200")
+    void getMessages_withPrincipal_callsService() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(messageService.getMessages(any(), any(), any())).thenReturn(org.springframework.data.domain.Page.empty());
+
+        User principal = new User(
+                "alice",
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/chat/" + id + "/messages"))
+                .andExpect(status().isOk());
+
+        SecurityContextHolder.clearContext();
+
+        verify(messageService).getMessages(eq(id), any(), eq("alice"));
     }
 }
