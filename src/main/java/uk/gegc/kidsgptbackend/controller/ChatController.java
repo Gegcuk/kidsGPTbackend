@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,7 +45,7 @@ public class ChatController {
     @GetMapping("/chat/{contextId}/messages")
     public ResponseEntity<Page<ChatMessageDto>> getMessages(
             @PathVariable("contextId") java.util.UUID contextId,
-            Pageable pageable,
+            @PageableDefault(size = 20) Pageable pageable,
             @AuthenticationPrincipal User principal
     ) {
         if (principal == null) {
