@@ -21,7 +21,6 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
-import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 
 import java.time.LocalDateTime;
@@ -55,11 +54,8 @@ class PasswordResetControllerIntegrationTest {
     @Autowired
     PasswordResetTokenRepository tokenRepository;
 
-    @MockitoBean
+    @MockBean
     EmailService emailService;
-
-    @MockitoBean
-    PasswordResetService passwordResetService;
 
     private User testUser;
     private Role parentRole;
@@ -85,8 +81,6 @@ class PasswordResetControllerIntegrationTest {
         // Mock email service
         doNothing().when(emailService).sendPasswordResetEmail(anyString(), anyString(), anyString());
         doNothing().when(emailService).sendPasswordResetConfirmation(anyString(), anyString());
-        doNothing().when(passwordResetService).resetPassword(any(ResetPasswordRequest.class));
-
     }
 
     @Test
