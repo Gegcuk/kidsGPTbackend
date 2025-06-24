@@ -14,7 +14,6 @@ import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
-
 import java.util.Optional;
 import java.util.Set;
 

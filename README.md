@@ -1,6 +1,7 @@
 # KidsGPT Backend
 
-A Spring Boot backend application for KidsGPT, providing AI-powered chat functionality for children with secure authentication and password reset capabilities.
+A Spring Boot backend application for KidsGPT, providing AI-powered chat functionality for children with secure
+authentication and password reset capabilities.
 
 ## Features
 
@@ -74,6 +75,7 @@ docker-compose up -d
 The application includes a complete password reset system with the following features:
 
 ### Security Features
+
 - **Secure Token Generation**: Uses cryptographically secure random tokens
 - **Time-Limited Tokens**: Tokens expire after 1 hour
 - **Single-Use Tokens**: Tokens are invalidated after use
@@ -83,6 +85,7 @@ The application includes a complete password reset system with the following fea
 ### API Endpoints
 
 #### 1. Initiate Password Reset
+
 ```http
 POST /api/v1/auth/forgot-password
 Content-Type: application/json
@@ -93,6 +96,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "message": "If an account with this email exists, a password reset link has been sent.",
@@ -101,6 +105,7 @@ Content-Type: application/json
 ```
 
 #### 2. Reset Password
+
 ```http
 POST /api/v1/auth/reset-password
 Content-Type: application/json
@@ -114,6 +119,7 @@ Content-Type: application/json
 **Response:** `200 OK` (no body)
 
 #### 3. Validate Reset Token
+
 ```http
 GET /api/v1/auth/reset-password/validate?token=reset-token
 ```
@@ -155,6 +161,7 @@ The application includes comprehensive tests for the password reset functionalit
 - **Email Tests**: Configured with fake SMTP for testing
 
 Run tests with:
+
 ```bash
 ./mvnw test
 ```

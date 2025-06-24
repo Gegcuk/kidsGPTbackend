@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
-
 import java.util.List;
 
 @Service

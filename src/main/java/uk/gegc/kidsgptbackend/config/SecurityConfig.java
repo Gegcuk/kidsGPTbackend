@@ -1,4 +1,5 @@
 package uk.gegc.kidsgptbackend.config;
+
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;

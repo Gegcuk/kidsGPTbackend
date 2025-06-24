@@ -1,10 +1,8 @@
 package uk.gegc.kidsgptbackend.systemstatus;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.health.*;
-import org.springframework.boot.actuate.jdbc.DataSourceHealthIndicator;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
@@ -19,7 +17,7 @@ import java.util.Map;
 public class SystemStatusService {
 
     private final HealthContributorRegistry healthRegistry;   // Actuator SPI
-    private final Environment               env;              // resolved properties
+    private final Environment env;              // resolved properties
 
     private final long startTime = System.currentTimeMillis();
 
@@ -35,14 +33,14 @@ public class SystemStatusService {
         boolean dbUp = isDbUp();
 
         /* ---------- OpenAI key ---------- */
-        String   key          = env.getProperty("spring.ai.openai.api-key", "");
-        boolean  keyPresent   = StringUtils.hasText(key);
-        boolean  keyLooksGood = keyPresent && key.startsWith("sk-");
+        String key = env.getProperty("spring.ai.openai.api-key", "");
+        boolean keyPresent = StringUtils.hasText(key);
+        boolean keyLooksGood = keyPresent && key.startsWith("sk-");
 
         /* ---------- assemble DTO ---------- */
         Map<String, String> components = new HashMap<>();
-        components.put("db",        dbUp        ? "UP"            : "DOWN");
-        components.put("openaiKey", keyPresent  ? (keyLooksGood   ? "PRESENT"
+        components.put("db", dbUp ? "UP" : "DOWN");
+        components.put("openaiKey", keyPresent ? (keyLooksGood ? "PRESENT"
                 : "INVALID_FORMAT")
                 : "MISSING");
 

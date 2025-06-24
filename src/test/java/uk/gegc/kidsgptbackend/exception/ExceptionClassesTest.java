@@ -12,7 +12,7 @@ class ExceptionClassesTest {
     void validationException_constructorWithMessage() {
         String message = "Validation failed";
         ValidationException ex = new ValidationException(message);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex).isInstanceOf(RuntimeException.class);
     }
@@ -22,7 +22,7 @@ class ExceptionClassesTest {
     void resourceNotFoundException_constructorWithMessage() {
         String message = "Resource not found";
         ResourceNotFoundException ex = new ResourceNotFoundException(message);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex).isInstanceOf(RuntimeException.class);
     }
@@ -33,7 +33,7 @@ class ExceptionClassesTest {
         String message = "Rate limit exceeded";
         Throwable cause = new RuntimeException("Too many requests");
         RateLimitException ex = new RateLimitException(message, cause);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex.getCause()).isEqualTo(cause);
         assertThat(ex).isInstanceOf(RuntimeException.class);
@@ -44,7 +44,7 @@ class ExceptionClassesTest {
     void rateLimitException_constructorWithNullCause() {
         String message = "Rate limit exceeded";
         RateLimitException ex = new RateLimitException(message, null);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex.getCause()).isNull();
         assertThat(ex).isInstanceOf(RuntimeException.class);
@@ -55,7 +55,7 @@ class ExceptionClassesTest {
     void unauthorizedException_constructorWithMessage() {
         String message = "Unauthorized access";
         UnauthorizedException ex = new UnauthorizedException(message);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex).isInstanceOf(RuntimeException.class);
     }
@@ -66,7 +66,7 @@ class ExceptionClassesTest {
         String message = "Content violates guidelines";
         Throwable cause = new RuntimeException("Moderation service error");
         ModerationServiceException ex = new ModerationServiceException(message, cause);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex.getCause()).isEqualTo(cause);
         assertThat(ex).isInstanceOf(RuntimeException.class);
@@ -77,7 +77,7 @@ class ExceptionClassesTest {
     void moderationServiceException_constructorWithNullCause() {
         String message = "Content violates guidelines";
         ModerationServiceException ex = new ModerationServiceException(message, null);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex.getCause()).isNull();
         assertThat(ex).isInstanceOf(RuntimeException.class);
@@ -88,7 +88,7 @@ class ExceptionClassesTest {
     void apiError_constructorWithMessage() {
         String message = "API error occurred";
         ApiError ex = new ApiError(message);
-        
+
         assertThat(ex.getMessage()).isEqualTo(message);
         assertThat(ex).isInstanceOf(RuntimeException.class);
     }

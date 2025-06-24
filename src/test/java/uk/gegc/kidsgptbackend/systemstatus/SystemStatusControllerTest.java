@@ -32,12 +32,12 @@ class SystemStatusControllerTest {
         mockStatusDto.setApp("kidsGPT-backend");
         mockStatusDto.setUptimeSeconds(3600L);
         mockStatusDto.setTimestamp(Instant.now());
-        
+
         SystemStatusDto.VersionInfo versionInfo = new SystemStatusDto.VersionInfo();
         versionInfo.setCommit("test-commit");
         versionInfo.setBuildTag("test-tag");
         mockStatusDto.setVersion(versionInfo);
-        
+
         mockStatusDto.setComponents(Map.of("db", "UP", "disk", "UP"));
     }
 
@@ -66,14 +66,14 @@ class SystemStatusControllerTest {
         downStatus.setApp("kidsGPT-backend");
         downStatus.setUptimeSeconds(3600L);
         downStatus.setTimestamp(Instant.now());
-        
+
         SystemStatusDto.VersionInfo versionInfo = new SystemStatusDto.VersionInfo();
         versionInfo.setCommit("test-commit");
         versionInfo.setBuildTag("test-tag");
         downStatus.setVersion(versionInfo);
-        
+
         downStatus.setComponents(Map.of("db", "DOWN", "disk", "UP"));
-        
+
         when(systemStatusService.getStatus()).thenReturn(downStatus);
 
         SystemStatusDto response = systemStatusController.status();
@@ -92,14 +92,14 @@ class SystemStatusControllerTest {
         emptyComponentsStatus.setApp("kidsGPT-backend");
         emptyComponentsStatus.setUptimeSeconds(3600L);
         emptyComponentsStatus.setTimestamp(Instant.now());
-        
+
         SystemStatusDto.VersionInfo versionInfo = new SystemStatusDto.VersionInfo();
         versionInfo.setCommit("test-commit");
         versionInfo.setBuildTag("test-tag");
         emptyComponentsStatus.setVersion(versionInfo);
-        
+
         emptyComponentsStatus.setComponents(Map.of());
-        
+
         when(systemStatusService.getStatus()).thenReturn(emptyComponentsStatus);
 
         SystemStatusDto response = systemStatusController.status();
@@ -118,7 +118,7 @@ class SystemStatusControllerTest {
         nullValuesStatus.setTimestamp(null);
         nullValuesStatus.setVersion(null);
         nullValuesStatus.setComponents(Map.of("db", "UP"));
-        
+
         when(systemStatusService.getStatus()).thenReturn(nullValuesStatus);
 
         SystemStatusDto response = systemStatusController.status();
@@ -137,19 +137,19 @@ class SystemStatusControllerTest {
         multiComponentStatus.setApp("kidsGPT-backend");
         multiComponentStatus.setUptimeSeconds(3600L);
         multiComponentStatus.setTimestamp(Instant.now());
-        
+
         SystemStatusDto.VersionInfo versionInfo = new SystemStatusDto.VersionInfo();
         versionInfo.setCommit("test-commit");
         versionInfo.setBuildTag("test-tag");
         multiComponentStatus.setVersion(versionInfo);
-        
+
         multiComponentStatus.setComponents(Map.of(
                 "db", "UP",
                 "disk", "UP",
                 "memory", "UP",
                 "cpu", "UP"
         ));
-        
+
         when(systemStatusService.getStatus()).thenReturn(multiComponentStatus);
 
         SystemStatusDto response = systemStatusController.status();

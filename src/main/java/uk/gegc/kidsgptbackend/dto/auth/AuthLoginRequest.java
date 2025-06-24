@@ -7,4 +7,5 @@ public record AuthLoginRequest(
         String usernameOrEmail,
         @NotBlank(message = "Password must not be blank")
         String password
-) {}
+) {
+}

@@ -3,18 +3,9 @@ package uk.gegc.kidsgptbackend.controller.advice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindException;
-import org.springframework.validation.FieldError;
-import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.context.request.WebRequest;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.exception.*;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -139,9 +130,9 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleDataIntegrity: returns 409")
     void handleDataIntegrity_returnsConflict() {
-        org.springframework.dao.DataIntegrityViolationException ex = 
-            new org.springframework.dao.DataIntegrityViolationException("Database constraint violation", 
-                new RuntimeException("Unique constraint failed"));
+        org.springframework.dao.DataIntegrityViolationException ex =
+                new org.springframework.dao.DataIntegrityViolationException("Database constraint violation",
+                        new RuntimeException("Unique constraint failed"));
 
         GlobalExceptionHandler.ErrorResponse response = handler.handleDataIntegrity(ex);
 
@@ -153,8 +144,8 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleAccessDenied: returns 403")
     void handleAccessDenied_returnsForbidden() {
-        org.springframework.security.access.AccessDeniedException ex = 
-            new org.springframework.security.access.AccessDeniedException("Access denied");
+        org.springframework.security.access.AccessDeniedException ex =
+                new org.springframework.security.access.AccessDeniedException("Access denied");
 
         GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
 
@@ -166,8 +157,8 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleAccessDenied: handles null message")
     void handleAccessDenied_nullMessage_returnsDefaultMessage() {
-        org.springframework.security.access.AccessDeniedException ex = 
-            new org.springframework.security.access.AccessDeniedException(null);
+        org.springframework.security.access.AccessDeniedException ex =
+                new org.springframework.security.access.AccessDeniedException(null);
 
         GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
 
@@ -200,12 +191,12 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleResponseStatusException: returns correct status")
     void handleResponseStatusException_returnsCorrectStatus() {
-        org.springframework.web.server.ResponseStatusException ex = 
-            new org.springframework.web.server.ResponseStatusException(
-                org.springframework.http.HttpStatus.CONFLICT, "Conflict occurred");
+        org.springframework.web.server.ResponseStatusException ex =
+                new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.CONFLICT, "Conflict occurred");
 
-        org.springframework.http.ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = 
-            handler.handleResponseStatusException(ex);
+        org.springframework.http.ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
+                handler.handleResponseStatusException(ex);
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
         assertThat(response.getBody().status()).isEqualTo(409);
@@ -218,15 +209,15 @@ class GlobalExceptionHandlerTest {
     void handleConstraintViolation_returnsValidationErrors() {
         jakarta.validation.ConstraintViolation<?> violation1 = mock(jakarta.validation.ConstraintViolation.class);
         jakarta.validation.ConstraintViolation<?> violation2 = mock(jakarta.validation.ConstraintViolation.class);
-        
+
         when(violation1.getMessage()).thenReturn("Field is required");
         when(violation2.getMessage()).thenReturn("Invalid format");
-        
-        jakarta.validation.ConstraintViolationException ex = 
-            new jakarta.validation.ConstraintViolationException(
-                "Validation failed", 
-                Set.of(violation1, violation2)
-            );
+
+        jakarta.validation.ConstraintViolationException ex =
+                new jakarta.validation.ConstraintViolationException(
+                        "Validation failed",
+                        Set.of(violation1, violation2)
+                );
 
         GlobalExceptionHandler.ErrorResponse response = handler.handleConstraintViolation(ex);
 
@@ -238,17 +229,17 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleHttpMessageNotReadable: returns malformed JSON error")
     void handleHttpMessageNotReadable_returnsMalformedJsonError() {
-        org.springframework.http.converter.HttpMessageNotReadableException ex = 
-            new org.springframework.http.converter.HttpMessageNotReadableException(
-                "Malformed JSON", 
-                new RuntimeException("Invalid JSON format")
-            );
+        org.springframework.http.converter.HttpMessageNotReadableException ex =
+                new org.springframework.http.converter.HttpMessageNotReadableException(
+                        "Malformed JSON",
+                        new RuntimeException("Invalid JSON format")
+                );
 
         org.springframework.http.ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(
-            ex, 
-            org.springframework.http.HttpHeaders.EMPTY, 
-            org.springframework.http.HttpStatusCode.valueOf(400), 
-            mock(org.springframework.web.context.request.WebRequest.class)
+                ex,
+                org.springframework.http.HttpHeaders.EMPTY,
+                org.springframework.http.HttpStatusCode.valueOf(400),
+                mock(org.springframework.web.context.request.WebRequest.class)
         );
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
@@ -261,25 +252,25 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleMethodArgumentNotValid: returns field validation errors")
     void handleMethodArgumentNotValid_returnsFieldValidationErrors() {
-        org.springframework.web.bind.MethodArgumentNotValidException ex = 
-            new org.springframework.web.bind.MethodArgumentNotValidException(
-                null, 
-                new org.springframework.validation.BeanPropertyBindingResult(new Object(), "object")
-            );
+        org.springframework.web.bind.MethodArgumentNotValidException ex =
+                new org.springframework.web.bind.MethodArgumentNotValidException(
+                        null,
+                        new org.springframework.validation.BeanPropertyBindingResult(new Object(), "object")
+                );
 
-        org.springframework.validation.FieldError fieldError1 = 
-            new org.springframework.validation.FieldError("object", "username", "Username is required");
-        org.springframework.validation.FieldError fieldError2 = 
-            new org.springframework.validation.FieldError("object", "email", "Email is invalid");
+        org.springframework.validation.FieldError fieldError1 =
+                new org.springframework.validation.FieldError("object", "username", "Username is required");
+        org.springframework.validation.FieldError fieldError2 =
+                new org.springframework.validation.FieldError("object", "email", "Email is invalid");
 
         ex.getBindingResult().addError(fieldError1);
         ex.getBindingResult().addError(fieldError2);
 
         org.springframework.http.ResponseEntity<Object> response = handler.handleMethodArgumentNotValid(
-            ex, 
-            org.springframework.http.HttpHeaders.EMPTY, 
-            org.springframework.http.HttpStatusCode.valueOf(400), 
-            mock(org.springframework.web.context.request.WebRequest.class)
+                ex,
+                org.springframework.http.HttpHeaders.EMPTY,
+                org.springframework.http.HttpStatusCode.valueOf(400),
+                mock(org.springframework.web.context.request.WebRequest.class)
         );
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
@@ -293,8 +284,8 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("handleAuthorizationDenied: returns 403")
     void handleAuthorizationDenied_returnsForbidden() {
-        org.springframework.security.authorization.AuthorizationDeniedException ex = 
-            new org.springframework.security.authorization.AuthorizationDeniedException("Authorization denied");
+        org.springframework.security.authorization.AuthorizationDeniedException ex =
+                new org.springframework.security.authorization.AuthorizationDeniedException("Authorization denied");
 
         GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
 

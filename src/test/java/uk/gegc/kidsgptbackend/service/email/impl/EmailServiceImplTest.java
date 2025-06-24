@@ -9,7 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.test.util.ReflectionTestUtils;
+import uk.gegc.kidsgptbackend.config.EmailConfig;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,14 +22,21 @@ class EmailServiceImplTest {
     @Mock
     private JavaMailSender mailSender;
 
-    @InjectMocks
+    private EmailConfig emailConfig;
     private EmailServiceImpl emailService;
 
     @BeforeEach
     void setUp() {
-        // Set default values for email configuration
-        ReflectionTestUtils.setField(emailService, "fromEmail", "noreply@kidsgpt.com");
-        ReflectionTestUtils.setField(emailService, "frontendUrl", "http://localhost:3000");
+        // Set up a real EmailConfig with test values
+        emailConfig = new EmailConfig();
+        emailConfig.setFrom("noreply@kidsgpt.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("smtp.test.com");
+        emailConfig.setPort(587);
+        emailConfig.setUsername("testuser@test.com");
+        emailConfig.setPassword("testpass");
+        emailService = new EmailServiceImpl(mailSender, emailConfig);
     }
 
     @Test
