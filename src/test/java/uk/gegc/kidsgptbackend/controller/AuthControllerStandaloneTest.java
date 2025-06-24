@@ -6,13 +6,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
 import org.mockito.Mockito;
+import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -37,6 +40,11 @@ class AuthControllerStandaloneTest {
         @Bean
         AuthService authService() {
             return Mockito.mock(AuthService.class);
+        }
+
+        @Bean
+        PasswordResetService passwordResetService() {
+            return Mockito.mock(PasswordResetService.class);
         }
     }
 

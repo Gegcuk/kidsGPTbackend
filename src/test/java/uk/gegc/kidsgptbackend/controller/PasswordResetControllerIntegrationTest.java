@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.ForgotPasswordRequest;
@@ -20,11 +21,13 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 
 import java.time.LocalDateTime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -52,8 +55,11 @@ class PasswordResetControllerIntegrationTest {
     @Autowired
     PasswordResetTokenRepository tokenRepository;
 
-    @MockBean
+    @MockitoBean
     EmailService emailService;
+
+    @MockitoBean
+    PasswordResetService passwordResetService;
 
     private User testUser;
     private Role parentRole;
@@ -79,6 +85,8 @@ class PasswordResetControllerIntegrationTest {
         // Mock email service
         doNothing().when(emailService).sendPasswordResetEmail(anyString(), anyString(), anyString());
         doNothing().when(emailService).sendPasswordResetConfirmation(anyString(), anyString());
+        doNothing().when(passwordResetService).resetPassword(any(ResetPasswordRequest.class));
+
     }
 
     @Test
