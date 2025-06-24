@@ -47,16 +47,12 @@ class KidProfileServiceTest {
     @Mock
     private Authentication authentication;
 
-    @Mock
-    private Kid testKid;
-
-    @Mock
-    private Parent testParent;
-
     @InjectMocks
     private KidProfileServiceImpl kidProfileService;
 
     private User testUser;
+    private Parent testParent;
+    private Kid testKid;
     private ChildProfileUpdateRequest updateRequest;
 
     @BeforeEach
@@ -67,16 +63,16 @@ class KidProfileServiceTest {
         testUser.setUsername("testuser");
         testUser.setEmail("test@example.com");
 
-        // Setup mocked Parent
-        when(testParent.getId()).thenReturn(UUID.randomUUID());
-        when(testParent.getEmail()).thenReturn("test@example.com");
+        testParent = new Parent();
+        testParent.setId(UUID.randomUUID());
+        testParent.setEmail("test@example.com");
 
-        // Setup mocked Kid
-        when(testKid.getId()).thenReturn(UUID.randomUUID());
-        when(testKid.getFirstName()).thenReturn("Original");
-        when(testKid.getLastName()).thenReturn("Kid");
-        when(testKid.getBirthDate()).thenReturn(LocalDate.of(2015, 1, 1));
-        when(testKid.getParent()).thenReturn(testParent);
+        testKid = new Kid();
+        testKid.setId(UUID.randomUUID());
+        testKid.setFirstName("Original");
+        testKid.setLastName("Kid");
+        testKid.setBirthDate(LocalDate.of(2015, 1, 1));
+        testKid.setParent(testParent);
 
         updateRequest = new ChildProfileUpdateRequest(
                 "Johnny",
@@ -196,7 +192,7 @@ class KidProfileServiceTest {
     void updateCurrentChildProfile_CalculatesAgeCorrectly() {
         // Given
         LocalDate birthDate = LocalDate.now().minusYears(10);
-        when(testKid.getBirthDate()).thenReturn(birthDate);
+        testKid.setBirthDate(birthDate);
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -215,7 +211,7 @@ class KidProfileServiceTest {
     @DisplayName("Should return age 0 when birth date is null")
     void updateCurrentChildProfile_WithNullBirthDate_ReturnsAgeZero() {
         // Given
-        when(testKid.getBirthDate()).thenReturn(null);
+        testKid.setBirthDate(null);
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
@@ -248,5 +244,6 @@ class KidProfileServiceTest {
 
         // Then
         verify(kidRepository).save(testKid);
+        assertThat(testKid.getBirthDate()).isEqualTo(LocalDate.of(expectedBirthYear, 1, 1));
     }
 } 
