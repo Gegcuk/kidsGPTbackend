@@ -102,4 +102,13 @@ class TokenGeneratorTest {
         assertThat(token).doesNotContain("/");
         assertThat(token).doesNotContain("=");
     }
+
+    @Test
+    @DisplayName("generateSecureToken: produces unique tokens")
+    void generateSecureToken_producesUniqueTokens() {
+        String token1 = TokenGenerator.generateSecureToken();
+        String token2 = TokenGenerator.generateSecureToken();
+        
+        assertThat(token1).isNotEqualTo(token2);
+    }
 } 

@@ -15,8 +15,11 @@ import uk.gegc.kidsgptbackend.exception.*;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class GlobalExceptionHandlerTest {
 
@@ -192,5 +195,111 @@ class GlobalExceptionHandlerTest {
 
         assertThat(response.timestamp()).isBeforeOrEqualTo(LocalDateTime.now());
         assertThat(response.timestamp()).isAfter(LocalDateTime.now().minusSeconds(1));
+    }
+
+    @Test
+    @DisplayName("handleResponseStatusException: returns correct status")
+    void handleResponseStatusException_returnsCorrectStatus() {
+        org.springframework.web.server.ResponseStatusException ex = 
+            new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.CONFLICT, "Conflict occurred");
+
+        org.springframework.http.ResponseEntity<GlobalExceptionHandler.ErrorResponse> response = 
+            handler.handleResponseStatusException(ex);
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+        assertThat(response.getBody().status()).isEqualTo(409);
+        assertThat(response.getBody().error()).isEqualTo("Conflict occurred");
+        assertThat(response.getBody().details()).contains("Conflict occurred");
+    }
+
+    @Test
+    @DisplayName("handleConstraintViolation: returns validation errors")
+    void handleConstraintViolation_returnsValidationErrors() {
+        jakarta.validation.ConstraintViolation<?> violation1 = mock(jakarta.validation.ConstraintViolation.class);
+        jakarta.validation.ConstraintViolation<?> violation2 = mock(jakarta.validation.ConstraintViolation.class);
+        
+        when(violation1.getMessage()).thenReturn("Field is required");
+        when(violation2.getMessage()).thenReturn("Invalid format");
+        
+        jakarta.validation.ConstraintViolationException ex = 
+            new jakarta.validation.ConstraintViolationException(
+                "Validation failed", 
+                Set.of(violation1, violation2)
+            );
+
+        GlobalExceptionHandler.ErrorResponse response = handler.handleConstraintViolation(ex);
+
+        assertThat(response.status()).isEqualTo(400);
+        assertThat(response.error()).isEqualTo("Validation Failed");
+        assertThat(response.details()).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("handleHttpMessageNotReadable: returns malformed JSON error")
+    void handleHttpMessageNotReadable_returnsMalformedJsonError() {
+        org.springframework.http.converter.HttpMessageNotReadableException ex = 
+            new org.springframework.http.converter.HttpMessageNotReadableException(
+                "Malformed JSON", 
+                new RuntimeException("Invalid JSON format")
+            );
+
+        org.springframework.http.ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(
+            ex, 
+            org.springframework.http.HttpHeaders.EMPTY, 
+            org.springframework.http.HttpStatusCode.valueOf(400), 
+            mock(org.springframework.web.context.request.WebRequest.class)
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isInstanceOf(GlobalExceptionHandler.ErrorResponse.class);
+        GlobalExceptionHandler.ErrorResponse errorResponse = (GlobalExceptionHandler.ErrorResponse) response.getBody();
+        assertThat(errorResponse.status()).isEqualTo(400);
+        assertThat(errorResponse.error()).isEqualTo("Malformed JSON");
+    }
+
+    @Test
+    @DisplayName("handleMethodArgumentNotValid: returns field validation errors")
+    void handleMethodArgumentNotValid_returnsFieldValidationErrors() {
+        org.springframework.web.bind.MethodArgumentNotValidException ex = 
+            new org.springframework.web.bind.MethodArgumentNotValidException(
+                null, 
+                new org.springframework.validation.BeanPropertyBindingResult(new Object(), "object")
+            );
+
+        org.springframework.validation.FieldError fieldError1 = 
+            new org.springframework.validation.FieldError("object", "username", "Username is required");
+        org.springframework.validation.FieldError fieldError2 = 
+            new org.springframework.validation.FieldError("object", "email", "Email is invalid");
+
+        ex.getBindingResult().addError(fieldError1);
+        ex.getBindingResult().addError(fieldError2);
+
+        org.springframework.http.ResponseEntity<Object> response = handler.handleMethodArgumentNotValid(
+            ex, 
+            org.springframework.http.HttpHeaders.EMPTY, 
+            org.springframework.http.HttpStatusCode.valueOf(400), 
+            mock(org.springframework.web.context.request.WebRequest.class)
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isInstanceOf(GlobalExceptionHandler.ErrorResponse.class);
+        GlobalExceptionHandler.ErrorResponse errorResponse = (GlobalExceptionHandler.ErrorResponse) response.getBody();
+        assertThat(errorResponse.status()).isEqualTo(400);
+        assertThat(errorResponse.error()).isEqualTo("Validation Failed");
+        assertThat(errorResponse.details()).contains("username: Username is required", "email: Email is invalid");
+    }
+
+    @Test
+    @DisplayName("handleAuthorizationDenied: returns 403")
+    void handleAuthorizationDenied_returnsForbidden() {
+        org.springframework.security.authorization.AuthorizationDeniedException ex = 
+            new org.springframework.security.authorization.AuthorizationDeniedException("Authorization denied");
+
+        GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
+
+        assertThat(response.status()).isEqualTo(403);
+        assertThat(response.error()).isEqualTo("Access Denied");
+        assertThat(response.details()).contains("Authorization denied");
     }
 } 

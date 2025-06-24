@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
+import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
@@ -55,5 +56,39 @@ public class UserMapperTest {
         assertThat(dto.roles()).containsExactly(RoleName.ROLE_PARENT);
         assertThat(dto.createdAt()).isEqualTo(user.getCreatedAt());
         assertThat(dto.updatedAt()).isEqualTo(user.getUpdatedAt());
+    }
+
+    @Test
+    @DisplayName("toProfileDto maps entity fields correctly")
+    void toProfileDto_mapsFields() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        user.setEmail("alice@example.com");
+        user.setActive(true);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setRoles(Set.of(new Role(1L, RoleName.ROLE_PARENT.name(), null)));
+
+        UserProfileDto dto = mapper.toProfileDto(user);
+        assertThat(dto.id()).isEqualTo(user.getId());
+        assertThat(dto.username()).isEqualTo("alice");
+        assertThat(dto.role()).isEqualTo(RoleName.ROLE_PARENT);
+        assertThat(dto.createdAt()).isEqualTo(user.getCreatedAt());
+    }
+
+    @Test
+    @DisplayName("toProfileDto handles user with no roles")
+    void toProfileDto_noRoles_returnsNullRole() {
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        user.setCreatedAt(LocalDateTime.now());
+        user.setRoles(Set.of());
+
+        UserProfileDto dto = mapper.toProfileDto(user);
+        assertThat(dto.id()).isEqualTo(user.getId());
+        assertThat(dto.username()).isEqualTo("alice");
+        assertThat(dto.role()).isNull();
+        assertThat(dto.createdAt()).isEqualTo(user.getCreatedAt());
     }
 }
