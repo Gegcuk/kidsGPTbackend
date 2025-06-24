@@ -83,9 +83,9 @@ class PasswordResetServiceImplTest {
         assertThat(response.message()).contains("If an account with this email exists");
         assertThat(response.expiresAt()).isAfter(LocalDateTime.now());
 
-        verify(tokenRepository).invalidateAllTokensForUser(testUser.getId(), any(LocalDateTime.class));
+        verify(tokenRepository).invalidateAllTokensForUser(eq(testUser.getId()), any(LocalDateTime.class));
         verify(tokenRepository).save(any(PasswordResetToken.class));
-        verify(emailService).sendPasswordResetEmail(testUser.getEmail(), anyString(), testUser.getUsername());
+        verify(emailService).sendPasswordResetEmail(eq(testUser.getEmail()), anyString(), eq(testUser.getUsername()));
     }
 
     @Test
@@ -143,7 +143,7 @@ class PasswordResetServiceImplTest {
     void resetPassword_validToken_success() {
         ResetPasswordRequest request = new ResetPasswordRequest("test-token-123", "newPassword123");
 
-        when(tokenRepository.findByTokenAndUsedFalseAndExpiresAtAfter("test-token-123", any(LocalDateTime.class)))
+        when(tokenRepository.findValidTokenByTokenAndExpiresAtAfter(eq("test-token-123"), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(testToken));
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode("newPassword123")).thenReturn("encodedPassword");
@@ -153,7 +153,7 @@ class PasswordResetServiceImplTest {
 
         verify(userRepository).save(testUser);
         verify(tokenRepository).save(testToken);
-        verify(tokenRepository).invalidateAllTokensForUser(testUser.getId(), any(LocalDateTime.class));
+        verify(tokenRepository).invalidateAllTokensForUser(eq(testUser.getId()), any(LocalDateTime.class));
         verify(emailService).sendPasswordResetConfirmation(testUser.getEmail(), testUser.getUsername());
         assertThat(testToken.isUsed()).isTrue();
         assertThat(testToken.getUsedAt()).isNotNull();
@@ -164,7 +164,7 @@ class PasswordResetServiceImplTest {
     void resetPassword_invalidToken_throwsException() {
         ResetPasswordRequest request = new ResetPasswordRequest("invalid-token", "newPassword123");
 
-        when(tokenRepository.findByTokenAndUsedFalseAndExpiresAtAfter("invalid-token", any(LocalDateTime.class)))
+        when(tokenRepository.findValidTokenByTokenAndExpiresAtAfter(eq("invalid-token"), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> passwordResetService.resetPassword(request))
@@ -178,7 +178,7 @@ class PasswordResetServiceImplTest {
         testToken.setExpiresAt(LocalDateTime.now().minusHours(1));
         ResetPasswordRequest request = new ResetPasswordRequest("expired-token", "newPassword123");
 
-        when(tokenRepository.findByTokenAndUsedFalseAndExpiresAtAfter("expired-token", any(LocalDateTime.class)))
+        when(tokenRepository.findValidTokenByTokenAndExpiresAtAfter(eq("expired-token"), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> passwordResetService.resetPassword(request))
@@ -192,7 +192,7 @@ class PasswordResetServiceImplTest {
         testUser.setActive(false);
         ResetPasswordRequest request = new ResetPasswordRequest("test-token-123", "newPassword123");
 
-        when(tokenRepository.findByTokenAndUsedFalseAndExpiresAtAfter("test-token-123", any(LocalDateTime.class)))
+        when(tokenRepository.findValidTokenByTokenAndExpiresAtAfter(eq("test-token-123"), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(testToken));
         when(userRepository.findById(testUser.getId())).thenReturn(Optional.of(testUser));
 
@@ -204,7 +204,7 @@ class PasswordResetServiceImplTest {
     @Test
     @DisplayName("validateResetToken: returns true for valid token")
     void validateResetToken_validToken_returnsTrue() {
-        when(tokenRepository.findByTokenAndUsedFalseAndExpiresAtAfter("test-token-123", any(LocalDateTime.class)))
+        when(tokenRepository.findValidTokenByTokenAndExpiresAtAfter(eq("test-token-123"), any(LocalDateTime.class)))
                 .thenReturn(Optional.of(testToken));
 
         boolean isValid = passwordResetService.validateResetToken("test-token-123");
@@ -215,7 +215,7 @@ class PasswordResetServiceImplTest {
     @Test
     @DisplayName("validateResetToken: returns false for invalid token")
     void validateResetToken_invalidToken_returnsFalse() {
-        when(tokenRepository.findByTokenAndUsedFalseAndExpiresAtAfter("invalid-token", any(LocalDateTime.class)))
+        when(tokenRepository.findValidTokenByTokenAndExpiresAtAfter(eq("invalid-token"), any(LocalDateTime.class)))
                 .thenReturn(Optional.empty());
 
         boolean isValid = passwordResetService.validateResetToken("invalid-token");
