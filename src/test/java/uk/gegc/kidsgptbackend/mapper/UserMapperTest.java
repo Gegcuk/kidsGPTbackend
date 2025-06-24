@@ -255,4 +255,20 @@ public class UserMapperTest {
         int expectedBirthYear = LocalDate.now().getYear() - 16;
         assertThat(kid.getBirthDate()).isEqualTo(LocalDate.of(expectedBirthYear, 1, 1));
     }
+
+    @Test
+    @DisplayName("Should calculate age correctly from birth date")
+    void toChildProfileDto_CalculatesAgeCorrectly() {
+        // Given
+        Kid kid = new Kid();
+        kid.setId(UUID.randomUUID());
+        kid.setFirstName("Johnny");
+        kid.setBirthDate(LocalDate.now().minusYears(10));
+
+        // When
+        ChildProfileDto result = UserMapper.toChildProfileDto(kid);
+
+        // Then
+        assertThat(result.age()).isEqualTo(10);
+    }
 }
