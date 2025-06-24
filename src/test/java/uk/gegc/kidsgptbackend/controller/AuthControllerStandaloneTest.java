@@ -11,6 +11,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import(AuthControllerStandaloneTest.TestConfig.class)
+@DirtiesContext
 class AuthControllerStandaloneTest {
 
     @Autowired
@@ -65,6 +67,9 @@ class AuthControllerStandaloneTest {
     @Test
     @DisplayName("POST /api/v1/auth/logout with non Bearer header \u2192 200 OK")
     void logout_headerWithoutBearer_returnsOk() throws Exception {
+        // Reset the mock to ensure clean state
+        Mockito.reset(authService);
+        
         mockMvc.perform(post("/api/v1/auth/logout")
                         .header(HttpHeaders.AUTHORIZATION, "Token abc"))
                 .andExpect(status().isOk());
@@ -107,6 +112,9 @@ class AuthControllerStandaloneTest {
     @Test
     @DisplayName("POST /api/v1/auth/logout with Bearer header calls service")
     void logout_withBearerHeader_callsService() throws Exception {
+        // Reset the mock to ensure clean state
+        Mockito.reset(authService);
+        
         mockMvc.perform(post("/api/v1/auth/logout")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer sometoken"))
             .andExpect(status().isOk());

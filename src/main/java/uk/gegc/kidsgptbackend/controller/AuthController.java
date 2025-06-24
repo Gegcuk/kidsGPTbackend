@@ -76,7 +76,7 @@ public class AuthController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/reset-password/validate")
+    @GetMapping("/validate-reset-token")
     public ResponseEntity<Boolean> validateResetToken(@RequestParam String token) {
         boolean isValid = passwordResetService.validateResetToken(token);
         return ResponseEntity.ok(isValid);
