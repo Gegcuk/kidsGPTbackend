@@ -21,6 +21,7 @@ import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
 import java.time.LocalDateTime;
+import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -66,7 +67,7 @@ class PasswordResetControllerIntegrationTest {
         testUser.setEmail("test@example.com");
         testUser.setHashedPassword("hashedpassword");
         testUser.setActive(true);
-        testUser.setRoles(java.util.Set.of(parentRole));
+        testUser.setRoles(new HashSet<>(java.util.Set.of(parentRole)));
         testUser = userRepository.save(testUser);
     }
 
