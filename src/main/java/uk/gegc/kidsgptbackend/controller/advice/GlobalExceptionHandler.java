@@ -55,6 +55,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(UnsupportedOperationException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleUnsupportedOperation(UnsupportedOperationException ex) {
+        ex.printStackTrace(); // DEBUG: print stack trace
         String msg = ex.getMessage() != null ? ex.getMessage() : "Operation not supported";
         return new ErrorResponse(
                 LocalDateTime.now(),
