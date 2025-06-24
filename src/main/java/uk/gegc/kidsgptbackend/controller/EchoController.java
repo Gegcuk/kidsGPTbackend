@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class EchoController {
 
     @GetMapping("/echo")
-    public String echo(@RequestParam(value = "msg", defaultValue = "Hello") String message){
+    public String echo(@RequestParam(value = "msg", defaultValue = "Hello") String message) {
         return message + "1";
     }
 

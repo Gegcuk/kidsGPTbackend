@@ -11,7 +11,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.auth.ForgotPasswordRequest;
 import uk.gegc.kidsgptbackend.dto.auth.ResetPasswordRequest;
 import uk.gegc.kidsgptbackend.model.auth.PasswordResetToken;
 import uk.gegc.kidsgptbackend.model.user.Role;
@@ -24,9 +23,8 @@ import java.time.LocalDateTime;
 import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @ActiveProfiles("test")

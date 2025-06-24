@@ -3,6 +3,7 @@ package uk.gegc.kidsgptbackend.service.chat.impl;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AbstractMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
@@ -15,7 +16,6 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
-import org.springframework.ai.chat.client.ChatClient;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
@@ -115,7 +115,8 @@ public class AiChatServiceImpl implements AiChatService {
         String modelUsed = Optional.ofNullable(chatResponse)
                 .map(resp -> resp.getMetadata().getModel())
                 .orElse("gpt-4o-mini");
-        return new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, context.getId());    }
+        return new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, context.getId());
+    }
 
     private ChatContext resolveContext(ChatMessageRequest request, Principal principal) {
         if (request.contextId() != null) {

@@ -36,24 +36,24 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     public PasswordResetResponse initiatePasswordReset(ForgotPasswordRequest request) {
         // Find user by email
         Optional<User> userOpt = userRepository.findByEmail(request.email());
-        
+
         if (userOpt.isEmpty()) {
             // Don't reveal if email exists or not for security
             log.info("Password reset requested for non-existent email: {}", request.email());
             return new PasswordResetResponse(
-                "If an account with this email exists, a password reset link has been sent.",
-                LocalDateTime.now().plusHours(1)
+                    "If an account with this email exists, a password reset link has been sent.",
+                    LocalDateTime.now().plusHours(1)
             );
         }
 
         User user = userOpt.get();
-        
+
         // Check if user is active
         if (!user.isActive()) {
             log.warn("Password reset requested for inactive user: {}", request.email());
             return new PasswordResetResponse(
-                "If an account with this email exists, a password reset link has been sent.",
-                LocalDateTime.now().plusHours(1)
+                    "If an account with this email exists, a password reset link has been sent.",
+                    LocalDateTime.now().plusHours(1)
             );
         }
 
@@ -62,14 +62,14 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         // Generate new token
         String resetToken = TokenGenerator.generateSecureToken();
-        
+
         // Create and save token
         PasswordResetToken token = new PasswordResetToken();
         token.setToken(resetToken);
         token.setUserId(user.getId());
         token.setEmail(user.getEmail());
         token.setExpiresAt(LocalDateTime.now().plusHours(1));
-        
+
         tokenRepository.save(token);
 
         // Send email
@@ -83,10 +83,10 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         }
 
         log.info("Password reset initiated for user: {}", user.getUsername());
-        
+
         return new PasswordResetResponse(
-            "If an account with this email exists, a password reset link has been sent.",
-            token.getExpiresAt()
+                "If an account with this email exists, a password reset link has been sent.",
+                token.getExpiresAt()
         );
     }
 
@@ -95,7 +95,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     public void resetPassword(ResetPasswordRequest request) {
         // Find valid token
         Optional<PasswordResetToken> tokenOpt = tokenRepository.findValidTokenByTokenAndExpiresAtAfter(
-            request.token(), LocalDateTime.now()
+                request.token(), LocalDateTime.now()
         );
 
         if (tokenOpt.isEmpty()) {

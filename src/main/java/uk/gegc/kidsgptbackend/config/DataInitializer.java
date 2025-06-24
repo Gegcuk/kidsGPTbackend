@@ -15,7 +15,6 @@ public class DataInitializer implements CommandLineRunner {
     private final RoleRepository roleRepository;
 
 
-
     @Override
     public void run(String... args) throws Exception {
         for (RoleName roleName : RoleName.values()) {

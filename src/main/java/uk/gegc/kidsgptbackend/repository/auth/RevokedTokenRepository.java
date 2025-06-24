@@ -10,5 +10,6 @@ import java.util.UUID;
 @Repository
 public interface RevokedTokenRepository extends JpaRepository<RevokedToken, UUID> {
     boolean existsByToken(String token);
+
     long deleteByExpiresAtBefore(LocalDateTime time);
 }

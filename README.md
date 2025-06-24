@@ -1,6 +1,7 @@
 # KidsGPT Backend
 
-A Spring Boot backend application for KidsGPT, providing AI-powered chat functionality for children with secure authentication and password reset capabilities.
+A Spring Boot backend application for KidsGPT, providing AI-powered chat functionality for children with secure
+authentication and password reset capabilities.
 
 ## Features
 
@@ -10,11 +11,71 @@ A Spring Boot backend application for KidsGPT, providing AI-powered chat functio
 - **User Management**: User profiles and role-based access control
 - **Security**: Comprehensive security measures and input validation
 
+## Quick Start
+
+1. **Clone the repository**
+2. **Configure environment variables** (see [Email Configuration Guide](EMAIL_CONFIGURATION.md))
+3. **Set up email configuration** (see [Email Configuration Guide](EMAIL_CONFIGURATION.md))
+4. **Run the application**: `./mvnw spring-boot:run`
+5. **Access the API**: `http://localhost:8080`
+
+## Environment Setup
+
+### Required Environment Variables
+
+Create a `.env` file in the project root:
+
+```bash
+# Database Configuration
+DB_URL=jdbc:mysql://localhost:3306/kidsgptdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_USERNAME=bestuser
+DB_PASSWORD=bestuser
+
+# JWT Configuration
+JWT_SECRET=your-base64-encoded-256-bit-secret
+
+# OpenAI Configuration
+OPENAI_API_KEY=your-openai-api-key
+
+# Email Configuration (see EMAIL_CONFIGURATION.md for details)
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=your-email@gmail.com
+MAIL_PASSWORD=your-app-password
+MAIL_FROM=your-email@gmail.com
+MAIL_ENABLED=true
+
+# Frontend URL
+FRONTEND_URL=http://localhost:3000
+```
+
+### Email Configuration
+
+For detailed email setup instructions, see the [Email Configuration Guide](EMAIL_CONFIGURATION.md).
+
+**Quick Gmail Setup:**
+1. Enable 2-Factor Authentication on your Gmail account
+2. Generate an App Password (Google Account → Security → App passwords)
+3. Use the generated password as `MAIL_PASSWORD`
+
+## Docker Deployment
+
+### Local Development
+```bash
+docker-compose up -d
+```
+
+### Production Deployment
+1. Set up GitHub secrets (see [Email Configuration Guide](EMAIL_CONFIGURATION.md))
+2. Push to main branch to trigger automatic deployment
+3. Or manually deploy using the provided GitHub Actions workflow
+
 ## Password Reset Functionality
 
 The application includes a complete password reset system with the following features:
 
 ### Security Features
+
 - **Secure Token Generation**: Uses cryptographically secure random tokens
 - **Time-Limited Tokens**: Tokens expire after 1 hour
 - **Single-Use Tokens**: Tokens are invalidated after use
@@ -24,6 +85,7 @@ The application includes a complete password reset system with the following fea
 ### API Endpoints
 
 #### 1. Initiate Password Reset
+
 ```http
 POST /api/v1/auth/forgot-password
 Content-Type: application/json
@@ -34,6 +96,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
   "message": "If an account with this email exists, a password reset link has been sent.",
@@ -42,6 +105,7 @@ Content-Type: application/json
 ```
 
 #### 2. Reset Password
+
 ```http
 POST /api/v1/auth/reset-password
 Content-Type: application/json
@@ -55,47 +119,12 @@ Content-Type: application/json
 **Response:** `200 OK` (no body)
 
 #### 3. Validate Reset Token
+
 ```http
 GET /api/v1/auth/reset-password/validate?token=reset-token
 ```
 
 **Response:** `true` or `false`
-
-### Email Configuration
-
-Configure your email settings in `application.properties`:
-
-```properties
-# Email Configuration
-spring.mail.host=smtp.gmail.com
-spring.mail.port=587
-spring.mail.username=${MAIL_USERNAME}
-spring.mail.password=${MAIL_PASSWORD}
-spring.mail.properties.mail.smtp.auth=true
-spring.mail.properties.mail.smtp.starttls.enable=true
-spring.mail.properties.mail.smtp.starttls.required=true
-
-# Frontend URL for reset links
-app.frontend.url=${FRONTEND_URL:http://localhost:3000}
-```
-
-### Environment Variables
-
-Set the following environment variables:
-
-```bash
-# Email Configuration
-MAIL_USERNAME=your-email@gmail.com
-MAIL_PASSWORD=your-app-password
-MAIL_HOST=smtp.gmail.com
-MAIL_PORT=587
-
-# Frontend URL
-FRONTEND_URL=https://your-frontend-domain.com
-
-# JWT Secret (required)
-JWT_SECRET=your-base64-encoded-256-bit-secret
-```
 
 ### Database Schema
 
@@ -132,6 +161,7 @@ The application includes comprehensive tests for the password reset functionalit
 - **Email Tests**: Configured with fake SMTP for testing
 
 Run tests with:
+
 ```bash
 ./mvnw test
 ```
@@ -172,17 +202,16 @@ await fetch('/api/v1/auth/reset-password', {
 });
 ```
 
-## Getting Started
-
-1. **Clone the repository**
-2. **Configure environment variables**
-3. **Set up email configuration**
-4. **Run the application**: `./mvnw spring-boot:run`
-5. **Access the API**: `http://localhost:8080`
-
 ## API Documentation
 
 Access Swagger UI at: `http://localhost:8080/swagger-ui/`
+
+## Configuration Files
+
+- `env.template` - Template for environment variables
+- `EMAIL_CONFIGURATION.md` - Detailed email setup guide
+- `docker-compose.yml` - Docker deployment configuration
+- `.github/workflows/deploy.yml` - GitHub Actions deployment workflow
 
 ## License
 

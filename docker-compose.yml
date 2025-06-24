@@ -10,7 +10,7 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "--silent"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "--silent" ]
       interval: 10s
       retries: 5
 
@@ -18,11 +18,29 @@ services:
     build: .
     image: ${DOCKER_USER}/kidsgptbackend:${APP_TAG:-latest}
     env_file: .env
-    ports: ["8080:8080"]
+    ports: [ "8080:8080" ]
     environment:
+      # Database Configuration
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/kidsgptdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: ${MYSQL_USER}
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD}
+
+      # JWT Configuration
+      JWT_SECRET: ${JWT_SECRET}
+
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+      # Email Configuration
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+
+      # Frontend URL
+      FRONTEND_URL: ${FRONTEND_URL}
     depends_on:
       db:
         condition: service_healthy

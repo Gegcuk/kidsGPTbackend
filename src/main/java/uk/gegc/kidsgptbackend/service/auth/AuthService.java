@@ -8,7 +8,9 @@ import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 
 public interface AuthService {
     UserDto register(RegisterUserRequest request);
+
     AuthTokensResponse login(AuthLoginRequest request);
+
     void logout(String token);
 
     UserProfileDto getProfile(String username);

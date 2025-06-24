@@ -5,4 +5,5 @@ public record AuthTokensResponse(
         String refreshToken,
         long accessExpiresInMs,
         long refreshExpiresInMs
-        ) {}
+) {
+}

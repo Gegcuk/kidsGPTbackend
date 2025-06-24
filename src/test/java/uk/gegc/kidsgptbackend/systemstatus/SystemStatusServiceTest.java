@@ -16,7 +16,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class SystemStatusServiceTest {
@@ -56,7 +57,7 @@ class SystemStatusServiceTest {
         assertThat(result.getTimestamp()).isBeforeOrEqualTo(Instant.now());
         assertThat(result.getVersion().getCommit()).isEqualTo("abc123");
         assertThat(result.getVersion().getBuildTag()).isEqualTo("v1.0.0");
-        
+
         Map<String, String> components = result.getComponents();
         assertThat(components.get("db")).isEqualTo("UP");
         assertThat(components.get("openaiKey")).isEqualTo("PRESENT");
@@ -136,14 +137,14 @@ class SystemStatusServiceTest {
         Iterator<NamedContributor<HealthContributor>> iterator = mock(Iterator.class);
         NamedContributor<HealthContributor> namedContributor = mock(NamedContributor.class);
         HealthIndicator healthIndicator = mock(HealthIndicator.class);
-        
+
         when(healthRegistry.getContributor("db")).thenReturn(composite);
         when(composite.iterator()).thenReturn(iterator);
         when(iterator.hasNext()).thenReturn(true, false);
         when(iterator.next()).thenReturn(namedContributor);
         when(namedContributor.getContributor()).thenReturn(healthIndicator);
         when(healthIndicator.health()).thenReturn(Health.up().build());
-        
+
         when(env.getProperty("spring.ai.openai.api-key", "")).thenReturn("sk-valid-key");
 
         SystemStatusDto result = systemStatusService.getStatus();
@@ -160,14 +161,14 @@ class SystemStatusServiceTest {
         Iterator<NamedContributor<HealthContributor>> iterator = mock(Iterator.class);
         NamedContributor<HealthContributor> namedContributor = mock(NamedContributor.class);
         HealthIndicator healthIndicator = mock(HealthIndicator.class);
-        
+
         when(healthRegistry.getContributor("db")).thenReturn(composite);
         when(composite.iterator()).thenReturn(iterator);
         when(iterator.hasNext()).thenReturn(true, false);
         when(iterator.next()).thenReturn(namedContributor);
         when(namedContributor.getContributor()).thenReturn(healthIndicator);
         when(healthIndicator.health()).thenReturn(Health.down().build());
-        
+
         when(env.getProperty("spring.ai.openai.api-key", "")).thenReturn("sk-valid-key");
 
         SystemStatusDto result = systemStatusService.getStatus();

@@ -10,7 +10,6 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
-
 import java.util.stream.Collectors;
 
 @Component
