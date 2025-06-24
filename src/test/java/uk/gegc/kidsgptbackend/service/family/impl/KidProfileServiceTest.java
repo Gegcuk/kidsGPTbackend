@@ -1,0 +1,224 @@
+package uk.gegc.kidsgptbackend.service.family.impl;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.DisplayName;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
+import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.exception.ValidationException;
+import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.model.family.Parent;
+import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.repository.family.KidRepository;
+import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+
+import java.time.LocalDate;
+import java.util.Optional;
+import java.util.UUID;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class KidProfileServiceTest {
+
+    @Mock
+    private KidRepository kidRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private SecurityContext securityContext;
+
+    @Mock
+    private Authentication authentication;
+
+    @InjectMocks
+    private KidProfileServiceImpl kidProfileService;
+
+    private User testUser;
+    private Parent testParent;
+    private Kid testKid;
+    private ChildProfileUpdateRequest updateRequest;
+
+    @BeforeEach
+    void setUp() {
+        // Setup test data
+        testUser = new User();
+        testUser.setId(UUID.randomUUID());
+        testUser.setUsername("testuser");
+
+        testParent = new Parent();
+        testParent.setId(UUID.randomUUID());
+
+        testKid = new Kid();
+        testKid.setId(UUID.randomUUID());
+        testKid.setFirstName("Original");
+        testKid.setLastName("Kid");
+        testKid.setBirthDate(LocalDate.of(2015, 1, 1));
+        testKid.setParent(testParent);
+
+        updateRequest = new ChildProfileUpdateRequest(
+                "Johnny",
+                8,
+                "soccer, reading",
+                "avatar123"
+        );
+
+        // Setup security context
+        when(securityContext.getAuthentication()).thenReturn(authentication);
+        SecurityContextHolder.setContext(securityContext);
+    }
+
+    @Test
+    @DisplayName("Should successfully update child profile and return updated DTO")
+    void updateCurrentChildProfile_SuccessfulUpdate_ReturnsUpdatedProfile() {
+        // Given
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(updateRequest);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.name()).isEqualTo("Johnny");
+        assertThat(result.age()).isEqualTo(8);
+        assertThat(result.interests()).isEqualTo("soccer, reading");
+        assertThat(result.avatarId()).isEqualTo("avatar123");
+
+        verify(kidRepository).save(testKid);
+        verify(testKid).setFirstName("Johnny");
+        verify(testKid).setInterests("soccer, reading");
+        verify(testKid).setAvatarId("avatar123");
+    }
+
+    @Test
+    @DisplayName("Should throw exception when user is not found")
+    void updateCurrentChildProfile_UserNotFound_ThrowsException() {
+        // Given
+        when(authentication.getName()).thenReturn("nonexistentuser");
+        when(userRepository.findByUsername("nonexistentuser")).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("User not found");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should throw ValidationException when child profile is not found")
+    void updateCurrentChildProfile_KidNotFound_ThrowsValidationException() {
+        // Given
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Child profile not found for user");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Should handle null optional fields correctly")
+    void updateCurrentChildProfile_WithNullOptionalFields_UpdatesCorrectly() {
+        // Given
+        ChildProfileUpdateRequest requestWithNulls = new ChildProfileUpdateRequest(
+                "Johnny",
+                8,
+                null, // null interests
+                null  // null avatarId
+        );
+
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(requestWithNulls);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.name()).isEqualTo("Johnny");
+        assertThat(result.age()).isEqualTo(8);
+        assertThat(result.interests()).isNull();
+        assertThat(result.avatarId()).isNull();
+
+        verify(testKid).setInterests(null);
+        verify(testKid).setAvatarId(null);
+    }
+
+    @Test
+    @DisplayName("Should calculate age correctly from birth date")
+    void updateCurrentChildProfile_CalculatesAgeCorrectly() {
+        // Given
+        LocalDate birthDate = LocalDate.now().minusYears(10);
+        testKid.setBirthDate(birthDate);
+
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(updateRequest);
+
+        // Then
+        assertThat(result.age()).isEqualTo(10);
+    }
+
+    @Test
+    @DisplayName("Should return age 0 when birth date is null")
+    void updateCurrentChildProfile_WithNullBirthDate_ReturnsAgeZero() {
+        // Given
+        testKid.setBirthDate(null);
+
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(updateRequest);
+
+        // Then
+        assertThat(result.age()).isEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("Should update birth date from provided age")
+    void updateCurrentChildProfile_UpdatesBirthDateFromAge() {
+        // Given
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        int currentYear = LocalDate.now().getYear();
+        int expectedBirthYear = currentYear - 8;
+
+        // When
+        kidProfileService.updateCurrentChildProfile(updateRequest);
+
+        // Then
+        verify(testKid).setBirthDate(LocalDate.of(expectedBirthYear, 1, 1));
+    }
+} 

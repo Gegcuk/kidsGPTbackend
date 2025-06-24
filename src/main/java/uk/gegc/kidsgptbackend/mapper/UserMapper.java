@@ -9,6 +9,11 @@ import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
+import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import java.time.LocalDate;
+import java.time.Period;
 
 import java.util.stream.Collectors;
 
@@ -50,5 +55,27 @@ public class UserMapper {
         );
     }
 
+    public static ChildProfileDto toChildProfileDto(Kid kid) {
+        int age = 0;
+        if (kid.getBirthDate() != null) {
+            age = Period.between(kid.getBirthDate(), LocalDate.now()).getYears();
+        }
+        return new ChildProfileDto(
+            kid.getId(),
+            kid.getFirstName(), // For now, use firstName as name
+            age,
+            kid.getInterests(),
+            kid.getAvatarId()
+        );
+    }
+
+    public static void updateKidFromRequest(Kid kid, ChildProfileUpdateRequest req) {
+        kid.setFirstName(req.name()); // For now, use name as firstName
+        // Set birthDate from age (approximate: set to Jan 1st of birth year)
+        int birthYear = LocalDate.now().getYear() - req.age();
+        kid.setBirthDate(LocalDate.of(birthYear, 1, 1));
+        kid.setInterests(req.interests());
+        kid.setAvatarId(req.avatarId());
+    }
 
 }

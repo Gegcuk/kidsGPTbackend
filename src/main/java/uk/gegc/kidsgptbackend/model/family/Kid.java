@@ -34,6 +34,12 @@ public class Kid {
     @Column(name = "favorite_color")
     private String favoriteColor;
 
+    @Column(name = "avatar_id")
+    private String avatarId;
+
+    @Column(name = "interests")
+    private String interests; // Comma-separated list for now
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Parent parent;

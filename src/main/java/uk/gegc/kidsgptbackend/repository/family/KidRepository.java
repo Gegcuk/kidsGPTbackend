@@ -5,7 +5,9 @@ import org.springframework.stereotype.Repository;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface KidRepository extends JpaRepository<Kid, UUID> {
+    Optional<Kid> findByParentId(UUID parentId);
 }
