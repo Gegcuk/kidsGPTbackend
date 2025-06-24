@@ -9,10 +9,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.dto.auth.ForgotPasswordRequest;
+import uk.gegc.kidsgptbackend.dto.auth.PasswordResetResponse;
+import uk.gegc.kidsgptbackend.dto.auth.ResetPasswordRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
+import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -20,10 +24,10 @@ import uk.gegc.kidsgptbackend.service.auth.AuthService;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     public ResponseEntity<UserDto> register(
-
             @Valid @RequestBody RegisterUserRequest request
     ) {
         UserDto createdUser = authService.register(request);
@@ -56,5 +60,25 @@ public class AuthController {
         return ResponseEntity.ok(profile);
     }
 
+    @PostMapping("/forgot-password")
+    public ResponseEntity<PasswordResetResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        PasswordResetResponse response = passwordResetService.initiatePasswordReset(request);
+        return ResponseEntity.ok(response);
+    }
 
+    @PostMapping("/reset-password")
+    public ResponseEntity<Void> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        passwordResetService.resetPassword(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/reset-password/validate")
+    public ResponseEntity<Boolean> validateResetToken(@RequestParam String token) {
+        boolean isValid = passwordResetService.validateResetToken(token);
+        return ResponseEntity.ok(isValid);
+    }
 }
