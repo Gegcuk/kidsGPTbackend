@@ -65,7 +65,8 @@ public class UserMapper {
             kid.getFirstName(), // For now, use firstName as name
             age,
             kid.getInterests(),
-            kid.getAvatarId()
+            kid.getAvatarId(),
+            kid.getAgeGroup()
         );
     }
 
@@ -76,6 +77,12 @@ public class UserMapper {
         kid.setBirthDate(LocalDate.of(birthYear, 1, 1));
         kid.setInterests(req.interests());
         kid.setAvatarId(req.avatarId());
+        // Set age group from age
+        try {
+            kid.setAgeGroup(uk.gegc.kidsgptbackend.model.user.AgeGroup.fromAge(req.age()));
+        } catch (IllegalArgumentException e) {
+            kid.setAgeGroup(null);
+        }
     }
 
 }
