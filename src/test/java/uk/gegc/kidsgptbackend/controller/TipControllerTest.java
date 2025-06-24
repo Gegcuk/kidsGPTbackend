@@ -9,6 +9,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
 import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -31,7 +32,7 @@ class TipControllerTest {
         DailyTipDto tip = new DailyTipDto();
         tip.setFact("Did you know that honey never spoils?");
         tip.setCategory("science");
-        tip.setAgeGroup("9-10");
+        tip.setAgeGroup("AGE_9_10");
         
         when(dailyTipService.getDailyTip()).thenReturn(tip);
 
@@ -40,7 +41,7 @@ class TipControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fact").value("Did you know that honey never spoils?"))
                 .andExpect(jsonPath("$.category").value("science"))
-                .andExpect(jsonPath("$.ageGroup").value("9-10"));
+                .andExpect(jsonPath("$.ageGroup").value("AGE_9_10"));
     }
 
     @Test
@@ -50,15 +51,15 @@ class TipControllerTest {
         DailyTipDto tip = new DailyTipDto();
         tip.setFact("Did you know that honey never spoils?");
         tip.setCategory("science");
-        tip.setAgeGroup("6-8");
+        tip.setAgeGroup("AGE_6_8");
         
-        when(dailyTipService.getDailyTip("6-8")).thenReturn(tip);
+        when(dailyTipService.getDailyTip(AgeGroup.AGE_6_8)).thenReturn(tip);
 
         // When/Then
         mockMvc.perform(get("/api/v1/tips/daily")
-                        .param("ageGroup", "6-8"))
+                        .param("ageGroup", "AGE_6_8"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fact").value("Did you know that honey never spoils?"))
-                .andExpect(jsonPath("$.ageGroup").value("6-8"));
+                .andExpect(jsonPath("$.ageGroup").value("AGE_6_8"));
     }
 } 
