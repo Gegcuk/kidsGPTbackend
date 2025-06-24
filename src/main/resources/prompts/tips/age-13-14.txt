@@ -6,6 +6,16 @@ The fact should be:
 - Cool and shareable with friends
 - Safe and appropriate for teenagers
 - About 2-3 sentences long
+- NOT about honey, food preservation, or ancient Egypt (avoid these common topics)
 
-Choose a random educational topic and provide one interesting fact.
-Respond with ONLY the fact, nothing else. 
+Choose from these interesting topics and provide one fascinating fact:
+- Space and astronomy
+- Amazing animals and nature
+- Science breakthroughs
+- Technology and innovation
+- World cultures and history
+- Human psychology and behavior
+- Art and creativity
+- Sports and achievements
+
+Respond with ONLY the fact, nothing else.

@@ -2,11 +2,14 @@ package uk.gegc.kidsgptbackend.controller;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
 import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
@@ -16,16 +19,25 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
+@WebMvcTest(controllers = TipController.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import(TipControllerTest.TestConfig.class)
+@DirtiesContext
 class TipControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockitoBean
+    @Autowired
     private DailyTipService dailyTipService;
+
+    @TestConfiguration
+    static class TestConfig {
+        @Bean
+        DailyTipService dailyTipService() {
+            return Mockito.mock(DailyTipService.class);
+        }
+    }
 
     @Test
     @DisplayName("GET /api/v1/tips/daily: returns daily tip")
@@ -35,7 +47,7 @@ class TipControllerTest {
         tip.setFact("Did you know that honey never spoils?");
         tip.setCategory("science");
         tip.setAgeGroup("AGE_9_10");
-        
+
         when(dailyTipService.getDailyTip()).thenReturn(tip);
 
         // When/Then
@@ -54,7 +66,7 @@ class TipControllerTest {
         tip.setFact("Did you know that honey never spoils?");
         tip.setCategory("science");
         tip.setAgeGroup("AGE_6_8");
-        
+
         when(dailyTipService.getDailyTip(AgeGroup.AGE_6_8)).thenReturn(tip);
 
         // When/Then
