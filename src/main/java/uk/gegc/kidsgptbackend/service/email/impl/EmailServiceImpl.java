@@ -2,10 +2,10 @@ package uk.gegc.kidsgptbackend.service.email.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
+import uk.gegc.kidsgptbackend.config.EmailConfig;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 
 @Slf4j
@@ -14,22 +14,22 @@ import uk.gegc.kidsgptbackend.service.email.EmailService;
 public class EmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
-
-    @Value("${spring.mail.username:test@example.com}")
-    private String fromEmail;
-
-    @Value("${app.frontend.url:http://localhost:3000}")
-    private String frontendUrl;
+    private final EmailConfig emailConfig;
 
     @Override
     public void sendPasswordResetEmail(String to, String resetToken, String username) {
+        if (!emailConfig.isEnabled()) {
+            log.warn("Email service is disabled. Skipping password reset email to: {}", to);
+            return;
+        }
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(emailConfig.getFrom());
             message.setTo(to);
             message.setSubject("KidsGPT - Password Reset Request");
             
-            String resetUrl = frontendUrl + "/reset-password?token=" + resetToken;
+            String resetUrl = emailConfig.getFrontendUrl() + "/reset-password?token=" + resetToken;
             String emailBody = String.format(
                 "Hello %s,\n\n" +
                 "You have requested to reset your password for your KidsGPT account.\n\n" +
@@ -54,9 +54,14 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPasswordResetConfirmation(String to, String username) {
+        if (!emailConfig.isEnabled()) {
+            log.warn("Email service is disabled. Skipping password reset confirmation email to: {}", to);
+            return;
+        }
+
         try {
             SimpleMailMessage message = new SimpleMailMessage();
-            message.setFrom(fromEmail);
+            message.setFrom(emailConfig.getFrom());
             message.setTo(to);
             message.setSubject("KidsGPT - Password Reset Successful");
             
