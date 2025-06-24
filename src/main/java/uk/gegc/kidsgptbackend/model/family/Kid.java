@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 
 import java.time.LocalDate;
 import java.util.UUID;
@@ -43,4 +44,19 @@ public class Kid {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private Parent parent;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "age_group")
+    private AgeGroup ageGroup;
+
+    public void updateAgeGroupFromBirthDate() {
+        if (birthDate != null) {
+            int age = java.time.Period.between(birthDate, java.time.LocalDate.now()).getYears();
+            try {
+                this.ageGroup = AgeGroup.fromAge(age);
+            } catch (IllegalArgumentException e) {
+                this.ageGroup = null;
+            }
+        }
+    }
 }
