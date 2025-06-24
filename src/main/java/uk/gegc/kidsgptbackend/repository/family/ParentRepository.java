@@ -6,7 +6,9 @@ import org.springframework.stereotype.Repository;
 import uk.gegc.kidsgptbackend.model.family.Parent;
 
 import java.util.UUID;
+import java.util.Optional;
 
 @Repository
 public interface ParentRepository extends JpaRepository<Parent, UUID> {
+    Optional<Parent> findByEmail(String email);
 }

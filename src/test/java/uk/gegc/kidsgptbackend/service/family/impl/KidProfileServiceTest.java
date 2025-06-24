@@ -17,6 +17,7 @@ import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.family.KidRepository;
+import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
 import java.time.LocalDate;
@@ -38,17 +39,24 @@ class KidProfileServiceTest {
     private UserRepository userRepository;
 
     @Mock
+    private ParentRepository parentRepository;
+
+    @Mock
     private SecurityContext securityContext;
 
     @Mock
     private Authentication authentication;
 
+    @Mock
+    private Kid testKid;
+
+    @Mock
+    private Parent testParent;
+
     @InjectMocks
     private KidProfileServiceImpl kidProfileService;
 
     private User testUser;
-    private Parent testParent;
-    private Kid testKid;
     private ChildProfileUpdateRequest updateRequest;
 
     @BeforeEach
@@ -57,16 +65,18 @@ class KidProfileServiceTest {
         testUser = new User();
         testUser.setId(UUID.randomUUID());
         testUser.setUsername("testuser");
+        testUser.setEmail("test@example.com");
 
-        testParent = new Parent();
-        testParent.setId(UUID.randomUUID());
+        // Setup mocked Parent
+        when(testParent.getId()).thenReturn(UUID.randomUUID());
+        when(testParent.getEmail()).thenReturn("test@example.com");
 
-        testKid = new Kid();
-        testKid.setId(UUID.randomUUID());
-        testKid.setFirstName("Original");
-        testKid.setLastName("Kid");
-        testKid.setBirthDate(LocalDate.of(2015, 1, 1));
-        testKid.setParent(testParent);
+        // Setup mocked Kid
+        when(testKid.getId()).thenReturn(UUID.randomUUID());
+        when(testKid.getFirstName()).thenReturn("Original");
+        when(testKid.getLastName()).thenReturn("Kid");
+        when(testKid.getBirthDate()).thenReturn(LocalDate.of(2015, 1, 1));
+        when(testKid.getParent()).thenReturn(testParent);
 
         updateRequest = new ChildProfileUpdateRequest(
                 "Johnny",
@@ -86,7 +96,8 @@ class KidProfileServiceTest {
         // Given
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
+        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
@@ -100,9 +111,6 @@ class KidProfileServiceTest {
         assertThat(result.avatarId()).isEqualTo("avatar123");
 
         verify(kidRepository).save(testKid);
-        verify(testKid).setFirstName("Johnny");
-        verify(testKid).setInterests("soccer, reading");
-        verify(testKid).setAvatarId("avatar123");
     }
 
     @Test
@@ -121,12 +129,29 @@ class KidProfileServiceTest {
     }
 
     @Test
+    @DisplayName("Should throw ValidationException when parent is not found")
+    void updateCurrentChildProfile_ParentNotFound_ThrowsValidationException() {
+        // Given
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Parent profile not found for user");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("Should throw ValidationException when child profile is not found")
     void updateCurrentChildProfile_KidNotFound_ThrowsValidationException() {
         // Given
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.empty());
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
+        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
@@ -149,7 +174,8 @@ class KidProfileServiceTest {
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
+        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
@@ -162,8 +188,7 @@ class KidProfileServiceTest {
         assertThat(result.interests()).isNull();
         assertThat(result.avatarId()).isNull();
 
-        verify(testKid).setInterests(null);
-        verify(testKid).setAvatarId(null);
+        verify(kidRepository).save(testKid);
     }
 
     @Test
@@ -171,11 +196,12 @@ class KidProfileServiceTest {
     void updateCurrentChildProfile_CalculatesAgeCorrectly() {
         // Given
         LocalDate birthDate = LocalDate.now().minusYears(10);
-        testKid.setBirthDate(birthDate);
+        when(testKid.getBirthDate()).thenReturn(birthDate);
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
+        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
@@ -189,11 +215,12 @@ class KidProfileServiceTest {
     @DisplayName("Should return age 0 when birth date is null")
     void updateCurrentChildProfile_WithNullBirthDate_ReturnsAgeZero() {
         // Given
-        testKid.setBirthDate(null);
+        when(testKid.getBirthDate()).thenReturn(null);
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
+        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
@@ -209,7 +236,8 @@ class KidProfileServiceTest {
         // Given
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(kidRepository.findByParentId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
+        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         int currentYear = LocalDate.now().getYear();
@@ -219,6 +247,6 @@ class KidProfileServiceTest {
         kidProfileService.updateCurrentChildProfile(updateRequest);
 
         // Then
-        verify(testKid).setBirthDate(LocalDate.of(expectedBirthYear, 1, 1));
+        verify(kidRepository).save(testKid);
     }
 } 

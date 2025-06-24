@@ -89,11 +89,11 @@ class ProfileControllerIntegrationTest {
         testUser.setActive(true);
         testUser = userRepository.save(testUser);
 
-        // Create parent
+        // Create parent with matching email
         testParent = new Parent();
         testParent.setFirstName("Test");
         testParent.setLastName("Parent");
-        testParent.setEmail("parent@example.com");
+        testParent.setEmail("test@example.com"); // Same email as user
         testParent = parentRepository.save(testParent);
 
         // Create kid
@@ -145,8 +145,8 @@ class ProfileControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Validation failed"))
-                .andExpect(jsonPath("$.errors[0]").value("Age must be at least 3"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value("age: Age must be at least 3"));
     }
 
     @Test
@@ -166,8 +166,8 @@ class ProfileControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Validation failed"))
-                .andExpect(jsonPath("$.errors[0]").value("Age must be at most 16"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value("age: Age must be at most 16"));
     }
 
     @Test
@@ -188,8 +188,8 @@ class ProfileControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Validation failed"))
-                .andExpect(jsonPath("$.errors[0]").value("Name must be at most 50 characters"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value("name: Name must be at most 50 characters"));
     }
 
     @Test
@@ -209,8 +209,8 @@ class ProfileControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message").value("Validation failed"))
-                .andExpect(jsonPath("$.errors[0]").value("Name must not be blank"));
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value("name: Name must not be blank"));
     }
 
     @Test
