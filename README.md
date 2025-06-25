@@ -12,6 +12,37 @@ authentication, password reset capabilities, and **age-appropriate image generat
 - **User Management**: User profiles and role-based access control
 - **Security**: Comprehensive security measures and input validation
 
+## Testing Strategy
+
+### AI Service Testing
+
+We use **mock-only testing** for all AI services - fast, reliable, and cost-free:
+
+#### **All AI Services** (Chat, Images, Moderation)
+- ✅ **Mock testing**: Comprehensive coverage with realistic responses
+- ✅ **Smart simulation**: Mocks return contextually appropriate responses
+- ✅ **Zero cost**: No API calls, no charges
+- ✅ **CI/CD friendly**: Fast, reliable, deterministic
+
+#### **Why Mock-Only Works**
+- **Business logic testing**: All validation, error handling, and integration flows
+- **Realistic responses**: Mocks simulate real AI behavior patterns
+- **Edge case coverage**: Test failure scenarios without API limits
+- **Development speed**: Instant feedback, no network dependencies
+
+### Running Tests
+
+```bash
+# All tests (fast, free, comprehensive)
+./mvnw test
+
+# Specific test categories
+./mvnw test -Dtest="*ControllerTest"        # Unit tests
+./mvnw test -Dtest="*IntegrationTest"       # Integration tests  
+./mvnw test -Dtest="*ImageTest"             # Image generation tests
+./mvnw test -Dtest="*ChatTest"              # Chat service tests
+```
+
 ## Quick Start
 
 1. **Clone the repository**
