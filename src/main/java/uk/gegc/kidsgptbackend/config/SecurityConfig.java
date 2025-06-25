@@ -19,6 +19,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository;
 import uk.gegc.kidsgptbackend.security.JwtAuthenticationFilter;
 import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
+import uk.gegc.kidsgptbackend.security.RateLimitFilter;
 
 
 @Configuration
@@ -28,6 +29,7 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final RevokedTokenRepository revokedTokenRepository;
+    private final RateLimitFilter rateLimitFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity, RevokedTokenRepository revokedTokenRepository) throws Exception {
@@ -61,6 +63,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
                         .anyRequest().authenticated())
+                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, revokedTokenRepository),
                         UsernamePasswordAuthenticationFilter.class
