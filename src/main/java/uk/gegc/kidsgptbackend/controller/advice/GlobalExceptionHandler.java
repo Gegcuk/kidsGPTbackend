@@ -10,13 +10,22 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import uk.gegc.kidsgptbackend.exception.*;
 
@@ -48,7 +57,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
-                List.of(ex.getMessage())
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Invalid request")
         );
     }
 
@@ -72,7 +81,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad request",
-                List.of(exception.getMessage())
+                List.of(exception.getMessage() != null ? exception.getMessage() : "Invalid argument")
         );
     }
 
@@ -83,18 +92,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
-                List.of(ex.getMessage())
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Invalid state")
         );
     }
 
     @ExceptionHandler(ResponseStatusException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
+        String reason = ex.getReason() != null ? ex.getReason() : "Unknown error";
         ErrorResponse body = new ErrorResponse(
                 LocalDateTime.now(),
                 ex.getStatusCode().value(),
-                ex.getReason(),
-                List.of(ex.getReason())
+                reason,
+                List.of(reason)
         );
         return new ResponseEntity<>(body, ex.getStatusCode());
     }
@@ -102,11 +111,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleDataIntegrity(DataIntegrityViolationException ex) {
+        String cause = ex.getMostSpecificCause() != null ?
+                ex.getMostSpecificCause().getMessage() : "Database constraint violation";
         return new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
-                List.of("Database error: " + ex.getMostSpecificCause().getMessage())
+                List.of("Database error: " + cause)
         );
     }
 
@@ -117,7 +128,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.TOO_MANY_REQUESTS.value(),
                 "Too Many Requests",
-                List.of(ex.getMessage())
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Rate limit exceeded")
         );
     }
 
@@ -128,10 +139,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.SERVICE_UNAVAILABLE.value(),
                 "Service Unavailable",
-                List.of(ex.getMessage())
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Moderation service unavailable")
         );
     }
-
 
     @ExceptionHandler(UnauthorizedException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
@@ -140,7 +150,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 LocalDateTime.now(),
                 HttpStatus.UNAUTHORIZED.value(),
                 "Unauthorized",
-                List.of(ex.getMessage())
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Authentication required")
+        );
+    }
+
+    // Handle Spring Security authentication exceptions
+    @ExceptionHandler({
+            AuthenticationException.class,
+            BadCredentialsException.class,
+            AuthenticationCredentialsNotFoundException.class,
+            InsufficientAuthenticationException.class
+    })
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public ErrorResponse handleAuthenticationException(AuthenticationException ex) {
+        return new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNAUTHORIZED.value(),
+                "Unauthorized",
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Authentication failed")
         );
     }
 
@@ -159,8 +186,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleConstraintViolation(ConstraintViolationException ex) {
         List<String> details = ex.getConstraintViolations().stream()
-                .map(ConstraintViolation::getMessage) // or include propertyPath if you prefer
+                .map(ConstraintViolation::getMessage)
                 .collect(Collectors.toList());
+
+        if (details.isEmpty()) {
+            details = List.of("Validation constraint violated");
+        }
 
         return new ErrorResponse(
                 LocalDateTime.now(),
@@ -170,21 +201,40 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         );
     }
 
+    // Handle method argument type mismatch
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorResponse handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        String message = String.format("Parameter '%s' should be of type %s",
+                ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
+        return new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                List.of(message)
+        );
+    }
+
+
+
+    // Override Spring's default handlers to ensure they return ErrorResponse
+
     @Override
-    protected org.springframework.http.ResponseEntity<Object> handleHttpMessageNotReadable(
+    protected ResponseEntity<Object> handleHttpMessageNotReadable(
             HttpMessageNotReadableException ex,
             HttpHeaders headers,
             HttpStatusCode status,
             WebRequest request
     ) {
-        String msg = ex.getMostSpecificCause().getMessage();
+        String msg = ex.getMostSpecificCause() != null ?
+                ex.getMostSpecificCause().getMessage() : "Malformed request body";
         ErrorResponse body = new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 "Malformed JSON",
                 List.of(msg)
         );
-        return new org.springframework.http.ResponseEntity<>(body, headers, HttpStatus.BAD_REQUEST);
+        return new ResponseEntity<>(body, headers, HttpStatus.BAD_REQUEST);
     }
 
     @Override
@@ -200,18 +250,100 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .toList();
 
+        if (fieldErrors.isEmpty()) {
+            fieldErrors = List.of("Validation failed");
+        }
+
         ErrorResponse body = new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 "Validation Failed",
                 fieldErrors
         );
-        return new ResponseEntity<>(body, headers, status);
+        return new ResponseEntity<>(body, headers, HttpStatus.BAD_REQUEST);
     }
 
+    @Override
+    protected ResponseEntity<Object> handleMissingServletRequestParameter(
+            MissingServletRequestParameterException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        String message = String.format("Required parameter '%s' is missing", ex.getParameterName());
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Bad Request",
+                List.of(message)
+        );
+        return new ResponseEntity<>(body, headers, HttpStatus.BAD_REQUEST);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        String supportedMethods = ex.getSupportedHttpMethods() != null ?
+                ex.getSupportedHttpMethods().toString() : "unknown";
+        String message = String.format("Method '%s' is not supported. Supported methods: %s",
+                ex.getMethod(), supportedMethods);
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.METHOD_NOT_ALLOWED.value(),
+                "Method Not Allowed",
+                List.of(message)
+        );
+        return new ResponseEntity<>(body, headers, HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
+            HttpMediaTypeNotSupportedException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        String supportedTypes = ex.getSupportedMediaTypes() != null ?
+                ex.getSupportedMediaTypes().toString() : "unknown";
+        String message = String.format("Media type '%s' is not supported. Supported types: %s",
+                ex.getContentType(), supportedTypes);
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
+                "Unsupported Media Type",
+                List.of(message)
+        );
+        return new ResponseEntity<>(body, headers, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+    }
+
+    @Override
+    protected ResponseEntity<Object> handleNoHandlerFoundException(
+            NoHandlerFoundException ex,
+            HttpHeaders headers,
+            HttpStatusCode status,
+            WebRequest request
+    ) {
+        String message = String.format("No handler found for %s %s", ex.getHttpMethod(), ex.getRequestURL());
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.NOT_FOUND.value(),
+                "Not Found",
+                List.of(message)
+        );
+        return new ResponseEntity<>(body, headers, HttpStatus.NOT_FOUND);
+    }
+
+    // Catch-all handler - this should handle any exception not caught by more specific handlers
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleAllOthers(Exception ex) {
+        // Log the exception for debugging
+        logger.error("Unhandled exception: ", ex);
+
         return new ErrorResponse(
                 LocalDateTime.now(),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
@@ -220,11 +352,24 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         );
     }
 
+    // Ensure this record is complete and properly formatted
     public record ErrorResponse(
             LocalDateTime timestamp,
             int status,
             String error,
             List<String> details
     ) {
+        // Compact constructor to ensure non-null values
+        public ErrorResponse {
+            if (timestamp == null) {
+                timestamp = LocalDateTime.now();
+            }
+            if (error == null || error.trim().isEmpty()) {
+                error = "Unknown Error";
+            }
+            if (details == null || details.isEmpty()) {
+                details = List.of("No additional details available");
+            }
+        }
     }
 }

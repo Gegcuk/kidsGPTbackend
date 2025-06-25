@@ -256,8 +256,8 @@ class ProfileControllerIntegrationTest {
 
     @Test
     @WithMockUser(username = "nonexistentuser")
-    @DisplayName("Should return 500 when user is not found")
-    void updateProfile_UserNotFound_Returns500() throws Exception {
+    @DisplayName("Should return 401 when user is not found in database")
+    void updateProfile_UserNotFound_Returns401() throws Exception {
         // Given
         ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
                 "Johnny",
@@ -270,7 +270,9 @@ class ProfileControllerIntegrationTest {
         mockMvc.perform(patch("/api/v1/profile")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isInternalServerError());
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.details[0]").value("User not found"));
     }
 
     @Test
