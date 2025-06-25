@@ -83,7 +83,7 @@ class ChatControllerIntegrationTest {
     @Test
     @DisplayName("POST /api/v1/chat without token → 401")
     void chat_noToken_returnsUnauthorized() throws Exception {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         mockMvc.perform(post("/api/v1/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -97,7 +97,7 @@ class ChatControllerIntegrationTest {
         when(aiChatService.chat(any(ChatMessageRequest.class), any())).thenReturn(resp);
 
         String token = obtainAccessToken();
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         String response = mockMvc.perform(post("/api/v1/chat")
                         .header("Authorization", "Bearer " + token)
                         .contentType(MediaType.APPLICATION_JSON)

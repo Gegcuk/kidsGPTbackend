@@ -5,6 +5,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AbstractMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.moderation.ModerationModel;
@@ -16,6 +19,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
+import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
@@ -33,6 +37,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
@@ -72,20 +78,27 @@ public class AiChatServiceImpl implements AiChatService {
 
         ChatContext context = resolveContext(request, principal);
 
+        // Save only the new user message
         ChatMessage userMsg = new ChatMessage();
         userMsg.setContext(context);
         userMsg.setRole("USER");
         userMsg.setContent(request.message());
         messageRepository.save(userMsg);
 
+        // Build conversation history from provided context
+        List<Message> conversationHistory = buildConversationHistory(request.context());
+        
+        // Add the new user message to the conversation
         String decorated = String.format(TEMPLATES[random.nextInt(TEMPLATES.length)], request.message());
+        conversationHistory.add(new UserMessage(decorated));
+
         String systemText = loadSystemPrompt(user);
 
         ChatResponse chatResponse;
         try {
             chatResponse = chatClient.prompt()
                     .system(systemText)
-                    .user(decorated)
+                    .messages(conversationHistory)
                     .call()
                     .chatResponse();
         } catch (Exception e) {
@@ -101,6 +114,7 @@ public class AiChatServiceImpl implements AiChatService {
             replyText = "Oops, that topic's a bit tricky. Let's chat about something else fun!";
         }
 
+        // Save only the new assistant message
         ChatMessage assistantMsg = new ChatMessage();
         assistantMsg.setContext(context);
         assistantMsg.setRole("ASSISTANT");
@@ -155,5 +169,24 @@ public class AiChatServiceImpl implements AiChatService {
                     .forEach(r -> logger.warn("Moderation violation: {}", r.getCategories()));
         }
         return safe;
+    }
+
+    /**
+     * Build conversation history from provided context
+     */
+    private List<Message> buildConversationHistory(List<ChatMessageDto> context) {
+        List<Message> messages = new ArrayList<>();
+        
+        if (context != null && !context.isEmpty()) {
+            for (ChatMessageDto messageDto : context) {
+                if ("USER".equalsIgnoreCase(messageDto.role())) {
+                    messages.add(new UserMessage(messageDto.content()));
+                } else if ("ASSISTANT".equalsIgnoreCase(messageDto.role())) {
+                    messages.add(new AssistantMessage(messageDto.content()));
+                }
+            }
+        }
+        
+        return messages;
     }
 }

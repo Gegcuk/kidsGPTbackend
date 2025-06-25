@@ -3,6 +3,7 @@ package uk.gegc.kidsgptbackend.dto.chat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
 import java.util.UUID;
 
 public record ChatMessageRequest(
@@ -10,6 +11,7 @@ public record ChatMessageRequest(
         String message,
         UUID contextId,
         @NotNull
-        Tone tone
+        Tone tone,
+        List<ChatMessageDto> context
 ) {
 }
