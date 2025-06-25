@@ -1,13 +1,14 @@
 # KidsGPT Backend
 
 A Spring Boot backend application for KidsGPT, providing AI-powered chat functionality for children with secure
-authentication and password reset capabilities.
+authentication, password reset capabilities, and **age-appropriate image generation**.
 
 ## Features
 
 - **User Authentication**: JWT-based authentication with registration and login
 - **Password Reset**: Secure email-based password reset functionality
 - **AI Chat**: OpenAI-powered chat with content moderation
+- **Image Generation**: Age-appropriate AI image generation using DALL-E
 - **User Management**: User profiles and role-based access control
 - **Security**: Comprehensive security measures and input validation
 
