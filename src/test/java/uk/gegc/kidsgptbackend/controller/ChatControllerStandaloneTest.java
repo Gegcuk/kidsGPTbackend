@@ -73,7 +73,7 @@ class ChatControllerStandaloneTest {
     @Test
     @DisplayName("POST /api/v1/chat with null principal → 401")
     void chat_nullPrincipal_returnsUnauthorized() throws Exception {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         mockMvc.perform(post("/api/v1/chat")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -85,7 +85,7 @@ class ChatControllerStandaloneTest {
     @Test
     @DisplayName("POST /api/v1/chat with principal → 200 and service called")
     void chat_withPrincipal_callsService() throws Exception {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID());
         when(chatService.chat(any(ChatMessageRequest.class), any(Principal.class))).thenReturn(resp);
 

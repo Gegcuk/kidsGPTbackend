@@ -16,6 +16,7 @@ import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.moderation.*;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.test.util.ReflectionTestUtils;
+import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
@@ -29,6 +30,7 @@ import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
 import java.security.Principal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -68,6 +70,7 @@ class AiChatServiceImplTest {
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);
+        when(requestSpec.messages(any(List.class))).thenReturn(requestSpec);
         when(requestSpec.call()).thenReturn(callSpec);
     }
 
@@ -95,7 +98,7 @@ class AiChatServiceImplTest {
     @Test
     @DisplayName("chat: moderation failure throws ModerationServiceException")
     void chat_moderationFailure_exception() {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         when(moderationClient.call(any(ModerationPrompt.class)))
                 .thenThrow(new RuntimeException("down"));
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
@@ -107,7 +110,7 @@ class AiChatServiceImplTest {
     @Test
     @DisplayName("chat: flagged user input throws IllegalArgumentException")
     void chat_flaggedInput_throws() {
-        ChatMessageRequest req = new ChatMessageRequest("bad", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("bad", null, Tone.FRIENDLY, null);
         when(moderationClient.call(any(ModerationPrompt.class))).thenReturn(flaggedModeration());
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
 
@@ -118,7 +121,7 @@ class AiChatServiceImplTest {
     @Test
     @DisplayName("chat: chat client exception results in RateLimitException")
     void chat_chatClientException_rateLimit() {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         when(moderationClient.call(any(ModerationPrompt.class)))
                 .thenReturn(safeModeration());
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
@@ -131,7 +134,7 @@ class AiChatServiceImplTest {
     @Test
     @DisplayName("chat: flagged reply gets sanitized")
     void chat_flaggedReply_sanitized() {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         when(moderationClient.call(any(ModerationPrompt.class)))
                 .thenReturn(safeModeration())
                 .thenReturn(flaggedModeration());
@@ -151,7 +154,7 @@ class AiChatServiceImplTest {
     @Test
     @DisplayName("chat: null context creates new context")
     void chat_nullContext_createsContext() {
-        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY);
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
         when(moderationClient.call(any(ModerationPrompt.class)))
                 .thenReturn(safeModeration())
                 .thenReturn(safeModeration());
@@ -169,5 +172,39 @@ class AiChatServiceImplTest {
         ChatMessageResponse resp = service.chat(req, principal);
         assertThat(resp.contextId()).isNotNull();
         verify(contextRepository).save(any(ChatContext.class));
+    }
+
+    @Test
+    @DisplayName("chat: context history is properly used when provided")
+    void chat_withContext_usesContextHistory() {
+        // Create mock chat history
+        List<ChatMessageDto> contextHistory = List.of(
+                new ChatMessageDto(UUID.randomUUID(), "USER", "Hello!", LocalDateTime.now()),
+                new ChatMessageDto(UUID.randomUUID(), "ASSISTANT", "Hi there!", LocalDateTime.now())
+        );
+        
+        ChatMessageRequest req = new ChatMessageRequest("How are you?", null, Tone.FRIENDLY, contextHistory);
+        when(moderationClient.call(any(ModerationPrompt.class)))
+                .thenReturn(safeModeration())
+                .thenReturn(safeModeration());
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("I'm doing great!"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp.reply()).isEqualTo("I'm doing great!");
+        assertThat(resp.contextId()).isNotNull();
+        
+        // Verify that messages() was called with the context history
+        verify(requestSpec).messages(any(List.class));
+        verify(requestSpec, never()).user(anyString()); // Should not use user() when context is provided
     }
 }
