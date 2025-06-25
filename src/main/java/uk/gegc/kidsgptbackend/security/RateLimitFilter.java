@@ -6,32 +6,56 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class RateLimitFilter extends OncePerRequestFilter {
 
-    private final RateLimitService rateLimitService;
+    private final Optional<RateLimitService> rateLimitService;
+
+    @Value("${app.rate-limit.enabled:true}")
+    private boolean rateLimitEnabled;
+
+    @Autowired
+    public RateLimitFilter(Optional<RateLimitService> rateLimitService) {
+        this.rateLimitService = rateLimitService;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, 
                                   FilterChain filterChain) throws ServletException, IOException {
         
         String requestURI = request.getRequestURI();
+        log.debug("RateLimitFilter processing request: {} - Enabled: {}, Service available: {}", 
+                requestURI, rateLimitEnabled, rateLimitService.isPresent());
+        
+        // Skip rate limiting if disabled or service not available
+        if (!rateLimitEnabled || rateLimitService.isEmpty()) {
+            log.debug("Skipping rate limiting for {}: enabled={}, service present={}", 
+                    requestURI, rateLimitEnabled, rateLimitService.isPresent());
+            filterChain.doFilter(request, response);
+            return;
+        }
+        
         String method = request.getMethod();
         String authHeader = request.getHeader("Authorization");
         
-        RateLimitService.RateLimitResult result = rateLimitService.checkRateLimit(requestURI, authHeader);
+        log.debug("Applying rate limiting to {} {}", method, requestURI);
+        
+        RateLimitService.RateLimitResult result = rateLimitService.get().checkRateLimit(requestURI, authHeader);
         
         if (result.isAllowed()) {
             // Request allowed
             response.addHeader("X-Rate-Limit-Remaining", String.valueOf(result.getRemainingTokens()));
+            log.debug("Request allowed - remaining tokens: {}", result.getRemainingTokens());
             filterChain.doFilter(request, response);
         } else {
             // Rate limit exceeded

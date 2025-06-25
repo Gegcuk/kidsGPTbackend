@@ -21,6 +21,8 @@ import uk.gegc.kidsgptbackend.security.JwtAuthenticationFilter;
 import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
 import uk.gegc.kidsgptbackend.security.RateLimitFilter;
 
+import java.util.Optional;
+
 
 @Configuration
 @RequiredArgsConstructor
@@ -29,11 +31,11 @@ public class SecurityConfig {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final RevokedTokenRepository revokedTokenRepository;
-    private final RateLimitFilter rateLimitFilter;
+    private final Optional<RateLimitFilter> rateLimitFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity httpSecurity, RevokedTokenRepository revokedTokenRepository) throws Exception {
-        httpSecurity
+        HttpSecurity securityChain = httpSecurity
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(sessionManagement -> sessionManagement.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(ex -> ex
@@ -62,15 +64,20 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/swagger-ui/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/docs/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/health").permitAll()
-                        .anyRequest().authenticated())
-                .addFilterBefore(rateLimitFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(
+                        .anyRequest().authenticated());
+
+        // Add rate limiting filter if available
+        if (rateLimitFilter.isPresent()) {
+            securityChain.addFilterBefore(rateLimitFilter.get(), UsernamePasswordAuthenticationFilter.class);
+        }
+
+        securityChain.addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, revokedTokenRepository),
                         UsernamePasswordAuthenticationFilter.class
                 )
                 .cors(Customizer.withDefaults());
 
-        return httpSecurity.build();
+        return securityChain.build();
     }
 
     @Bean

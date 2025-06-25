@@ -10,13 +10,17 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import uk.gegc.kidsgptbackend.config.RateLimitConfig;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -43,7 +47,9 @@ public class RateLimitFilterTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        rateLimitFilter = new RateLimitFilter(rateLimitService);
+        rateLimitFilter = new RateLimitFilter(Optional.of(rateLimitService));
+        // Set rateLimitEnabled to true for tests that need it
+        ReflectionTestUtils.setField(rateLimitFilter, "rateLimitEnabled", true);
         stringWriter = new StringWriter();
         printWriter = new PrintWriter(stringWriter);
     }
@@ -63,7 +69,7 @@ public class RateLimitFilterTest {
                 .waitForRefillSeconds(0)
                 .build();
 
-        when(rateLimitService.checkRateLimit(anyString(), anyString())).thenReturn(result);
+        when(rateLimitService.checkRateLimit(eq("/api/v1/auth/login"), isNull())).thenReturn(result);
 
         // When
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -90,7 +96,7 @@ public class RateLimitFilterTest {
                 .waitForRefillSeconds(30)
                 .build();
 
-        when(rateLimitService.checkRateLimit(anyString(), anyString())).thenReturn(result);
+        when(rateLimitService.checkRateLimit(eq("/api/v1/auth/login"), isNull())).thenReturn(result);
 
         // When
         rateLimitFilter.doFilterInternal(request, response, filterChain);
@@ -100,6 +106,39 @@ public class RateLimitFilterTest {
         verify(response).setStatus(429);
         verify(response).addHeader("X-Rate-Limit-Retry-After-Seconds", "30");
         assertThat(stringWriter.toString()).contains("Rate limit exceeded");
+    }
+
+    @Test
+    @DisplayName("Should skip rate limiting when service is not available")
+    void shouldSkipRateLimiting_whenServiceNotAvailable() throws Exception {
+        // Given
+        RateLimitFilter filterWithoutService = new RateLimitFilter(Optional.empty());
+        ReflectionTestUtils.setField(filterWithoutService, "rateLimitEnabled", true);
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+
+        // When
+        filterWithoutService.doFilterInternal(request, response, filterChain);
+
+        // Then
+        verify(filterChain).doFilter(request, response);
+        verify(response, never()).addHeader(anyString(), anyString());
+        verifyNoInteractions(rateLimitService);
+    }
+
+    @Test
+    @DisplayName("Should skip rate limiting when disabled")
+    void shouldSkipRateLimiting_whenDisabled() throws Exception {
+        // Given
+        ReflectionTestUtils.setField(rateLimitFilter, "rateLimitEnabled", false);
+        when(request.getRequestURI()).thenReturn("/api/v1/auth/login");
+
+        // When
+        rateLimitFilter.doFilterInternal(request, response, filterChain);
+
+        // Then
+        verify(filterChain).doFilter(request, response);
+        verify(response, never()).addHeader(anyString(), anyString());
+        verifyNoInteractions(rateLimitService);
     }
 
     @Test
@@ -143,7 +182,7 @@ public class RateLimitFilterTest {
                 .waitForRefillSeconds(0)
                 .build();
 
-        when(rateLimitService.checkRateLimit(anyString(), anyString())).thenReturn(result);
+        when(rateLimitService.checkRateLimit(eq("/api/v1/chat"), eq("Bearer valid-token"))).thenReturn(result);
 
         // When
         rateLimitFilter.doFilterInternal(request, response, filterChain);
