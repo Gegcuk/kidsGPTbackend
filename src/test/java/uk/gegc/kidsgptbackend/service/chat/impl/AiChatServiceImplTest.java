@@ -24,6 +24,7 @@ import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
 import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
@@ -39,6 +40,8 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -88,9 +91,11 @@ class AiChatServiceImplTest {
     @DisplayName("chat: moderation failure throws ModerationServiceException")
     void chat_moderationFailure_exception() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationUtil.validateSafety(anyString()))
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive(anyString(), any(User.class), eq("chat message")))
                 .thenThrow(new ModerationServiceException("down", new RuntimeException()));
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> service.chat(req, principal))
                 .isInstanceOf(ModerationServiceException.class);
@@ -100,19 +105,24 @@ class AiChatServiceImplTest {
     @DisplayName("chat: flagged user input throws IllegalArgumentException")
     void chat_flaggedInput_throws() {
         ChatMessageRequest req = new ChatMessageRequest("bad", null, Tone.FRIENDLY, null);
-        when(moderationUtil.validateSafety("bad")).thenReturn(false);
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("bad", user, "chat message")).thenReturn(false);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> service.chat(req, principal))
-                .isInstanceOf(IllegalArgumentException.class);
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("unsafe for age group");
     }
 
     @Test
     @DisplayName("chat: chat client exception results in RateLimitException")
     void chat_chatClientException_rateLimit() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive(anyString(), any(User.class), eq("chat message"))).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(callSpec.chatResponse()).thenThrow(new RuntimeException("boom"));
 
         assertThatThrownBy(() -> service.chat(req, principal))
@@ -123,9 +133,11 @@ class AiChatServiceImplTest {
     @DisplayName("chat: flagged reply gets sanitized")
     void chat_flaggedReply_sanitized() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationUtil.validateSafety("hi")).thenReturn(true);
-        when(moderationUtil.validateSafety("reply")).thenReturn(false);
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hi", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(false);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
         when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
             ChatContext ctx = inv.getArgument(0);
@@ -142,9 +154,10 @@ class AiChatServiceImplTest {
     @DisplayName("chat: null context creates new context")
     void chat_nullContext_createsContext() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
         User user = new User();
         user.setAge(8);
+        when(moderationUtil.validateComprehensive("hi", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
         when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
@@ -169,9 +182,10 @@ class AiChatServiceImplTest {
         );
         
         ChatMessageRequest req = new ChatMessageRequest("How are you?", null, Tone.FRIENDLY, contextHistory);
-        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
         User user = new User();
         user.setAge(8);
+        when(moderationUtil.validateComprehensive("How are you?", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("I'm doing great!", AgeGroup.AGE_6_8)).thenReturn(true);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(callSpec.chatResponse()).thenReturn(simpleResponse("I'm doing great!"));
         when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
@@ -195,8 +209,10 @@ class AiChatServiceImplTest {
     @DisplayName("chat: conversation format error throws helpful ConversationFormatException")
     void chat_conversationFormatError_throwsHelpfulException() {
         ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
-        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
-        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         when(callSpec.chatResponse()).thenThrow(new RuntimeException("messages must alternate between user and assistant"));
 
         assertThatThrownBy(() -> service.chat(req, principal))

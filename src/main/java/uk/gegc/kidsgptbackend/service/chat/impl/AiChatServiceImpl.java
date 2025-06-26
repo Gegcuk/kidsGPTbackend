@@ -22,6 +22,7 @@ import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
 import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
@@ -66,12 +67,13 @@ public class AiChatServiceImpl implements AiChatService {
     public ChatMessageResponse chat(ChatMessageRequest request, Principal principal) {
         Instant start = Instant.now();
 
-        if (!moderationUtil.validateSafety(request.message())) {
-            throw new IllegalArgumentException("User input flagged as unsafe");
-        }
-
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Use comprehensive validation for user input (includes both basic and AI-based validation)
+        if (!moderationUtil.validateComprehensive(request.message(), user, "chat message")) {
+            throw new IllegalArgumentException("User input flagged as unsafe for age group");
+        }
 
         ChatContext context = resolveContext(request, principal);
 
@@ -118,7 +120,9 @@ public class AiChatServiceImpl implements AiChatService {
                 .map(AbstractMessage::getText)
                 .orElse("");
 
-        if (!moderationUtil.validateSafety(replyText)) {
+        // Use age-aware validation for AI responses to ensure appropriateness for the user's age
+        if (!moderationUtil.validateSafetyForAge(replyText, user.getAge() != null ? 
+                AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
             replyText = "Oops, that topic's a bit tricky. Let's chat about something else fun!";
         }
 
