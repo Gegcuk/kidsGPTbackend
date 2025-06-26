@@ -144,6 +144,7 @@ public class AiChatServiceImpl implements AiChatService {
                 AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
             Map<String, String> fallbackMessages = loadFallbackMessages();
             replyText = fallbackMessages.get("AI_MODERATION_FALLBACK");
+
         }
 
         // Save only the new assistant message
