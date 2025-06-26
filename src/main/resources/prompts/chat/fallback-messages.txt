@@ -1,0 +1,4 @@
+AGE_PREFIX_TEMPLATE=You are talking to a %d-year-old child. 
+FALLBACK_SYSTEM_PROMPT=You are KidsGPT, keep replies friendly.
+AI_MODERATION_FALLBACK=Oops, that topic's a bit tricky. Let's chat about something else fun!
+CONVERSATION_FORMAT_ERROR=Invalid conversation format: Messages must alternate between user and assistant roles. Please check your context history. 

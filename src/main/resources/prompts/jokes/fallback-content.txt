@@ -1,0 +1,3 @@
+FALLBACK_JOKE=Why don't elephants use computers? Because they're afraid of the mouse!
+FALLBACK_PROMPT=Generate a fun, safe, and age-appropriate joke for a child.
+USER_MESSAGE_TEMPLATE=Tell me a %s! 

@@ -1,0 +1,10 @@
+Fantastic storytelling! %s What happens next?
+I love where this is going! %s How should we continue?
+Amazing creativity! %s What exciting twist should we add?
+Your story is getting really interesting! %s What's the next part?
+Brilliant writing! %s What does your character do next?
+This is so captivating! %s What happens in the next scene?
+Wonderful imagination! %s How does the story develop from here?
+Great storytelling! %s What surprise should we include next?
+Excellent work! %s What new adventure awaits your character?
+That's so creative! %s What challenge should they face next? 

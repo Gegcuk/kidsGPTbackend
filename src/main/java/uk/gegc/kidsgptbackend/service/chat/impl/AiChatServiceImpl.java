@@ -36,7 +36,9 @@ import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 
@@ -54,11 +56,26 @@ public class AiChatServiceImpl implements AiChatService {
     @Value("classpath:system-prompt.txt")
     private Resource systemPrompt;
 
-    private static final String[] TEMPLATES = {
+    @Value("classpath:prompts/chat/chat-templates.txt")
+    private Resource chatTemplatesResource;
+    
+    @Value("classpath:prompts/chat/fallback-messages.txt")
+    private Resource fallbackMessagesResource;
+
+    // Fallback templates if file loading fails
+    private static final String[] FALLBACK_TEMPLATES = {
             "%s Can you think of another example?",
             "Let's explore this: %s What else comes to mind?",
             "%s What do you think about it?"
     };
+
+    private static final Map<String, String> FALLBACK_MESSAGES = Map.of(
+            "AGE_PREFIX_TEMPLATE", "You are talking to a %d-year-old child. ",
+            "FALLBACK_SYSTEM_PROMPT", "You are KidsGPT, keep replies friendly.",
+            "AI_MODERATION_FALLBACK", "Oops, that topic's a bit tricky. Let's chat about something else fun!",
+            "CONVERSATION_FORMAT_ERROR", "Invalid conversation format: Messages must alternate between user and assistant roles. Please check your context history."
+    );
+
     private final Random random = new Random();
     private static final Logger logger = LoggerFactory.getLogger(AiChatServiceImpl.class);
 
@@ -88,7 +105,8 @@ public class AiChatServiceImpl implements AiChatService {
         List<Message> conversationHistory = buildConversationHistory(request.context());
         
         // Add the new user message to the conversation
-        String decorated = String.format(TEMPLATES[random.nextInt(TEMPLATES.length)], request.message());
+        String[] templates = loadChatTemplates();
+        String decorated = String.format(templates[random.nextInt(templates.length)], request.message());
         conversationHistory.add(new UserMessage(decorated));
 
         String systemText = loadSystemPrompt(user);
@@ -110,7 +128,8 @@ public class AiChatServiceImpl implements AiChatService {
                 errorMessage.contains("role") ||
                 errorMessage.contains("messages must alternate")
             )) {
-                throw new ConversationFormatException("Invalid conversation format: Messages must alternate between user and assistant roles. Please check your context history.", e);
+                Map<String, String> fallbackMessages = loadFallbackMessages();
+                throw new ConversationFormatException(fallbackMessages.get("CONVERSATION_FORMAT_ERROR"), e);
             }
             throw new RateLimitException("LLM rate-limited", e);
         }
@@ -123,7 +142,9 @@ public class AiChatServiceImpl implements AiChatService {
         // Use age-aware validation for AI responses to ensure appropriateness for the user's age
         if (!moderationUtil.validateSafetyForAge(replyText, user.getAge() != null ? 
                 AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
-            replyText = "Oops, that topic's a bit tricky. Let's chat about something else fun!";
+            Map<String, String> fallbackMessages = loadFallbackMessages();
+            replyText = fallbackMessages.get("AI_MODERATION_FALLBACK");
+
         }
 
         // Save only the new assistant message
@@ -156,12 +177,13 @@ public class AiChatServiceImpl implements AiChatService {
     }
 
     private String loadSystemPrompt(User user) {
-        String ageBasedPrompt = "You are talking to a " + user.getAge() + "-year-old child. ";
+        Map<String, String> fallbackMessages = loadFallbackMessages();
+        String ageBasedPrompt = String.format(fallbackMessages.get("AGE_PREFIX_TEMPLATE"), user.getAge());
         try {
             String basePrompt = StreamUtils.copyToString(systemPrompt.getInputStream(), StandardCharsets.UTF_8);
             return ageBasedPrompt + basePrompt;
         } catch (IOException e) {
-            return ageBasedPrompt + "You are KidsGPT, keep replies friendly.";
+            return ageBasedPrompt + fallbackMessages.get("FALLBACK_SYSTEM_PROMPT");
         }
     }
 
@@ -184,5 +206,47 @@ public class AiChatServiceImpl implements AiChatService {
         }
         
         return messages;
+    }
+
+    /**
+     * Loads chat templates from file.
+     */
+    private String[] loadChatTemplates() {
+        try {
+            if (chatTemplatesResource == null) {
+                logger.warn("Chat templates resource is null, using fallback");
+                return FALLBACK_TEMPLATES;
+            }
+            String content = StreamUtils.copyToString(chatTemplatesResource.getInputStream(), StandardCharsets.UTF_8);
+            return content.trim().split("\n");
+        } catch (IOException e) {
+            logger.warn("Failed to load chat templates, using fallback", e);
+            return FALLBACK_TEMPLATES;
+        }
+    }
+
+    /**
+     * Loads fallback messages from file.
+     */
+    private Map<String, String> loadFallbackMessages() {
+        try {
+            if (fallbackMessagesResource == null) {
+                logger.warn("Fallback messages resource is null, using fallback");
+                return FALLBACK_MESSAGES;
+            }
+            String content = StreamUtils.copyToString(fallbackMessagesResource.getInputStream(), StandardCharsets.UTF_8);
+            Map<String, String> messages = new HashMap<>();
+            String[] lines = content.split("\n");
+            for (String line : lines) {
+                if (line.contains("=")) {
+                    String[] parts = line.split("=", 2);
+                    messages.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+            return messages;
+        } catch (IOException e) {
+            logger.warn("Failed to load fallback messages, using fallback", e);
+            return FALLBACK_MESSAGES;
+        }
     }
 }

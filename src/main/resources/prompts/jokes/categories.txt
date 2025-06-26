@@ -1,0 +1,8 @@
+animals
+school
+science
+wordplay
+food
+sports
+technology
+nature 

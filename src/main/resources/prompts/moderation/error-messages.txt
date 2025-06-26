@@ -1,0 +1,6 @@
+CONTENT_NULL_OR_EMPTY=Content cannot be null or empty
+CONTENT_TOO_LONG=Content too long (max 1000 characters)
+CONTENT_TOO_SHORT=Content too short (min 3 characters)
+MODERATION_SERVICE_UNAVAILABLE=Moderation service unavailable
+INAPPROPRIATE_CONTENT_DETECTED=inappropriate content detected
+INAPPROPRIATE_FOR_AGE_GROUP=%s inappropriate for age group: %s 
