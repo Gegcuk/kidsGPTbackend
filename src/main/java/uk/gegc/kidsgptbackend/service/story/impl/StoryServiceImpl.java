@@ -38,8 +38,10 @@ import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.UUID;
 
 @Service
@@ -68,14 +70,21 @@ public class StoryServiceImpl implements StoryService {
     @Value("classpath:prompts/stories/age-15-16.txt")
     private Resource storyPrompt15_16;
 
-    private static final String[] START_STORY_TEMPLATES = {
+    @Value("classpath:prompts/stories/start-templates.txt")
+    private Resource startTemplatesResource;
+    
+    @Value("classpath:prompts/stories/continue-templates.txt")
+    private Resource continueTemplatesResource;
+
+    // Fallback templates if file loading fails
+    private static final String[] FALLBACK_START_TEMPLATES = {
             "What an exciting story title! Let's create something amazing together. %s",
             "I love that title! Let's bring this story to life. %s",
             "Great choice for a story! Let's start creating. %s",
             "Perfect title for an adventure! Let's begin. %s"
     };
     
-    private static final String[] CONTINUE_STORY_TEMPLATES = {
+    private static final String[] FALLBACK_CONTINUE_TEMPLATES = {
             "Fantastic storytelling! %s What happens next?",
             "I love where this is going! %s How should we continue?",
             "Amazing creativity! %s What exciting twist should we add?",
@@ -83,6 +92,7 @@ public class StoryServiceImpl implements StoryService {
     };
 
     private static final Logger logger = LoggerFactory.getLogger(StoryServiceImpl.class);
+    private final Random random = new Random();
 
     @Override
     public StartStoryResponse startStory(StartStoryRequest request, Principal principal) {
@@ -98,18 +108,22 @@ public class StoryServiceImpl implements StoryService {
         story.setStatus(StoryStatus.STARTED);
         story = storyRepository.save(story);
 
-        // Generate encouraging message
+        // Generate encouraging message with template
         String systemPrompt = loadStoryPrompt(user);
-        String userInput = request.initialIdea() != null && !request.initialIdea().trim().isEmpty()
+        String baseUserInput = request.initialIdea() != null && !request.initialIdea().trim().isEmpty()
                 ? "I want to write a story called '" + request.title() + "'. " + request.initialIdea()
                 : "I want to write a story called '" + request.title() + "'. Can you help me get started?";
 
-        String encouragingMessage = generateAiResponse(systemPrompt, userInput, user);
+        // Apply encouraging template
+        String template = getRandomStartTemplate();
+        String templatedUserInput = String.format(template, baseUserInput);
+
+        String encouragingMessage = generateAiResponse(systemPrompt, templatedUserInput, user);
         
-        // Save the initial exchange
+        // Save the initial exchange (save original user input, not templated)
         StoryMessage userMessage = new StoryMessage();
         userMessage.setRole("USER");
-        userMessage.setContent(userInput);
+        userMessage.setContent(baseUserInput);
         story.addMessage(userMessage);
 
         StoryMessage assistantMessage = new StoryMessage();
@@ -148,10 +162,14 @@ public class StoryServiceImpl implements StoryService {
             throw new IllegalArgumentException("User input flagged as unsafe for age group");
         }
 
-        // Generate AI response
+        // Generate AI response with encouraging template
         String systemPrompt = loadStoryPrompt(user);
         List<Message> conversationHistory = buildConversationHistory(story);
-        conversationHistory.add(new UserMessage(request.content()));
+        
+        // Apply encouraging template to user's continuation
+        String template = getRandomContinueTemplate();
+        String templatedContent = String.format(template, request.content());
+        conversationHistory.add(new UserMessage(templatedContent));
         
         String aiResponse = generateAiResponseWithHistory(systemPrompt, conversationHistory, user);
 
@@ -286,5 +304,35 @@ public class StoryServiceImpl implements StoryService {
     private String getDefaultStoryPrompt(Integer age) {
         String ageBasedPrompt = "You are talking to a " + (age != null ? age : 9) + "-year-old child. ";
         return ageBasedPrompt + "Help them create amazing stories! Be encouraging, creative, and ask questions that spark their imagination. Keep responses friendly and age-appropriate.";
+    }
+
+    private String[] loadStartTemplates() {
+        try {
+            String templatesContent = StreamUtils.copyToString(startTemplatesResource.getInputStream(), StandardCharsets.UTF_8);
+            return templatesContent.trim().split("\n");
+        } catch (IOException e) {
+            logger.warn("Failed to load start templates from file, using fallback templates", e);
+            return FALLBACK_START_TEMPLATES;
+        }
+    }
+
+    private String[] loadContinueTemplates() {
+        try {
+            String templatesContent = StreamUtils.copyToString(continueTemplatesResource.getInputStream(), StandardCharsets.UTF_8);
+            return templatesContent.trim().split("\n");
+        } catch (IOException e) {
+            logger.warn("Failed to load continue templates from file, using fallback templates", e);
+            return FALLBACK_CONTINUE_TEMPLATES;
+        }
+    }
+
+    private String getRandomStartTemplate() {
+        String[] templates = loadStartTemplates();
+        return templates[random.nextInt(templates.length)];
+    }
+
+    private String getRandomContinueTemplate() {
+        String[] templates = loadContinueTemplates();
+        return templates[random.nextInt(templates.length)];
     }
 } 

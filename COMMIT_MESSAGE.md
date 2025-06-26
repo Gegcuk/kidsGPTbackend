@@ -91,7 +91,37 @@ Implemented a complete story creation system with dedicated entities, proper lif
 ## 📚 **Documentation**
 - `STORY_API.md` - Comprehensive API documentation
 - `prompts/stories/README.txt` - Story prompt system documentation
+- `prompts/stories/templates-README.txt` - Template system documentation
 - Inline code documentation and examples
+
+## 🔧 **Template Extraction Enhancement**
+
+### **Story Templates**
+- Extracted hardcoded templates to configurable text files
+- `start-templates.txt` - 8 encouraging story start templates
+- `continue-templates.txt` - 10 motivational continuation templates
+- Templates loaded dynamically with fallback to hardcoded versions
+- Random template selection for variety
+
+### **Moderation Templates**
+- Extracted all hardcoded moderation strings to configurable files
+- `age-aware-prompt-template.txt` - Template for age-specific content validation
+- `ai-validation-system-template.txt` - System prompt for AI content analysis
+- `ai-validation-user-template.txt` - User prompt template for validation
+- `error-messages.txt` - Configurable validation error messages (KEY=VALUE format)
+- `age-guidelines/` - Separate content guidelines for each age group:
+  - `age-6-8.txt` - Simple, safe content guidelines
+  - `age-9-10.txt` - Basic adventure and educational content
+  - `age-11-12.txt` - More complex but child-appropriate themes  
+  - `age-13-14.txt` - Sophisticated concepts and discussions
+  - `age-15-16.txt` - Teen-appropriate themes and expression
+
+### **Template System Benefits**
+- **Easy Customization** - Update templates and validation rules without code changes
+- **Maintainability** - Centralized template and message management
+- **Reliability** - Comprehensive fallback system with null resource handling
+- **Localization Ready** - Error messages easily translatable
+- **Age-Appropriate** - Moderation guidelines tailored to developmental stages
 
 ## 🎯 **Key Benefits**
 

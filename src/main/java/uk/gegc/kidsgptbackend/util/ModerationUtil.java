@@ -7,10 +7,18 @@ import org.springframework.ai.moderation.ModerationModel;
 import org.springframework.ai.moderation.ModerationPrompt;
 import org.springframework.ai.moderation.ModerationResponse;
 import org.springframework.ai.moderation.ModerationResult;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.User;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Centralized utility for content moderation and validation.
@@ -23,6 +31,76 @@ public class ModerationUtil {
 
     private final ModerationModel moderationModel;
     private final ChatClient chatClient;
+
+    @Value("classpath:prompts/moderation/age-aware-prompt-template.txt")
+    private Resource ageAwarePromptTemplate;
+    
+    @Value("classpath:prompts/moderation/ai-validation-system-template.txt")
+    private Resource aiValidationSystemTemplate;
+    
+    @Value("classpath:prompts/moderation/ai-validation-user-template.txt")
+    private Resource aiValidationUserTemplate;
+    
+    @Value("classpath:prompts/moderation/error-messages.txt")
+    private Resource errorMessagesResource;
+    
+    @Value("classpath:prompts/moderation/age-guidelines/age-6-8.txt")
+    private Resource ageGuidelines6_8;
+    
+    @Value("classpath:prompts/moderation/age-guidelines/age-9-10.txt")
+    private Resource ageGuidelines9_10;
+    
+    @Value("classpath:prompts/moderation/age-guidelines/age-11-12.txt")
+    private Resource ageGuidelines11_12;
+    
+    @Value("classpath:prompts/moderation/age-guidelines/age-13-14.txt")
+    private Resource ageGuidelines13_14;
+    
+    @Value("classpath:prompts/moderation/age-guidelines/age-15-16.txt")
+    private Resource ageGuidelines15_16;
+
+    // Fallback templates if file loading fails
+    private static final String FALLBACK_AGE_AWARE_TEMPLATE = 
+            "Check if this content is appropriate for children aged %d-%d years old. " +
+            "Consider age-appropriate language, complexity, and topics. Content: %s";
+            
+    private static final String FALLBACK_AI_SYSTEM_TEMPLATE = """
+            You are a content safety validator for a children's AI service.
+            
+            Your task: Determine if this %s is appropriate for %s year old children.
+            
+            Guidelines for %s:
+            %s
+            
+            ALWAYS consider:
+            - No violence, weapons, or scary content
+            - No sexual, inappropriate, or adult themes  
+            - No harmful substances (drugs, alcohol, tobacco)
+            - No disturbing or frightening imagery
+            - Content should be positive, educational, or entertaining
+            - Age-appropriate complexity and themes
+            
+            Respond ONLY with:
+            - 'SAFE' if the content is completely appropriate
+            - 'UNSAFE: [specific reason]' if inappropriate
+            
+            Be strict in your evaluation - when in doubt, mark as UNSAFE.
+            """;
+            
+    private static final String FALLBACK_AI_USER_TEMPLATE = """
+            Please analyze this %s: "%s"
+            
+            Respond with only 'SAFE' if appropriate for the age group, or 'UNSAFE: reason' if not appropriate.
+            """;
+
+    private static final Map<String, String> FALLBACK_ERROR_MESSAGES = Map.of(
+            "CONTENT_NULL_OR_EMPTY", "Content cannot be null or empty",
+            "CONTENT_TOO_LONG", "Content too long (max 1000 characters)",
+            "CONTENT_TOO_SHORT", "Content too short (min 3 characters)",
+            "MODERATION_SERVICE_UNAVAILABLE", "Moderation service unavailable",
+            "INAPPROPRIATE_CONTENT_DETECTED", "inappropriate content detected",
+            "INAPPROPRIATE_FOR_AGE_GROUP", "%s inappropriate for age group: %s"
+    );
 
     /**
      * Basic content safety validation using OpenAI moderation API.
@@ -68,13 +146,10 @@ public class ModerationUtil {
         log.debug("Validating content safety for age group {}: '{}'", ageGroup, content);
         
         try {
-            // Create age-specific moderation prompt
-            String moderationPrompt = String.format(
-                    "Check if this content is appropriate for children aged %d-%d years old. " +
-                            "Consider age-appropriate language, complexity, and topics. " +
-                            "Content: %s",
-                    ageGroup.getMinAge(), ageGroup.getMaxAge(), content
-            );
+            // Create age-specific moderation prompt using template
+            String promptTemplate = loadAgeAwarePromptTemplate();
+            String moderationPrompt = String.format(promptTemplate,
+                    ageGroup.getMinAge(), ageGroup.getMaxAge(), content);
 
             log.debug("Age-aware moderation prompt: '{}'", moderationPrompt);
             
@@ -120,17 +195,19 @@ public class ModerationUtil {
      * @throws IllegalArgumentException if content is inappropriate
      */
     public void validateContentWithAI(String content, User user, String contentType) {
-        // Basic validation first
+        // Basic validation first using configurable error messages
+        Map<String, String> errorMessages = loadErrorMessages();
+        
         if (content == null || content.trim().isEmpty()) {
-            throw new IllegalArgumentException("Content cannot be null or empty");
+            throw new IllegalArgumentException(errorMessages.get("CONTENT_NULL_OR_EMPTY"));
         }
         
         if (content.length() > 1000) {
-            throw new IllegalArgumentException("Content too long (max 1000 characters)");
+            throw new IllegalArgumentException(errorMessages.get("CONTENT_TOO_LONG"));
         }
         
         if (content.length() < 3) {
-            throw new IllegalArgumentException("Content too short (min 3 characters)");
+            throw new IllegalArgumentException(errorMessages.get("CONTENT_TOO_SHORT"));
         }
 
         log.debug("Using AI to validate {}: '{}'", contentType, content);
@@ -138,11 +215,8 @@ public class ModerationUtil {
         AgeGroup ageGroup = user.getAge() != null ? AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10;
         
         String validationSystemPrompt = createValidationSystemPrompt(ageGroup, contentType);
-        String validationUserPrompt = String.format(
-            "Please analyze this %s: \"%s\"\n\n" +
-            "Respond with only 'SAFE' if appropriate for the age group, or 'UNSAFE: reason' if not appropriate.", 
-            contentType, content
-        );
+        String userTemplate = loadAiValidationUserTemplate();
+        String validationUserPrompt = String.format(userTemplate, contentType, content);
 
         try {
             log.debug("Sending {} validation request to AI for age group: {}", contentType, ageGroup);
@@ -161,9 +235,9 @@ public class ModerationUtil {
                 
                 String reason = validationResponse != null && validationResponse.contains(":") 
                     ? validationResponse.substring(validationResponse.indexOf(":") + 1).trim()
-                    : "inappropriate content detected";
+                    : errorMessages.get("INAPPROPRIATE_CONTENT_DETECTED");
                     
-                throw new IllegalArgumentException(String.format("%s inappropriate for age group: %s", 
+                throw new IllegalArgumentException(String.format(errorMessages.get("INAPPROPRIATE_FOR_AGE_GROUP"), 
                     capitalizeFirst(contentType), reason));
             }
 
@@ -206,31 +280,11 @@ public class ModerationUtil {
     }
 
     /**
-     * Creates a validation system prompt for AI-based content analysis.
+     * Creates a validation system prompt for AI-based content analysis using configurable template.
      */
     private String createValidationSystemPrompt(AgeGroup ageGroup, String contentType) {
-        return String.format("""
-            You are a content safety validator for a children's AI service.
-            
-            Your task: Determine if this %s is appropriate for %s year old children.
-            
-            Guidelines for %s:
-            %s
-            
-            ALWAYS consider:
-            - No violence, weapons, or scary content
-            - No sexual, inappropriate, or adult themes  
-            - No harmful substances (drugs, alcohol, tobacco)
-            - No disturbing or frightening imagery
-            - Content should be positive, educational, or entertaining
-            - Age-appropriate complexity and themes
-            
-            Respond ONLY with:
-            - 'SAFE' if the content is completely appropriate
-            - 'UNSAFE: [specific reason]' if inappropriate
-            
-            Be strict in your evaluation - when in doubt, mark as UNSAFE.
-            """, 
+        String systemTemplate = loadAiValidationSystemTemplate();
+        return String.format(systemTemplate, 
             contentType,
             getAgeRangeDescription(ageGroup),
             ageGroup.name(),
@@ -249,6 +303,117 @@ public class ModerationUtil {
     }
 
     private String getAgeSpecificGuidelines(AgeGroup ageGroup) {
+        return loadAgeSpecificGuidelines(ageGroup);
+    }
+
+    private String capitalizeFirst(String str) {
+        if (str == null || str.isEmpty()) {
+            return str;
+        }
+        return str.substring(0, 1).toUpperCase() + str.substring(1);
+    }
+
+    /**
+     * Loads the age-aware prompt template from file.
+     */
+    private String loadAgeAwarePromptTemplate() {
+        try {
+            if (ageAwarePromptTemplate == null) {
+                log.warn("Age-aware prompt template resource is null, using fallback");
+                return FALLBACK_AGE_AWARE_TEMPLATE;
+            }
+            return StreamUtils.copyToString(ageAwarePromptTemplate.getInputStream(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("Failed to load age-aware prompt template, using fallback", e);
+            return FALLBACK_AGE_AWARE_TEMPLATE;
+        }
+    }
+
+    /**
+     * Loads the AI validation system template from file.
+     */
+    private String loadAiValidationSystemTemplate() {
+        try {
+            if (aiValidationSystemTemplate == null) {
+                log.warn("AI validation system template resource is null, using fallback");
+                return FALLBACK_AI_SYSTEM_TEMPLATE;
+            }
+            return StreamUtils.copyToString(aiValidationSystemTemplate.getInputStream(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("Failed to load AI validation system template, using fallback", e);
+            return FALLBACK_AI_SYSTEM_TEMPLATE;
+        }
+    }
+
+    /**
+     * Loads the AI validation user template from file.
+     */
+    private String loadAiValidationUserTemplate() {
+        try {
+            if (aiValidationUserTemplate == null) {
+                log.warn("AI validation user template resource is null, using fallback");
+                return FALLBACK_AI_USER_TEMPLATE;
+            }
+            return StreamUtils.copyToString(aiValidationUserTemplate.getInputStream(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("Failed to load AI validation user template, using fallback", e);
+            return FALLBACK_AI_USER_TEMPLATE;
+        }
+    }
+
+    /**
+     * Loads error messages from file.
+     */
+    private Map<String, String> loadErrorMessages() {
+        try {
+            if (errorMessagesResource == null) {
+                log.warn("Error messages resource is null, using fallback");
+                return FALLBACK_ERROR_MESSAGES;
+            }
+            String content = StreamUtils.copyToString(errorMessagesResource.getInputStream(), StandardCharsets.UTF_8);
+            Map<String, String> messages = new HashMap<>();
+            String[] lines = content.split("\n");
+            for (String line : lines) {
+                if (line.contains("=")) {
+                    String[] parts = line.split("=", 2);
+                    messages.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+            return messages;
+        } catch (IOException e) {
+            log.warn("Failed to load error messages, using fallback", e);
+            return FALLBACK_ERROR_MESSAGES;
+        }
+    }
+
+    /**
+     * Loads age-specific guidelines from file for the given age group.
+     */
+    private String loadAgeSpecificGuidelines(AgeGroup ageGroup) {
+        try {
+            Resource resource = getAgeGuidelinesResource(ageGroup);
+            if (resource == null) {
+                log.warn("Age guidelines resource is null for {}, using fallback", ageGroup);
+                return getFallbackAgeGuidelines(ageGroup);
+            }
+            return StreamUtils.copyToString(resource.getInputStream(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("Failed to load age guidelines for {}, using fallback", ageGroup, e);
+            return getFallbackAgeGuidelines(ageGroup);
+        }
+    }
+
+    private Resource getAgeGuidelinesResource(AgeGroup ageGroup) {
+        return switch (ageGroup) {
+            case AGE_6_8 -> ageGuidelines6_8;
+            case AGE_9_10 -> ageGuidelines9_10;
+            case AGE_11_12 -> ageGuidelines11_12;
+            case AGE_13_14 -> ageGuidelines13_14;
+            case AGE_15_16 -> ageGuidelines15_16;
+        };
+    }
+
+    private String getFallbackAgeGuidelines(AgeGroup ageGroup) {
         return switch (ageGroup) {
             case AGE_6_8 -> """
                 - Very simple, colorful, safe content only
@@ -281,12 +446,5 @@ public class ModerationUtil {
                 - Social and environmental awareness themes
                 """;
         };
-    }
-
-    private String capitalizeFirst(String str) {
-        if (str == null || str.isEmpty()) {
-            return str;
-        }
-        return str.substring(0, 1).toUpperCase() + str.substring(1);
     }
 } 

@@ -136,22 +136,33 @@ Lists user's stories with pagination.
 - **StoryListDto**: Summary for listings
 - **StoryMessageDto**: Individual message data
 
-## 🎨 **Age-Specific Prompts**
+## 🎨 **Age-Specific Features**
 
-The system uses different prompts based on user age:
+### **Story Prompts**
+- `age-6-8.txt` - Simple, magical, encouraging storytelling
+- `age-9-10.txt` - More complex plots with character development  
+- `age-11-12.txt` - Sophisticated themes and deeper character work
+- `age-13-14.txt` - Complex themes and advanced writing techniques
+- `age-15-16.txt` - Professional-level concepts and artistic voice development
 
-- **Ages 6-8**: Simple, magical, encouraging
-- **Ages 9-10**: More complex plots, character development
-- **Ages 11-12**: Sophisticated themes, deeper character work
-- **Ages 13-14**: Complex themes, advanced techniques  
-- **Ages 15-16**: Professional-level concepts, artistic voice
+### **Motivational Templates**
+- `start-templates.txt` - Encouraging messages for new stories
+- `continue-templates.txt` - Motivational responses for continuations
+- Templates are randomly selected for variety
+- Configurable without code changes
+- Include %s placeholder for user content
 
-## 🔒 **Security & Moderation**
+### **Age-Aware Moderation**
+- User input validation with `validateComprehensive()`
+- AI response validation with `validateSafetyForAge()`
+- Graceful fallbacks for flagged content
+- Context-aware moderation for story content
 
-- All user input validated with comprehensive moderation
-- AI responses checked for age-appropriateness
-- Users can only access their own stories
+## 🔒 **Security & Authentication**
+
 - JWT authentication required for all endpoints
+- Users can only access their own stories
+- Secure story isolation by username
 
 ## 🎯 **Key Features**
 

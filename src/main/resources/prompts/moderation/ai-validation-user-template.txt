@@ -1,0 +1,3 @@
+Please analyze this %s: "%s"
+
+Respond with only 'SAFE' if appropriate for the age group, or 'UNSAFE: reason' if not appropriate. 
