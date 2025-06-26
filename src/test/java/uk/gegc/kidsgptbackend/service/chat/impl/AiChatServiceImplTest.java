@@ -13,7 +13,6 @@ import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.moderation.*;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.test.util.ReflectionTestUtils;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
@@ -29,6 +28,7 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
 import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -55,7 +55,7 @@ class AiChatServiceImplTest {
     @Mock
     ChatClient.CallResponseSpec callSpec;
     @Mock
-    ModerationModel moderationClient;
+    ModerationUtil moderationUtil;
     @Mock
     UserRepository userRepository;
 
@@ -75,19 +75,7 @@ class AiChatServiceImplTest {
         when(requestSpec.call()).thenReturn(callSpec);
     }
 
-    private ModerationResponse safeModeration() {
-        Moderation mod = Moderation.builder()
-                .results(List.of(new ModerationResult.Builder().flagged(false).build()))
-                .build();
-        return new ModerationResponse(new org.springframework.ai.moderation.Generation(mod));
-    }
-
-    private ModerationResponse flaggedModeration() {
-        Moderation mod = Moderation.builder()
-                .results(List.of(new ModerationResult.Builder().flagged(true).build()))
-                .build();
-        return new ModerationResponse(new org.springframework.ai.moderation.Generation(mod));
-    }
+    // Removed - now using ModerationUtil
 
     private ChatResponse simpleResponse(String text) {
         AssistantMessage m = new AssistantMessage(text);
@@ -100,8 +88,8 @@ class AiChatServiceImplTest {
     @DisplayName("chat: moderation failure throws ModerationServiceException")
     void chat_moderationFailure_exception() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationClient.call(any(ModerationPrompt.class)))
-                .thenThrow(new RuntimeException("down"));
+        when(moderationUtil.validateSafety(anyString()))
+                .thenThrow(new ModerationServiceException("down", new RuntimeException()));
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
 
         assertThatThrownBy(() -> service.chat(req, principal))
@@ -112,7 +100,7 @@ class AiChatServiceImplTest {
     @DisplayName("chat: flagged user input throws IllegalArgumentException")
     void chat_flaggedInput_throws() {
         ChatMessageRequest req = new ChatMessageRequest("bad", null, Tone.FRIENDLY, null);
-        when(moderationClient.call(any(ModerationPrompt.class))).thenReturn(flaggedModeration());
+        when(moderationUtil.validateSafety("bad")).thenReturn(false);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
 
         assertThatThrownBy(() -> service.chat(req, principal))
@@ -123,8 +111,7 @@ class AiChatServiceImplTest {
     @DisplayName("chat: chat client exception results in RateLimitException")
     void chat_chatClientException_rateLimit() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationClient.call(any(ModerationPrompt.class)))
-                .thenReturn(safeModeration());
+        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
         when(callSpec.chatResponse()).thenThrow(new RuntimeException("boom"));
 
@@ -136,9 +123,8 @@ class AiChatServiceImplTest {
     @DisplayName("chat: flagged reply gets sanitized")
     void chat_flaggedReply_sanitized() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationClient.call(any(ModerationPrompt.class)))
-                .thenReturn(safeModeration())
-                .thenReturn(flaggedModeration());
+        when(moderationUtil.validateSafety("hi")).thenReturn(true);
+        when(moderationUtil.validateSafety("reply")).thenReturn(false);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
         when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
         when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
@@ -156,9 +142,7 @@ class AiChatServiceImplTest {
     @DisplayName("chat: null context creates new context")
     void chat_nullContext_createsContext() {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        when(moderationClient.call(any(ModerationPrompt.class)))
-                .thenReturn(safeModeration())
-                .thenReturn(safeModeration());
+        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
         User user = new User();
         user.setAge(8);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
@@ -185,9 +169,7 @@ class AiChatServiceImplTest {
         );
         
         ChatMessageRequest req = new ChatMessageRequest("How are you?", null, Tone.FRIENDLY, contextHistory);
-        when(moderationClient.call(any(ModerationPrompt.class)))
-                .thenReturn(safeModeration())
-                .thenReturn(safeModeration());
+        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
         User user = new User();
         user.setAge(8);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
@@ -213,8 +195,7 @@ class AiChatServiceImplTest {
     @DisplayName("chat: conversation format error throws helpful ConversationFormatException")
     void chat_conversationFormatError_throwsHelpfulException() {
         ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
-        when(moderationClient.call(any(ModerationPrompt.class)))
-                .thenReturn(safeModeration());
+        when(moderationUtil.validateSafety(anyString())).thenReturn(true);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
         when(callSpec.chatResponse()).thenThrow(new RuntimeException("messages must alternate between user and assistant"));
 
