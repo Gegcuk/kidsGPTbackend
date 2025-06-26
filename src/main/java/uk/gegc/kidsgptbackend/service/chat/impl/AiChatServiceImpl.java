@@ -22,6 +22,7 @@ import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
 import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
@@ -102,6 +103,17 @@ public class AiChatServiceImpl implements AiChatService {
                     .call()
                     .chatResponse();
         } catch (Exception e) {
+            // Check if the error is related to conversation format/constraints
+            String errorMessage = e.getMessage();
+            if (errorMessage != null && (
+                errorMessage.contains("conversation") || 
+                errorMessage.contains("alternating") || 
+                errorMessage.contains("consecutive") ||
+                errorMessage.contains("role") ||
+                errorMessage.contains("messages must alternate")
+            )) {
+                throw new ConversationFormatException("Invalid conversation format: Messages must alternate between user and assistant roles. Please check your context history.", e);
+            }
             throw new RateLimitException("LLM rate-limited", e);
         }
         String replyText = Optional.ofNullable(chatResponse)

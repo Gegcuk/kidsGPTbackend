@@ -20,6 +20,7 @@ import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
 import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
@@ -206,5 +207,20 @@ class AiChatServiceImplTest {
         // Verify that messages() was called with the context history
         verify(requestSpec).messages(any(List.class));
         verify(requestSpec, never()).user(anyString()); // Should not use user() when context is provided
+    }
+
+    @Test
+    @DisplayName("chat: conversation format error throws helpful ConversationFormatException")
+    void chat_conversationFormatError_throwsHelpfulException() {
+        ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
+        when(moderationClient.call(any(ModerationPrompt.class)))
+                .thenReturn(safeModeration());
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(new User()));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("messages must alternate between user and assistant"));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ConversationFormatException.class)
+                .hasMessageContaining("Invalid conversation format")
+                .hasMessageContaining("Messages must alternate between user and assistant roles");
     }
 }
