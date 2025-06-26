@@ -116,6 +116,20 @@ Implemented a complete story creation system with dedicated entities, proper lif
   - `age-13-14.txt` - Sophisticated concepts and discussions
   - `age-15-16.txt` - Teen-appropriate themes and expression
 
+### **Jokes Service Templates**
+- `jokes/categories.txt` - Configurable joke categories list
+- `jokes/joke-types.txt` - Random joke type selection for variety
+- `jokes/fallback-content.txt` - Fallback jokes, prompts, and user message templates
+
+### **Tips Service Templates**  
+- `tips/categories.txt` - Configurable tip categories for fun facts
+- `tips/topics.txt` - Random topic selection for educational content
+- `tips/fallback-content.txt` - Fallback facts, prompts, and user message templates
+
+### **Chat Service Templates**
+- `chat/chat-templates.txt` - Encouragement templates for user message decoration
+- `chat/fallback-messages.txt` - System messages, error texts, and moderation fallbacks
+
 ### **Template System Benefits**
 - **Easy Customization** - Update templates and validation rules without code changes
 - **Maintainability** - Centralized template and message management

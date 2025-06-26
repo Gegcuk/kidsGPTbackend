@@ -6,6 +6,8 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.messages.AbstractMessage;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
@@ -14,8 +16,11 @@ import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
+import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
 import java.nio.charset.StandardCharsets;
@@ -30,15 +35,31 @@ public class DailyTipServiceImpl implements DailyTipService {
     private final ResourceLoader resourceLoader;
     private final Random random = new Random();
 
-    private static final List<String> CATEGORIES = Arrays.asList(
+    @Value("classpath:prompts/tips/categories.txt")
+    private Resource categoriesResource;
+    
+    @Value("classpath:prompts/tips/topics.txt")
+    private Resource topicsResource;
+    
+    @Value("classpath:prompts/tips/fallback-content.txt")
+    private Resource fallbackContentResource;
+
+    // Fallback lists if file loading fails
+    private static final List<String> FALLBACK_CATEGORIES = Arrays.asList(
             "science", "nature", "space", "history", "animals", "geography", "technology", "art"
     );
 
-    private static final List<String> TOPICS = Arrays.asList(
+    private static final List<String> FALLBACK_TOPICS = Arrays.asList(
             "space and planets", "animals and wildlife", "science and technology",
             "geography and nature", "human body and health", "art and creativity",
             "sports and games", "oceans and marine life", "weather and climate",
             "inventions and discoveries", "plants and trees", "music and sound"
+    );
+
+    private static final Map<String, String> FALLBACK_CONTENT = Map.of(
+            "FALLBACK_FACT", "Did you know that honey never spoils? Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible!",
+            "FALLBACK_PROMPT", "Generate a fun, safe, and educational fact for a child.",
+            "USER_MESSAGE_TEMPLATE", "Give me a fun fact about %s!"
     );
 
     @Override
@@ -55,12 +76,18 @@ public class DailyTipServiceImpl implements DailyTipService {
 
         try {
             log.info("Making AI chat request...");
-            String randomTopic = TOPICS.get(random.nextInt(TOPICS.size()));
+            List<String> topics = loadTopics();
+            Map<String, String> fallbackContent = loadFallbackContent();
+            
+            String randomTopic = topics.get(random.nextInt(topics.size()));
             log.info("Selected random topic: {}", randomTopic);
+
+            String userMessageTemplate = fallbackContent.get("USER_MESSAGE_TEMPLATE");
+            String userMessage = String.format(userMessageTemplate, randomTopic);
 
             ChatResponse response = chatClient.prompt()
                     .system(prompt)
-                    .user("Give me a fun fact about " + randomTopic + "!")
+                    .user(userMessage)
                     .call()
                     .chatResponse();
 
@@ -80,7 +107,7 @@ public class DailyTipServiceImpl implements DailyTipService {
                     .map(ChatResponse::getResult)
                     .map(Generation::getOutput)
                     .map(AbstractMessage::getText)
-                    .orElse("Did you know that honey never spoils? Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible!");
+                    .orElse(fallbackContent.get("FALLBACK_FACT"));
 
             log.info("Extracted fact from AI response: '{}'", fact);
             log.info("Fact is fallback honey fact: {}", fact.contains("honey never spoils"));
@@ -92,12 +119,13 @@ public class DailyTipServiceImpl implements DailyTipService {
 
             if (!isSafe) {
                 log.warn("Generated fact failed moderation for age group {}, using fallback", ageGroup);
-                fact = "Did you know that honey never spoils? Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible!";
+                fact = fallbackContent.get("FALLBACK_FACT");
             }
 
             DailyTipDto tip = new DailyTipDto();
             tip.setFact(fact);
-            tip.setCategory(CATEGORIES.get(random.nextInt(CATEGORIES.size())));
+            List<String> categories = loadCategories();
+            tip.setCategory(categories.get(random.nextInt(categories.size())));
             tip.setAgeGroup(ageGroup.name());
             // imageUrl can be null for now, can be added later with image generation
 
@@ -110,9 +138,11 @@ public class DailyTipServiceImpl implements DailyTipService {
             log.error("Exception message: {}", e.getMessage());
 
             // Return a safe fallback fact
+            Map<String, String> fallbackContent = loadFallbackContent();
+            List<String> categories = loadCategories();
             DailyTipDto fallback = new DailyTipDto();
-            fallback.setFact("Did you know that honey never spoils? Archaeologists have found pots of honey in ancient Egyptian tombs that are over 3,000 years old and still perfectly edible!");
-            fallback.setCategory("science");
+            fallback.setFact(fallbackContent.get("FALLBACK_FACT"));
+            fallback.setCategory(categories.get(0)); // Use first category as safe fallback
             fallback.setAgeGroup(ageGroup.name());
             log.info("=== Returning fallback tip due to exception ===");
             return fallback;
@@ -146,9 +176,67 @@ public class DailyTipServiceImpl implements DailyTipService {
             log.error("Exception type: {}", e.getClass().getSimpleName());
             log.error("Exception message: {}", e.getMessage());
             log.warn("Using fallback prompt for age group {}", ageGroup);
-            return "Generate a fun, safe, and educational fact for a child.";
+            Map<String, String> fallbackContent = loadFallbackContent();
+            return fallbackContent.get("FALLBACK_PROMPT");
         }
     }
 
-    // Removed - now using ModerationUtil
+    /**
+     * Loads categories from file.
+     */
+    private List<String> loadCategories() {
+        try {
+            if (categoriesResource == null) {
+                log.warn("Categories resource is null, using fallback");
+                return FALLBACK_CATEGORIES;
+            }
+            String content = StreamUtils.copyToString(categoriesResource.getInputStream(), StandardCharsets.UTF_8);
+            return Arrays.asList(content.trim().split("\n"));
+        } catch (IOException e) {
+            log.warn("Failed to load categories, using fallback", e);
+            return FALLBACK_CATEGORIES;
+        }
+    }
+
+    /**
+     * Loads topics from file.
+     */
+    private List<String> loadTopics() {
+        try {
+            if (topicsResource == null) {
+                log.warn("Topics resource is null, using fallback");
+                return FALLBACK_TOPICS;
+            }
+            String content = StreamUtils.copyToString(topicsResource.getInputStream(), StandardCharsets.UTF_8);
+            return Arrays.asList(content.trim().split("\n"));
+        } catch (IOException e) {
+            log.warn("Failed to load topics, using fallback", e);
+            return FALLBACK_TOPICS;
+        }
+    }
+
+    /**
+     * Loads fallback content from file.
+     */
+    private Map<String, String> loadFallbackContent() {
+        try {
+            if (fallbackContentResource == null) {
+                log.warn("Fallback content resource is null, using fallback");
+                return FALLBACK_CONTENT;
+            }
+            String content = StreamUtils.copyToString(fallbackContentResource.getInputStream(), StandardCharsets.UTF_8);
+            Map<String, String> fallbackContent = new HashMap<>();
+            String[] lines = content.split("\n");
+            for (String line : lines) {
+                if (line.contains("=")) {
+                    String[] parts = line.split("=", 2);
+                    fallbackContent.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+            return fallbackContent;
+        } catch (IOException e) {
+            log.warn("Failed to load fallback content, using fallback", e);
+            return FALLBACK_CONTENT;
+        }
+    }
 } 
