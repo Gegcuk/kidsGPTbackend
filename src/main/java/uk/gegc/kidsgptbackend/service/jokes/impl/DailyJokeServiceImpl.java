@@ -6,17 +6,13 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.ai.chat.messages.AbstractMessage;
-import org.springframework.ai.moderation.ModerationModel;
-import org.springframework.ai.moderation.ModerationPrompt;
-import org.springframework.ai.moderation.ModerationResponse;
-import org.springframework.ai.moderation.ModerationResult;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import uk.gegc.kidsgptbackend.dto.jokes.DailyJokeDto;
-import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.service.jokes.DailyJokeService;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
 import java.util.Arrays;
 import java.util.List;
@@ -30,7 +26,7 @@ import java.nio.charset.StandardCharsets;
 public class DailyJokeServiceImpl implements DailyJokeService {
 
     private final ChatClient chatClient;
-    private final ModerationModel moderationClient;
+    private final ModerationUtil moderationUtil;
     private final ResourceLoader resourceLoader;
     private final Random random = new Random();
 
@@ -90,7 +86,7 @@ public class DailyJokeServiceImpl implements DailyJokeService {
 
             // Validate the generated joke is appropriate for the age group
             log.info("Starting safety validation for age group: {}", ageGroup);
-            boolean isSafe = validateSafety(joke, ageGroup);
+            boolean isSafe = moderationUtil.validateSafetyForAge(joke, ageGroup);
             log.info("Safety validation result: {}", isSafe);
 
             if (!isSafe) {
@@ -153,49 +149,5 @@ public class DailyJokeServiceImpl implements DailyJokeService {
         }
     }
 
-    private boolean validateSafety(String text, AgeGroup ageGroup) {
-        log.info("=== Starting safety validation ===");
-        log.info("Text to validate: '{}'", text);
-        log.info("Age group: {}", ageGroup);
-
-        try {
-            // Create age-specific moderation prompt
-            String moderationPrompt = String.format(
-                    "Check if this joke is appropriate for children aged %d-%d years old. " +
-                            "Consider age-appropriate language, humor, and content. " +
-                            "Joke: %s",
-                    ageGroup.getMinAge(), ageGroup.getMaxAge(), text
-            );
-
-            log.info("Moderation prompt: '{}'", moderationPrompt);
-            log.info("Calling moderation service...");
-
-            ModerationResponse response = moderationClient.call(new ModerationPrompt(moderationPrompt));
-            log.info("Moderation response received: {}", response != null ? "NOT_NULL" : "NULL");
-
-            if (response != null) {
-                log.info("Moderation result: {}", response.getResult());
-                if (response.getResult() != null) {
-                    log.info("Moderation output: {}", response.getResult().getOutput());
-                    if (response.getResult().getOutput() != null) {
-                        log.info("Moderation results count: {}", response.getResult().getOutput().getResults().size());
-                        response.getResult().getOutput().getResults().forEach(result -> {
-                            log.info("Moderation result - flagged: {}, categories: {}", result.isFlagged(), result.getCategories());
-                        });
-                    }
-                }
-            }
-
-            boolean isSafe = response.getResult().getOutput().getResults().stream()
-                    .noneMatch(ModerationResult::isFlagged);
-            log.info("Final safety validation result: {}", isSafe);
-            log.info("=== Safety validation completed ===");
-            return isSafe;
-        } catch (Exception ex) {
-            log.error("=== Moderation service call failed ===", ex);
-            log.error("Exception type: {}", ex.getClass().getSimpleName());
-            log.error("Exception message: {}", ex.getMessage());
-            throw new ModerationServiceException("Moderation service unavailable", ex);
-        }
-    }
+    // Removed - now using ModerationUtil
 } 

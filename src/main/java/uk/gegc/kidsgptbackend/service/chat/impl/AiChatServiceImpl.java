@@ -10,10 +10,6 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.moderation.ModerationModel;
-import org.springframework.ai.moderation.ModerationPrompt;
-import org.springframework.ai.moderation.ModerationResponse;
-import org.springframework.ai.moderation.ModerationResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
@@ -23,15 +19,16 @@ import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
-import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
 import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
+import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +48,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final ChatContextRepository contextRepository;
     private final ChatMessageRepository messageRepository;
     private final ChatClient chatClient;
-    private final ModerationModel moderationClient;
+    private final ModerationUtil moderationUtil;
     private final UserRepository userRepository;
 
     @Value("classpath:system-prompt.txt")
@@ -70,12 +67,13 @@ public class AiChatServiceImpl implements AiChatService {
     public ChatMessageResponse chat(ChatMessageRequest request, Principal principal) {
         Instant start = Instant.now();
 
-        if (!validateSafety(request.message())) {
-            throw new IllegalArgumentException("User input flagged as unsafe");
-        }
-
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Use comprehensive validation for user input (includes both basic and AI-based validation)
+        if (!moderationUtil.validateComprehensive(request.message(), user, "chat message")) {
+            throw new IllegalArgumentException("User input flagged as unsafe for age group");
+        }
 
         ChatContext context = resolveContext(request, principal);
 
@@ -122,7 +120,9 @@ public class AiChatServiceImpl implements AiChatService {
                 .map(AbstractMessage::getText)
                 .orElse("");
 
-        if (!validateSafety(replyText)) {
+        // Use age-aware validation for AI responses to ensure appropriateness for the user's age
+        if (!moderationUtil.validateSafetyForAge(replyText, user.getAge() != null ? 
+                AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
             replyText = "Oops, that topic's a bit tricky. Let's chat about something else fun!";
         }
 
@@ -165,23 +165,7 @@ public class AiChatServiceImpl implements AiChatService {
         }
     }
 
-    private boolean validateSafety(String text) {
-        ModerationResponse response;
-        try {
-            response = moderationClient.call(new ModerationPrompt(text));
-        } catch (Exception ex) {
-            logger.error("Moderation service call failed", ex);
-            throw new ModerationServiceException("Moderation service unavailable", ex);
-        }
-        boolean safe = response.getResult().getOutput().getResults().stream()
-                .noneMatch(ModerationResult::isFlagged);
-        if (!safe) {
-            response.getResult().getOutput().getResults().stream()
-                    .filter(ModerationResult::isFlagged)
-                    .forEach(r -> logger.warn("Moderation violation: {}", r.getCategories()));
-        }
-        return safe;
-    }
+    // Removed - now using ModerationUtil
 
     /**
      * Build conversation history from provided context
