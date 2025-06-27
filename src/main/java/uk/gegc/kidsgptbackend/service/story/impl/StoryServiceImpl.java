@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
+import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import uk.gegc.kidsgptbackend.dto.story.*;
 import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
 import uk.gegc.kidsgptbackend.exception.RateLimitException;
@@ -148,7 +149,8 @@ public class StoryServiceImpl implements StoryService {
     }
 
     @Override
-    public ContinueStoryResponse continueStory(UUID storyId, ContinueStoryRequest request, Principal principal) {
+    public ContinueStoryResponse continueStory(ContinueStoryRequest request, Principal principal) {
+        UUID storyId = request.storyId();
         Instant start = Instant.now();
         
         User user = userRepository.findByUsername(principal.getName())
@@ -163,14 +165,14 @@ public class StoryServiceImpl implements StoryService {
             throw new IllegalArgumentException("User input flagged as unsafe for age group");
         }
 
-        // Generate AI response with encouraging template
+        // Generate AI response with encouraging template based on tone
         String systemPrompt = loadStoryPrompt(user);
         
         // Build conversation history from client-provided context (like chat API)
         List<Message> conversationHistory = buildConversationHistoryFromDto(request.context());
         
-        // Apply encouraging template to user's continuation
-        String template = getRandomContinueTemplate();
+        // Apply encouraging template to user's continuation based on tone
+        String template = getRandomContinueTemplate(request.tone());
         String templatedContent = String.format(template, request.message());
         conversationHistory.add(new UserMessage(templatedContent));
         
@@ -353,8 +355,11 @@ public class StoryServiceImpl implements StoryService {
         return templates[random.nextInt(templates.length)];
     }
 
-    private String getRandomContinueTemplate() {
+    private String getRandomContinueTemplate(Tone tone) {
         String[] templates = loadContinueTemplates();
+        
+        // For now, use the same templates regardless of tone
+        // This can be enhanced later with tone-specific template files
         return templates[random.nextInt(templates.length)];
     }
 } 

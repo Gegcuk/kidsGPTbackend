@@ -9,7 +9,7 @@ import java.util.UUID;
 
 public interface StoryService {
     StartStoryResponse startStory(StartStoryRequest request, Principal principal);
-    ContinueStoryResponse continueStory(UUID storyId, ContinueStoryRequest request, Principal principal);
+    ContinueStoryResponse continueStory(ContinueStoryRequest request, Principal principal);
     StoryDto getStory(UUID storyId, Principal principal);
     Page<StoryListDto> getStoriesByUser(Principal principal, Pageable pageable);
 } 

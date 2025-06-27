@@ -37,9 +37,8 @@ public class StoryController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/{storyId}/continue")
+    @PostMapping("/continue")
     public ResponseEntity<ContinueStoryResponse> continueStory(
-            @PathVariable UUID storyId,
             @Valid @RequestBody ContinueStoryRequest request,
             @AuthenticationPrincipal User principal
     ) {
@@ -48,7 +47,7 @@ public class StoryController {
         }
 
         Principal p = principal::getUsername;
-        ContinueStoryResponse response = storyService.continueStory(storyId, request, p);
+        ContinueStoryResponse response = storyService.continueStory(request, p);
         return ResponseEntity.ok(response);
     }
 
