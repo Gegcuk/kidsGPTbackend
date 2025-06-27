@@ -86,7 +86,7 @@ class ChatControllerStandaloneTest {
     @DisplayName("POST /api/v1/chat with principal → 200 and service called")
     void chat_withPrincipal_callsService() throws Exception {
         ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, null);
-        ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID());
+        ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         when(chatService.chat(any(ChatMessageRequest.class), any(Principal.class))).thenReturn(resp);
 
         User principal = new User(

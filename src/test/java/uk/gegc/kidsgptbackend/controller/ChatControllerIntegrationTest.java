@@ -93,7 +93,7 @@ class ChatControllerIntegrationTest {
     @Test
     @DisplayName("POST /api/v1/chat with token → 200 and body")
     void chat_withToken_returnsOk() throws Exception {
-        ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID());
+        ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         when(aiChatService.chat(any(ChatMessageRequest.class), any())).thenReturn(resp);
 
         String token = obtainAccessToken();

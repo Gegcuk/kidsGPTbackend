@@ -180,7 +180,9 @@ public class AiChatServiceImpl implements AiChatService {
                 .orElse("gpt-4o-mini");
         
         ChatMessageResponse response = new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, 
-            context != null ? context.getId() : null);
+            context != null ? context.getId() : null,
+            savedAssistantMsg != null ? savedAssistantMsg.getId() : null,
+            savedUserMsg != null ? savedUserMsg.getId() : null);
         logger.info("=== AICHATSERVICE PROCESSING COMPLETE ===");
         logger.info("User: {}", principal.getName());
         logger.info("ContextId: {}", context != null ? context.getId() : "null");
