@@ -254,27 +254,89 @@ public class ModerationUtil {
     }
 
     /**
-     * Comprehensive validation that combines both OpenAI moderation and AI-based validation.
-     * Recommended for critical content validation.
+     * Comprehensive validation that combines basic moderation and AI-based validation.
+     * This is the primary validation method used by chat and other user-facing services.
      * 
      * @param content The content to validate
-     * @param user The user context
-     * @param contentType The type of content
-     * @return true if content passes all validations, false otherwise
+     * @param user The user context for age-appropriate validation
+     * @param contentType The type of content being validated
+     * @return true if content is safe and appropriate, false otherwise
      */
     public boolean validateComprehensive(String content, User user, String contentType) {
         try {
-            // First, run basic moderation
+            // First try basic OpenAI moderation
             if (!validateSafety(content)) {
+                log.warn("Content flagged by basic moderation: '{}'", content);
                 return false;
             }
             
-            // Then run AI-based validation
-            validateContentWithAI(content, user, contentType);
+            // Then try AI-based validation - for chat context, don't throw exceptions
+            if ("chat message".equals(contentType)) {
+                return validateContentWithAIForChat(content, user, contentType);
+            } else {
+                validateContentWithAI(content, user, contentType);
+                return true;
+            }
             
-            return true;
-        } catch (IllegalArgumentException e) {
-            log.warn("Comprehensive validation failed: {}", e.getMessage());
+        } catch (ModerationServiceException e) {
+            log.error("Moderation service unavailable during comprehensive validation", e);
+            throw e; // Re-throw service exceptions
+        } catch (Exception e) {
+            log.warn("Validation failed for {}: '{}' - {}", contentType, content, e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * AI-based content validation specifically for chat messages that returns boolean instead of throwing exceptions
+     * @param content The content to validate
+     * @param user The user context for age-appropriate validation
+     * @param contentType The type of content (should be "chat message")
+     * @return true if content is appropriate, false otherwise
+     */
+    private boolean validateContentWithAIForChat(String content, User user, String contentType) {
+        // Basic validation first
+        if (content == null || content.trim().isEmpty()) {
+            return false;
+        }
+        
+        if (content.length() > 1000 || content.length() < 3) {
+            return false;
+        }
+
+        log.debug("Using AI to validate {}: '{}'", contentType, content);
+
+        AgeGroup ageGroup = user.getAge() != null ? AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10;
+        
+        String validationSystemPrompt = createValidationSystemPrompt(ageGroup, contentType);
+        String userTemplate = loadAiValidationUserTemplate();
+        String validationUserPrompt = String.format(userTemplate, contentType, content);
+
+        try {
+            log.debug("Sending {} validation request to AI for age group: {}", contentType, ageGroup);
+            
+            String validationResponse = chatClient.prompt()
+                    .system(validationSystemPrompt)
+                    .user(validationUserPrompt)
+                    .call()
+                    .content();
+
+            log.debug("AI validation response: '{}'", validationResponse);
+
+            boolean isValid = validationResponse != null && validationResponse.trim().toUpperCase().startsWith("SAFE");
+            
+            if (!isValid) {
+                log.warn("AI flagged {} as inappropriate for age group {}: '{}' - Response: '{}'", 
+                        contentType, ageGroup, content, validationResponse);
+            } else {
+                log.debug("AI validation passed for {}: '{}'", contentType, content);
+            }
+            
+            return isValid;
+            
+        } catch (Exception e) {
+            log.error("Error during AI {} validation for: '{}' - {}", contentType, content, e.getMessage());
+            // For chat messages, default to false on AI service failure to be safe
             return false;
         }
     }
