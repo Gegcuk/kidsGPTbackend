@@ -379,7 +379,7 @@ public class AiChatServiceImpl implements AiChatService {
                     .map(resp -> resp.getMetadata().getModel())
                     .orElse("gpt-4o-mini");
                     
-            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, context.getId());
+            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, context.getId(), null, null);
             
         } catch (Exception e) {
             logger.warn("Failed to generate polite refusal response: {}", e.getMessage());
@@ -483,7 +483,7 @@ public class AiChatServiceImpl implements AiChatService {
         messageRepository.save(assistantMsg);
         
         long latency = Duration.between(start, Instant.now()).toMillis();
-        return new ChatMessageResponse(message, "kidsGPT-fallback", latency, 0, context.getId());
+        return new ChatMessageResponse(message, "kidsGPT-fallback", latency, 0, context.getId(), null, null);
     }
 
     /**
@@ -551,7 +551,7 @@ public class AiChatServiceImpl implements AiChatService {
                     .map(resp -> resp.getMetadata().getModel())
                     .orElse("gpt-4o-mini");
                     
-            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, context.getId());
+            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, context.getId(), null, null);
             
         } catch (Exception e) {
             logger.warn("Failed to generate polite refusal for AI response: {}", e.getMessage());
@@ -572,7 +572,9 @@ public class AiChatServiceImpl implements AiChatService {
                 "kidsGPT-fallback", 
                 latency, 
                 0, 
-                context.getId()
+                context.getId(),
+                null,
+                null
             );
         }
     }
