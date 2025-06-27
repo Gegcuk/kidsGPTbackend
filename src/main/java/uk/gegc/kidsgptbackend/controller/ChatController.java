@@ -2,6 +2,7 @@ package uk.gegc.kidsgptbackend.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -18,6 +19,7 @@ import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
 
 import java.security.Principal;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
@@ -36,8 +38,17 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
+        log.info("Chat request: user={}, contextId={}, messageLength={}, contextSize={}", 
+            principal.getUsername(), request.contextId(), request.message().length(), 
+            request.context() != null ? request.context().size() : 0);
+
         Principal p = principal::getUsername;
         ChatMessageResponse response = chatService.chat(request, p);
+        
+        log.info("Chat response: user={}, contextId={}, replyLength={}, model={}, latencyMs={}", 
+            principal.getUsername(), response.contextId(), response.reply().length(), 
+            response.model(), response.latencyMs());
+        
         return ResponseEntity.ok(response);
     }
 
@@ -52,7 +63,14 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
+        log.info("Get messages request: user={}, contextId={}, page={}, size={}", 
+            principal.getUsername(), contextId, pageable.getPageNumber(), pageable.getPageSize());
+
         Page<ChatMessageDto> page = messageService.getMessages(contextId, pageable, principal.getUsername());
+        
+        log.info("Get messages response: user={}, contextId={}, totalElements={}, currentPageSize={}, totalPages={}", 
+            principal.getUsername(), contextId, page.getTotalElements(), page.getNumberOfElements(), page.getTotalPages());
+        
         return ResponseEntity.ok(page);
     }
 }
