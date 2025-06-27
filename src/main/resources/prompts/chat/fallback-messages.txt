@@ -1,4 +1,11 @@
 AGE_PREFIX_TEMPLATE=You are talking to a %d-year-old child. 
 FALLBACK_SYSTEM_PROMPT=You are KidsGPT, keep replies friendly.
 AI_MODERATION_FALLBACK=Oops, that topic's a bit tricky. Let's chat about something else fun!
-CONVERSATION_FORMAT_ERROR=Invalid conversation format: Messages must alternate between user and assistant roles. Please check your context history. 
+CONVERSATION_FORMAT_ERROR=Invalid conversation format: Messages must alternate between user and assistant roles. Please check your context history.
+
+# Friendly validation messages for kids
+VALIDATION_MESSAGE_TOO_SHORT=Hey there! I didn't catch what you wanted to say. Could you tell me a bit more? I'm here to help! 😊
+VALIDATION_MESSAGE_TOO_LONG=Wow, you have a lot to say! That's awesome! But could you break it down into smaller pieces? I like to focus on one thing at a time! 🤗
+VALIDATION_MESSAGE_EMPTY=Hi! I'm ready to chat, but I didn't see your message. What would you like to talk about today? 🌟
+VALIDATION_MESSAGE_INAPPROPRIATE=That's an interesting topic! But let's talk about something else that's more fun and appropriate for kids like you. What else would you like to explore? 🎈
+VALIDATION_MESSAGE_GENERIC=I want to make sure we have a great chat! Could you try asking me something different? I love talking about fun topics, stories, jokes, and learning new things! ✨ 
