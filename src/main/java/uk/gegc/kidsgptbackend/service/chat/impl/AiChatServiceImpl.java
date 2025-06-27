@@ -83,6 +83,12 @@ public class AiChatServiceImpl implements AiChatService {
     @Override
     public ChatMessageResponse chat(ChatMessageRequest request, Principal principal) {
         Instant start = Instant.now();
+        
+        logger.info("=== AICHATSERVICE PROCESSING START ===");
+        logger.info("User: {}", principal.getName());
+        logger.info("ContextId: {}", request.contextId());
+        logger.info("Tone: {}", request.tone());
+        logger.info("User Message: '{}'", request.message());
 
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -93,13 +99,19 @@ public class AiChatServiceImpl implements AiChatService {
         }
 
         ChatContext context = resolveContext(request, principal);
+        logger.info("AiChatService: Using context ID={} for user={}", 
+            context != null ? context.getId() : "null", principal.getName());
 
         // Save only the new user message
         ChatMessage userMsg = new ChatMessage();
         userMsg.setContext(context);
         userMsg.setRole("USER");
         userMsg.setContent(request.message());
-        messageRepository.save(userMsg);
+        ChatMessage savedUserMsg = messageRepository.save(userMsg);
+        logger.info("Saved user message - ID={}, ContextId={}, Content='{}'", 
+            savedUserMsg != null ? savedUserMsg.getId() : "null", 
+            context != null ? context.getId() : "null", 
+            savedUserMsg != null ? savedUserMsg.getContent() : "null");
 
         // Build conversation history from provided context
         List<Message> conversationHistory = buildConversationHistory(request.context());
@@ -152,7 +164,11 @@ public class AiChatServiceImpl implements AiChatService {
         assistantMsg.setContext(context);
         assistantMsg.setRole("ASSISTANT");
         assistantMsg.setContent(replyText);
-        messageRepository.save(assistantMsg);
+        ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
+        logger.info("Saved assistant message - ID={}, ContextId={}, Content='{}'", 
+            savedAssistantMsg != null ? savedAssistantMsg.getId() : "null", 
+            context != null ? context.getId() : "null", 
+            savedAssistantMsg != null ? savedAssistantMsg.getContent() : "null");
 
         long latency = Duration.between(start, Instant.now()).toMillis();
         int tokensUsed = Optional.ofNullable(chatResponse)
@@ -162,18 +178,47 @@ public class AiChatServiceImpl implements AiChatService {
         String modelUsed = Optional.ofNullable(chatResponse)
                 .map(resp -> resp.getMetadata().getModel())
                 .orElse("gpt-4o-mini");
-        return new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, context.getId());
+        
+        ChatMessageResponse response = new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, 
+            context != null ? context.getId() : null,
+            savedAssistantMsg != null ? savedAssistantMsg.getId() : null,
+            savedUserMsg != null ? savedUserMsg.getId() : null);
+        logger.info("=== AICHATSERVICE PROCESSING COMPLETE ===");
+        logger.info("User: {}", principal.getName());
+        logger.info("ContextId: {}", context != null ? context.getId() : "null");
+        logger.info("Model: {}", modelUsed);
+        logger.info("Tokens Used: {}", tokensUsed);
+        logger.info("Latency: {}ms", latency);
+        logger.info("AI Reply: '{}'", replyText);
+        logger.info("=== AICHATSERVICE PROCESSING END ===");
+        
+        return response;
     }
 
     private ChatContext resolveContext(ChatMessageRequest request, Principal principal) {
         if (request.contextId() != null) {
+            logger.info("AiChatService: Resolving existing contextId={} for user={}", request.contextId(), principal.getName());
             Optional<ChatContext> opt = contextRepository.findById(request.contextId());
-            return opt.orElseThrow(() -> new IllegalArgumentException("Context not found"));
+            if (opt.isPresent()) {
+                ChatContext context = opt.get();
+                if (!context.getUsername().equals(principal.getName())) {
+                    logger.error("AiChatService: Context ownership mismatch - contextId={} belongs to user={}, requested by user={}", 
+                        request.contextId(), context.getUsername(), principal.getName());
+                    throw new IllegalArgumentException("Context not found");
+                }
+                logger.info("AiChatService: Found existing context contextId={} for user={}", context.getId(), principal.getName());
+                return context;
+            } else {
+                logger.error("AiChatService: Context not found contextId={} for user={}", request.contextId(), principal.getName());
+                throw new IllegalArgumentException("Context not found");
+            }
         }
         ChatContext context = new ChatContext();
         context.setUsername(principal.getName());
-        contextRepository.save(context);
-        return context;
+        ChatContext savedContext = contextRepository.save(context);
+        logger.info("AiChatService: Created new contextId={} for user={}", 
+            savedContext != null ? savedContext.getId() : "null", principal.getName());
+        return savedContext;
     }
 
     private String loadSystemPrompt(User user) {

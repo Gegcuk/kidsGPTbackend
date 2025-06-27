@@ -37,3 +37,7 @@ build/
 /.env.example
 /src/main/resources/secret.properties
 
+# Chat message logs
+logs/
+*.log
+
