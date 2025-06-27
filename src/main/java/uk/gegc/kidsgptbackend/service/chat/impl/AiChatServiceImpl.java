@@ -29,6 +29,7 @@ import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
 import uk.gegc.kidsgptbackend.util.ModerationUtil;
+import uk.gegc.kidsgptbackend.exception.ModerationServiceException;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -98,10 +99,14 @@ public class AiChatServiceImpl implements AiChatService {
             return generatePoliteRefusalResponse(request.message(), basicValidationMessage, user, start);
         }
 
-        // Use comprehensive validation for user input (includes both basic and AI-based validation)
-        if (!moderationUtil.validateComprehensive(request.message(), user, "chat message")) {
-            // Generate contextual response for moderation failure instead of generic message
-            return generatePoliteRefusalResponse(request.message(), "inappropriate content", user, start);
+        // Use comprehensive validation for user input - let ModerationServiceExceptions propagate
+        try {
+            if (!moderationUtil.validateComprehensive(request.message(), user, "chat message")) {
+                return generatePoliteRefusalResponse(request.message(), "inappropriate content", user, start);
+            }
+        } catch (ModerationServiceException e) {
+            // Re-throw service exceptions - don't handle them as validation failures
+            throw e;
         }
 
         ChatContext context = resolveContext(request, principal);
@@ -198,8 +203,6 @@ public class AiChatServiceImpl implements AiChatService {
             return ageBasedPrompt + fallbackMessages.get("FALLBACK_SYSTEM_PROMPT");
         }
     }
-
-    // Removed - now using ModerationUtil
 
     /**
      * Build conversation history from provided context
