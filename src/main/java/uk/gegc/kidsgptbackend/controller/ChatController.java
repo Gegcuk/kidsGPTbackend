@@ -83,7 +83,13 @@ public class ChatController {
         log.info("=== GET MESSAGES REQUEST START ===");
         log.info("User: {}", principal.getUsername());
         log.info("ContextId: {}", contextId);
-        log.info("Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        
+        // Handle unpaged requests safely
+        if (pageable.isPaged()) {
+            log.info("Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        } else {
+            log.info("Page: unpaged (all results)");
+        }
         log.info("=== GET MESSAGES REQUEST END ===");
 
         Page<ChatMessageDto> page = messageService.getMessages(contextId, pageable, principal.getUsername());

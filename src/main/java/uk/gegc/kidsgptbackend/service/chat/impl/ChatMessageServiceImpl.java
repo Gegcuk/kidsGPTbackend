@@ -34,7 +34,13 @@ public class ChatMessageServiceImpl implements ChatMessageService {
         log.info("=== CHATMESSAGESERVICE RETRIEVAL START ===");
         log.info("ContextId: {}", contextId);
         log.info("User: {}", username);
-        log.info("Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        
+        // Handle unpaged requests safely
+        if (pageable.isPaged()) {
+            log.info("Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        } else {
+            log.info("Page: unpaged (all results)");
+        }
         
         ChatContext ctx = contextRepository.findById(contextId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Context not found"));

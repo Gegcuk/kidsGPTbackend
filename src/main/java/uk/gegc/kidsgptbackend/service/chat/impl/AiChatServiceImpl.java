@@ -99,7 +99,8 @@ public class AiChatServiceImpl implements AiChatService {
         }
 
         ChatContext context = resolveContext(request, principal);
-        logger.info("AiChatService: Using context ID={} for user={}", context.getId(), principal.getName());
+        logger.info("AiChatService: Using context ID={} for user={}", 
+            context != null ? context.getId() : "null", principal.getName());
 
         // Save only the new user message
         ChatMessage userMsg = new ChatMessage();
@@ -108,7 +109,9 @@ public class AiChatServiceImpl implements AiChatService {
         userMsg.setContent(request.message());
         ChatMessage savedUserMsg = messageRepository.save(userMsg);
         logger.info("Saved user message - ID={}, ContextId={}, Content='{}'", 
-            savedUserMsg.getId(), context.getId(), savedUserMsg.getContent());
+            savedUserMsg != null ? savedUserMsg.getId() : "null", 
+            context != null ? context.getId() : "null", 
+            savedUserMsg != null ? savedUserMsg.getContent() : "null");
 
         // Build conversation history from provided context
         List<Message> conversationHistory = buildConversationHistory(request.context());
@@ -163,7 +166,9 @@ public class AiChatServiceImpl implements AiChatService {
         assistantMsg.setContent(replyText);
         ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
         logger.info("Saved assistant message - ID={}, ContextId={}, Content='{}'", 
-            savedAssistantMsg.getId(), context.getId(), savedAssistantMsg.getContent());
+            savedAssistantMsg != null ? savedAssistantMsg.getId() : "null", 
+            context != null ? context.getId() : "null", 
+            savedAssistantMsg != null ? savedAssistantMsg.getContent() : "null");
 
         long latency = Duration.between(start, Instant.now()).toMillis();
         int tokensUsed = Optional.ofNullable(chatResponse)
@@ -174,10 +179,11 @@ public class AiChatServiceImpl implements AiChatService {
                 .map(resp -> resp.getMetadata().getModel())
                 .orElse("gpt-4o-mini");
         
-        ChatMessageResponse response = new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, context.getId());
+        ChatMessageResponse response = new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, 
+            context != null ? context.getId() : null);
         logger.info("=== AICHATSERVICE PROCESSING COMPLETE ===");
         logger.info("User: {}", principal.getName());
-        logger.info("ContextId: {}", context.getId());
+        logger.info("ContextId: {}", context != null ? context.getId() : "null");
         logger.info("Model: {}", modelUsed);
         logger.info("Tokens Used: {}", tokensUsed);
         logger.info("Latency: {}ms", latency);
@@ -208,7 +214,8 @@ public class AiChatServiceImpl implements AiChatService {
         ChatContext context = new ChatContext();
         context.setUsername(principal.getName());
         ChatContext savedContext = contextRepository.save(context);
-        logger.info("AiChatService: Created new contextId={} for user={}", savedContext.getId(), principal.getName());
+        logger.info("AiChatService: Created new contextId={} for user={}", 
+            savedContext != null ? savedContext.getId() : "null", principal.getName());
         return savedContext;
     }
 
