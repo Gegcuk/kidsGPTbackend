@@ -18,6 +18,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.dto.story.*;
+import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
+import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.mapper.StoryMapper;
 import uk.gegc.kidsgptbackend.model.story.Story;
@@ -155,42 +157,29 @@ public class StoryServiceImpl implements StoryService {
         Story story = storyRepository.findByIdAndUsername(storyId, principal.getName())
                 .orElseThrow(() -> new ResourceNotFoundException("Story not found"));
 
-        // Temporarily disable comprehensive validation to isolate the issue
-        // TODO: Re-enable after debugging validation problems
-        /*
-        if (!moderationUtil.validateComprehensive(request.content(), user, "story continuation")) {
+        // Validate only the new user input (like chat service)
+        // Don't validate the stored conversation history as it was already validated
+        if (!moderationUtil.validateComprehensive(request.message(), user, "story continuation")) {
             throw new IllegalArgumentException("User input flagged as unsafe for age group");
-        }
-        */
-        
-        // Basic validation only
-        if (request.content().trim().length() < 2) {
-            throw new IllegalArgumentException("Please provide some story content");
         }
 
         // Generate AI response with encouraging template
         String systemPrompt = loadStoryPrompt(user);
-        List<Message> conversationHistory = buildConversationHistory(story);
+        
+        // Build conversation history from client-provided context (like chat API)
+        List<Message> conversationHistory = buildConversationHistoryFromDto(request.context());
         
         // Apply encouraging template to user's continuation
         String template = getRandomContinueTemplate();
-        String templatedContent = String.format(template, request.content());
+        String templatedContent = String.format(template, request.message());
         conversationHistory.add(new UserMessage(templatedContent));
-        
-        // Debug logging
-        logger.info("Story conversation history size: {}", conversationHistory.size());
-        for (int i = 0; i < conversationHistory.size(); i++) {
-            Message msg = conversationHistory.get(i);
-            logger.info("Message {}: {} - {}", i, msg.getClass().getSimpleName(), 
-                    msg.getText().length() > 100 ? msg.getText().substring(0, 100) + "..." : msg.getText());
-        }
         
         String aiResponse = generateAiResponseWithHistory(systemPrompt, conversationHistory, user);
 
         // Save messages
         StoryMessage userMessage = new StoryMessage();
         userMessage.setRole("USER");
-        userMessage.setContent(request.content());
+        userMessage.setContent(request.message());
         story.addMessage(userMessage);
 
         StoryMessage assistantMessage = new StoryMessage();
@@ -254,9 +243,6 @@ public class StoryServiceImpl implements StoryService {
 
     private String generateAiResponseWithHistory(String systemPrompt, List<Message> conversationHistory, User user) {
         try {
-            logger.info("Calling AI with system prompt length: {} and {} conversation messages", 
-                    systemPrompt.length(), conversationHistory.size());
-            
             ChatResponse response = chatClient.prompt()
                     .system(systemPrompt)
                     .messages(conversationHistory)
@@ -269,20 +255,16 @@ public class StoryServiceImpl implements StoryService {
                     .map(AbstractMessage::getText)
                     .orElse("");
 
-            logger.info("AI response received, length: {}", aiResponse.length());
-
             // Validate AI response
             if (!moderationUtil.validateSafetyForAge(aiResponse, user.getAge() != null ? 
                     AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
-                logger.warn("AI response failed safety validation for user age: {}", user.getAge());
                 return "Let's try a different direction for your story! What other ideas do you have?";
             }
 
             return aiResponse;
         } catch (Exception e) {
-            logger.error("Error generating AI response with history: {} - {}", e.getClass().getSimpleName(), e.getMessage(), e);
-            // Re-throw the exception so we can see what's actually happening
-            throw new RuntimeException("Failed to generate AI response: " + e.getMessage(), e);
+            logger.error("Error generating AI response with history", e);
+            return "That's interesting! Can you tell me more about what happens next in your story?";
         }
     }
 
@@ -294,6 +276,25 @@ public class StoryServiceImpl implements StoryService {
                 messages.add(new UserMessage(msg.getContent()));
             } else if ("ASSISTANT".equalsIgnoreCase(msg.getRole())) {
                 messages.add(new AssistantMessage(msg.getContent()));
+            }
+        }
+        
+        return messages;
+    }
+
+    /**
+     * Build conversation history from client-provided context (like chat service)
+     */
+    private List<Message> buildConversationHistoryFromDto(List<StoryMessageDto> context) {
+        List<Message> messages = new ArrayList<>();
+        
+        if (context != null && !context.isEmpty()) {
+            for (StoryMessageDto messageDto : context) {
+                if ("USER".equalsIgnoreCase(messageDto.role())) {
+                    messages.add(new UserMessage(messageDto.content()));
+                } else if ("ASSISTANT".equalsIgnoreCase(messageDto.role())) {
+                    messages.add(new AssistantMessage(messageDto.content()));
+                }
             }
         }
         

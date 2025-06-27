@@ -102,8 +102,16 @@ class StoryControllerTest {
     void continueStory_ShouldReturnContinueStoryResponse_WhenValidRequest() throws Exception {
         // Given
         UUID storyId = UUID.randomUUID();
+        
+        // Mock conversation context
+        java.util.List<StoryMessageDto> context = java.util.List.of(
+                new StoryMessageDto(UUID.randomUUID(), "USER", "I want to start a story", LocalDateTime.now()),
+                new StoryMessageDto(UUID.randomUUID(), "ASSISTANT", "Great! Let's begin.", LocalDateTime.now())
+        );
+        
         ContinueStoryRequest request = new ContinueStoryRequest(
-                "The hero found a mysterious door in the forest."
+                "The hero found a mysterious door in the forest.",
+                context
         );
         
         ContinueStoryResponse expectedResponse = new ContinueStoryResponse(
