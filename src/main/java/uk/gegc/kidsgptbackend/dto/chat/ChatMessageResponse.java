@@ -7,6 +7,8 @@ public record ChatMessageResponse(
         String model,
         long latencyMs,
         int tokensUsed,
-        UUID contextId
+        UUID contextId,
+        UUID responseMessageId,
+        UUID repliedMessageId
 ) {
 }
