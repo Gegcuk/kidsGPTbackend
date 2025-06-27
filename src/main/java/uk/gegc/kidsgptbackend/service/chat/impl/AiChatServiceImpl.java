@@ -93,23 +93,24 @@ public class AiChatServiceImpl implements AiChatService {
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        // Resolve context early so we can maintain it throughout the conversation
+        ChatContext context = resolveContext(request, principal);
+
         // Validate basic request format first
         String basicValidationMessage = validateChatRequest(request, user);
         if (basicValidationMessage != null) {
-            return generatePoliteRefusalResponse(request.message(), basicValidationMessage, user, start);
+            return generatePoliteRefusalResponse(request.message(), basicValidationMessage, user, context, start);
         }
 
         // Use comprehensive validation for user input - let ModerationServiceExceptions propagate
         try {
             if (!moderationUtil.validateComprehensive(request.message(), user, "chat message")) {
-                return generatePoliteRefusalResponse(request.message(), "inappropriate content", user, start);
+                return generatePoliteRefusalResponse(request.message(), "inappropriate content", user, context, start);
             }
         } catch (ModerationServiceException e) {
             // Re-throw service exceptions - don't handle them as validation failures
             throw e;
         }
-
-        ChatContext context = resolveContext(request, principal);
 
         // Save only the new user message
         ChatMessage userMsg = new ChatMessage();
@@ -161,7 +162,7 @@ public class AiChatServiceImpl implements AiChatService {
                 AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
             
             // Generate a contextual response to handle AI response moderation failure
-            return generatePoliteRefusalForAIResponse(request.message(), replyText, user, start);
+            return generatePoliteRefusalForAIResponse(request.message(), replyText, user, context, start);
         }
 
         // Save only the new assistant message
@@ -292,10 +293,11 @@ public class AiChatServiceImpl implements AiChatService {
      * @param originalMessage The original user message that failed validation
      * @param reason The reason for validation failure
      * @param user The user making the request
+     * @param context The chat context to maintain conversation continuity
      * @param start The start time for latency calculation
      * @return A ChatMessageResponse with a polite refusal
      */
-    private ChatMessageResponse generatePoliteRefusalResponse(String originalMessage, String reason, User user, Instant start) {
+    private ChatMessageResponse generatePoliteRefusalResponse(String originalMessage, String reason, User user, ChatContext context, Instant start) {
         try {
             String politeRefusalPrompt = createPoliteRefusalPrompt(originalMessage, reason, user);
             
@@ -315,8 +317,15 @@ public class AiChatServiceImpl implements AiChatService {
             if (!moderationUtil.validateSafetyForAge(generatedResponse, user.getAge() != null ? 
                     AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10)) {
                 // Fall back to predefined message if generated response is inappropriate
-                return createFallbackValidationResponse(reason, user, start);
+                return createFallbackValidationResponse(reason, user, context, start);
             }
+
+            // Save the polite refusal response to maintain conversation history
+            ChatMessage assistantMsg = new ChatMessage();
+            assistantMsg.setContext(context);
+            assistantMsg.setRole("ASSISTANT");
+            assistantMsg.setContent(generatedResponse);
+            messageRepository.save(assistantMsg);
 
             // Return the validated generated response as a normal chat response
             long latency = Duration.between(start, Instant.now()).toMillis();
@@ -328,12 +337,12 @@ public class AiChatServiceImpl implements AiChatService {
                     .map(resp -> resp.getMetadata().getModel())
                     .orElse("gpt-4o-mini");
                     
-            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, null);
+            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, context.getId());
             
         } catch (Exception e) {
             logger.warn("Failed to generate polite refusal response: {}", e.getMessage());
             // Fall back to predefined message if AI generation fails
-            return createFallbackValidationResponse(reason, user, start);
+            return createFallbackValidationResponse(reason, user, context, start);
         }
     }
 
@@ -408,7 +417,7 @@ public class AiChatServiceImpl implements AiChatService {
     /**
      * Creates a fallback response when AI generation fails
      */
-    private ChatMessageResponse createFallbackValidationResponse(String reason, User user, Instant start) {
+    private ChatMessageResponse createFallbackValidationResponse(String reason, User user, ChatContext context, Instant start) {
         Map<String, String> fallbackMessages = loadFallbackMessages();
         String message;
         
@@ -424,8 +433,15 @@ public class AiChatServiceImpl implements AiChatService {
             message = fallbackMessages.get("VALIDATION_MESSAGE_GENERIC");
         }
         
+        // Save the fallback message to maintain conversation history
+        ChatMessage assistantMsg = new ChatMessage();
+        assistantMsg.setContext(context);
+        assistantMsg.setRole("ASSISTANT");
+        assistantMsg.setContent(message);
+        messageRepository.save(assistantMsg);
+        
         long latency = Duration.between(start, Instant.now()).toMillis();
-        return new ChatMessageResponse(message, "kidsGPT-fallback", latency, 0, null);
+        return new ChatMessageResponse(message, "kidsGPT-fallback", latency, 0, context.getId());
     }
 
     /**
@@ -433,10 +449,11 @@ public class AiChatServiceImpl implements AiChatService {
      * @param originalMessage The original user message that failed validation
      * @param replyText The AI generated reply text that failed validation
      * @param user The user making the request
+     * @param context The chat context to maintain conversation continuity
      * @param start The start time for latency calculation
      * @return A ChatMessageResponse with a polite refusal
      */
-    private ChatMessageResponse generatePoliteRefusalForAIResponse(String originalMessage, String replyText, User user, Instant start) {
+    private ChatMessageResponse generatePoliteRefusalForAIResponse(String originalMessage, String replyText, User user, ChatContext context, Instant start) {
         try {
             String ageContext = user.getAge() != null ? 
                 String.format("for a %d-year-old child", user.getAge()) : "for a child";
@@ -475,6 +492,13 @@ public class AiChatServiceImpl implements AiChatService {
                 generatedResponse = fallbackMessages.get("AI_MODERATION_FALLBACK");
             }
 
+            // Save the polite refusal response to maintain conversation history
+            ChatMessage assistantMsg = new ChatMessage();
+            assistantMsg.setContext(context);
+            assistantMsg.setRole("ASSISTANT");
+            assistantMsg.setContent(generatedResponse);
+            messageRepository.save(assistantMsg);
+
             // Return as normal chat response
             long latency = Duration.between(start, Instant.now()).toMillis();
             int tokensUsed = Optional.ofNullable(chatResponse)
@@ -485,19 +509,28 @@ public class AiChatServiceImpl implements AiChatService {
                     .map(resp -> resp.getMetadata().getModel())
                     .orElse("gpt-4o-mini");
                     
-            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, null);
+            return new ChatMessageResponse(generatedResponse, modelUsed, latency, tokensUsed, context.getId());
             
         } catch (Exception e) {
             logger.warn("Failed to generate polite refusal for AI response: {}", e.getMessage());
             // Fall back to predefined message if AI generation fails
             Map<String, String> fallbackMessages = loadFallbackMessages();
+            String fallbackMessage = fallbackMessages.get("AI_MODERATION_FALLBACK");
+            
+            // Save the fallback message to maintain conversation history
+            ChatMessage assistantMsg = new ChatMessage();
+            assistantMsg.setContext(context);
+            assistantMsg.setRole("ASSISTANT");
+            assistantMsg.setContent(fallbackMessage);
+            messageRepository.save(assistantMsg);
+            
             long latency = Duration.between(start, Instant.now()).toMillis();
             return new ChatMessageResponse(
-                fallbackMessages.get("AI_MODERATION_FALLBACK"), 
+                fallbackMessage, 
                 "kidsGPT-fallback", 
                 latency, 
                 0, 
-                null
+                context.getId()
             );
         }
     }

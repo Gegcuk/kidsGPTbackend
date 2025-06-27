@@ -98,8 +98,18 @@ class AiChatServiceImplTest {
                 .thenThrow(new ModerationServiceException("down", new RuntimeException()));
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         
+        // Mock context creation
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        
         // Mock AI failure for validation response generation
         when(callSpec.chatResponse()).thenThrow(new RuntimeException("AI service unavailable"));
+        
+        // Mock message save
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ChatMessageResponse resp = service.chat(req, principal);
         
@@ -107,6 +117,7 @@ class AiChatServiceImplTest {
         assertThat(resp).isNotNull();
         assertThat(resp.reply()).isNotEmpty();
         assertThat(resp.model()).isEqualTo("kidsGPT-fallback");
+        assertThat(resp.contextId()).isNotNull(); // Should have a context ID
     }
 
     @Test
@@ -118,8 +129,18 @@ class AiChatServiceImplTest {
         when(moderationUtil.validateComprehensive("bad", user, "chat message")).thenReturn(false);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         
+        // Mock context creation
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        
         // Mock the AI generation for contextual response
         when(callSpec.chatResponse()).thenReturn(simpleResponse("I understand you're curious about that topic! Let's talk about something more fun and appropriate for kids your age. What would you like to learn about today? 🌟"));
+        
+        // Mock message save
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ChatMessageResponse resp = service.chat(req, principal);
         
@@ -127,6 +148,7 @@ class AiChatServiceImplTest {
         assertThat(resp).isNotNull();
         assertThat(resp.reply()).isNotEmpty();
         assertThat(resp.reply()).doesNotContain("bad"); // Should not repeat inappropriate content
+        assertThat(resp.contextId()).isNotNull(); // Should have a context ID
         
         // Verify that the AI was called to generate a contextual response
         verify(callSpec, atLeastOnce()).chatResponse();
@@ -140,8 +162,18 @@ class AiChatServiceImplTest {
         user.setAge(8);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         
+        // Mock context creation
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        
         // Mock the AI generation for contextual response
         when(callSpec.chatResponse()).thenReturn(simpleResponse("Hi there! I'm ready to chat, but I didn't see your message. What would you like to talk about today? 🌟"));
+        
+        // Mock message save
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ChatMessageResponse resp = service.chat(req, principal);
         
@@ -149,6 +181,7 @@ class AiChatServiceImplTest {
         assertThat(resp).isNotNull();
         assertThat(resp.reply()).isNotEmpty();
         assertThat(resp.reply()).contains("ready to chat");
+        assertThat(resp.contextId()).isNotNull(); // Should have a context ID
         
         // Verify that the AI was called to generate a contextual response
         verify(callSpec, atLeastOnce()).chatResponse();
@@ -162,8 +195,18 @@ class AiChatServiceImplTest {
         user.setAge(8);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
         
+        // Mock context creation
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        
         // Mock the AI generation for contextual response
         when(callSpec.chatResponse()).thenReturn(simpleResponse("I see you said 'hi'! That's a great start! Could you tell me a bit more about what you'd like to chat about? I'm here to help! 😊"));
+        
+        // Mock message save
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ChatMessageResponse resp = service.chat(req, principal);
         
@@ -171,12 +214,11 @@ class AiChatServiceImplTest {
         assertThat(resp).isNotNull();
         assertThat(resp.reply()).isNotEmpty();
         assertThat(resp.reply()).contains("bit more");
+        assertThat(resp.contextId()).isNotNull(); // Should have a context ID
         
         // Verify that the AI was called to generate a contextual response
         verify(callSpec, atLeastOnce()).chatResponse();
     }
-
-
 
     @Test
     @DisplayName("chat: flagged AI reply generates better contextual response")
@@ -340,5 +382,44 @@ class AiChatServiceImplTest {
         assertThat(resp).isNotNull();
         assertThat(resp.reply()).isNotEmpty();
         assertThat(resp.model()).isEqualTo("kidsGPT-fallback");
+    }
+
+    @Test
+    @DisplayName("chat: validation failure preserves context ID")
+    void chat_validationFailure_preservesContextId() {
+        UUID existingContextId = UUID.randomUUID();
+        ChatMessageRequest req = new ChatMessageRequest("", existingContextId, Tone.FRIENDLY, null); // Empty message with existing context
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        
+        // Mock existing context
+        ChatContext existingContext = new ChatContext();
+        existingContext.setId(existingContextId);
+        existingContext.setUsername("alice");
+        when(contextRepository.findById(existingContextId)).thenReturn(Optional.of(existingContext));
+        
+        // Mock AI generation for contextual response
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("Hi there! I'm ready to chat, but I didn't see your message. What would you like to talk about today? 🌟"));
+        
+        // Mock message save
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        // Should return the same context ID
+        assertThat(resp).isNotNull();
+        assertThat(resp.contextId()).isEqualTo(existingContextId);
+        assertThat(resp.reply()).contains("ready to chat");
+        
+        // Verify context was not created new, but reused
+        verify(contextRepository).findById(existingContextId);
+        verify(contextRepository, never()).save(any(ChatContext.class));
+        
+        // Verify the response was saved to maintain conversation history
+        verify(messageRepository).save(argThat(msg -> 
+            msg.getRole().equals("ASSISTANT") && 
+            msg.getContext().getId().equals(existingContextId)
+        ));
     }
 }
