@@ -11,7 +11,7 @@
     <!-- File appender specifically for chat messages with detailed content -->
     <appender name="CHAT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>logs/chat-messages.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
             <fileNamePattern>logs/chat-messages.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
             <maxFileSize>50MB</maxFileSize>
             <maxHistory>30</maxHistory>
