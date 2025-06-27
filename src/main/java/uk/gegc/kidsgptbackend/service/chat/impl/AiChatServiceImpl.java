@@ -54,21 +54,27 @@ public class AiChatServiceImpl implements AiChatService {
     private final ModerationUtil moderationUtil;
     private final UserRepository userRepository;
 
-    @Value("classpath:system-prompt.txt")
-    private Resource systemPrompt;
+    @Value("classpath:prompts/system/age-6-8.txt")
+    private Resource systemPromptAge6_8;
+    
+    @Value("classpath:prompts/system/age-9-10.txt")
+    private Resource systemPromptAge9_10;
+    
+    @Value("classpath:prompts/system/age-11-12.txt")
+    private Resource systemPromptAge11_12;
+    
+    @Value("classpath:prompts/system/age-13-14.txt")
+    private Resource systemPromptAge13_14;
+    
+    @Value("classpath:prompts/system/age-15-16.txt")
+    private Resource systemPromptAge15_16;
 
-    @Value("classpath:prompts/chat/chat-templates.txt")
-    private Resource chatTemplatesResource;
+
     
     @Value("classpath:prompts/chat/fallback-messages.txt")
     private Resource fallbackMessagesResource;
 
-    // Fallback templates if file loading fails
-    private static final String[] FALLBACK_TEMPLATES = {
-            "%s Can you think of another example?",
-            "Let's explore this: %s What else comes to mind?",
-            "%s What do you think about it?"
-    };
+
 
     private static final Map<String, String> FALLBACK_MESSAGES = Map.of(
             "AGE_PREFIX_TEMPLATE", "You are talking to a %d-year-old child. ",
@@ -131,10 +137,8 @@ public class AiChatServiceImpl implements AiChatService {
         // Build conversation history from provided context
         List<Message> conversationHistory = buildConversationHistory(request.context());
         
-        // Add the new user message to the conversation
-        String[] templates = loadChatTemplates();
-        String decorated = String.format(templates[random.nextInt(templates.length)], request.message());
-        conversationHistory.add(new UserMessage(decorated));
+        // Add the new user message to the conversation (without decoration to preserve context accuracy)
+        conversationHistory.add(new UserMessage(request.message()));
 
         String systemText = loadSystemPrompt(user);
 
@@ -239,11 +243,31 @@ public class AiChatServiceImpl implements AiChatService {
     private String loadSystemPrompt(User user) {
         Map<String, String> fallbackMessages = loadFallbackMessages();
         String ageBasedPrompt = String.format(fallbackMessages.get("AGE_PREFIX_TEMPLATE"), user.getAge());
+        
         try {
-            String basePrompt = StreamUtils.copyToString(systemPrompt.getInputStream(), StandardCharsets.UTF_8);
+            Resource promptResource = getSystemPromptResource(user.getAge());
+            String basePrompt = StreamUtils.copyToString(promptResource.getInputStream(), StandardCharsets.UTF_8);
             return ageBasedPrompt + basePrompt;
         } catch (IOException e) {
             return ageBasedPrompt + fallbackMessages.get("FALLBACK_SYSTEM_PROMPT");
+        }
+    }
+    
+    private Resource getSystemPromptResource(Integer age) {
+        if (age == null) {
+            return systemPromptAge9_10; // Default fallback
+        }
+        
+        if (age <= 8) {
+            return systemPromptAge6_8;
+        } else if (age <= 10) {
+            return systemPromptAge9_10;
+        } else if (age <= 12) {
+            return systemPromptAge11_12;
+        } else if (age <= 14) {
+            return systemPromptAge13_14;
+        } else {
+            return systemPromptAge15_16;
         }
     }
 
@@ -266,22 +290,7 @@ public class AiChatServiceImpl implements AiChatService {
         return messages;
     }
 
-    /**
-     * Loads chat templates from file.
-     */
-    private String[] loadChatTemplates() {
-        try {
-            if (chatTemplatesResource == null) {
-                logger.warn("Chat templates resource is null, using fallback");
-                return FALLBACK_TEMPLATES;
-            }
-            String content = StreamUtils.copyToString(chatTemplatesResource.getInputStream(), StandardCharsets.UTF_8);
-            return content.trim().split("\n");
-        } catch (IOException e) {
-            logger.warn("Failed to load chat templates, using fallback", e);
-            return FALLBACK_TEMPLATES;
-        }
-    }
+
 
     /**
      * Loads fallback messages from file.

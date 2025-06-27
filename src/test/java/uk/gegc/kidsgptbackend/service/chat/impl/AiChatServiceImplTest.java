@@ -71,7 +71,12 @@ class AiChatServiceImplTest {
     @BeforeEach
     void setup() {
         MockitoAnnotations.openMocks(this);
-        ReflectionTestUtils.setField(service, "systemPrompt", new ByteArrayResource("sys".getBytes()));
+        // Set up all age-specific prompt resources
+        ReflectionTestUtils.setField(service, "systemPromptAge6_8", new ByteArrayResource("sys".getBytes()));
+        ReflectionTestUtils.setField(service, "systemPromptAge9_10", new ByteArrayResource("sys".getBytes()));
+        ReflectionTestUtils.setField(service, "systemPromptAge11_12", new ByteArrayResource("sys".getBytes()));
+        ReflectionTestUtils.setField(service, "systemPromptAge13_14", new ByteArrayResource("sys".getBytes()));
+        ReflectionTestUtils.setField(service, "systemPromptAge15_16", new ByteArrayResource("sys".getBytes()));
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);
