@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import uk.gegc.kidsgptbackend.dto.story.*;
 import uk.gegc.kidsgptbackend.model.story.StoryStatus;
 import uk.gegc.kidsgptbackend.service.story.StoryService;
@@ -110,7 +111,9 @@ class StoryControllerTest {
         );
         
         ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
                 "The hero found a mysterious door in the forest.",
+                Tone.FRIENDLY,
                 context
         );
         
@@ -122,7 +125,7 @@ class StoryControllerTest {
                 35
         );
 
-        when(storyService.continueStory(eq(storyId), any(ContinueStoryRequest.class), any(Principal.class)))
+        when(storyService.continueStory(any(ContinueStoryRequest.class), any(Principal.class)))
                 .thenReturn(expectedResponse);
 
         User principal = new User(
@@ -139,7 +142,7 @@ class StoryControllerTest {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // When & Then
-        mockMvc.perform(post("/api/v1/stories/" + storyId + "/continue")
+        mockMvc.perform(post("/api/v1/stories/continue")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -148,7 +151,7 @@ class StoryControllerTest {
                 .andExpect(jsonPath("$.reply").value(expectedResponse.reply()))
                 .andExpect(jsonPath("$.model").value(expectedResponse.model()));
 
-        verify(storyService).continueStory(eq(storyId), any(ContinueStoryRequest.class), any(Principal.class));
+        verify(storyService).continueStory(any(ContinueStoryRequest.class), any(Principal.class));
     }
 
     @Test
