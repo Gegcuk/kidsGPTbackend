@@ -84,8 +84,11 @@ public class AiChatServiceImpl implements AiChatService {
     public ChatMessageResponse chat(ChatMessageRequest request, Principal principal) {
         Instant start = Instant.now();
         
-        logger.info("AiChatService: Processing chat request for user={}, contextId={}, tone={}", 
-            principal.getName(), request.contextId(), request.tone());
+        logger.info("=== AICHATSERVICE PROCESSING START ===");
+        logger.info("User: {}", principal.getName());
+        logger.info("ContextId: {}", request.contextId());
+        logger.info("Tone: {}", request.tone());
+        logger.info("User Message: '{}'", request.message());
 
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -104,7 +107,8 @@ public class AiChatServiceImpl implements AiChatService {
         userMsg.setRole("USER");
         userMsg.setContent(request.message());
         ChatMessage savedUserMsg = messageRepository.save(userMsg);
-        logger.info("AiChatService: Saved user message ID={} to context={}", savedUserMsg.getId(), context.getId());
+        logger.info("Saved user message - ID={}, ContextId={}, Content='{}'", 
+            savedUserMsg.getId(), context.getId(), savedUserMsg.getContent());
 
         // Build conversation history from provided context
         List<Message> conversationHistory = buildConversationHistory(request.context());
@@ -158,7 +162,8 @@ public class AiChatServiceImpl implements AiChatService {
         assistantMsg.setRole("ASSISTANT");
         assistantMsg.setContent(replyText);
         ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
-        logger.info("AiChatService: Saved assistant message ID={} to context={}", savedAssistantMsg.getId(), context.getId());
+        logger.info("Saved assistant message - ID={}, ContextId={}, Content='{}'", 
+            savedAssistantMsg.getId(), context.getId(), savedAssistantMsg.getContent());
 
         long latency = Duration.between(start, Instant.now()).toMillis();
         int tokensUsed = Optional.ofNullable(chatResponse)
@@ -170,8 +175,14 @@ public class AiChatServiceImpl implements AiChatService {
                 .orElse("gpt-4o-mini");
         
         ChatMessageResponse response = new ChatMessageResponse(replyText, modelUsed, latency, tokensUsed, context.getId());
-        logger.info("AiChatService: Completed chat for user={}, contextId={}, tokensUsed={}, latencyMs={}", 
-            principal.getName(), context.getId(), tokensUsed, latency);
+        logger.info("=== AICHATSERVICE PROCESSING COMPLETE ===");
+        logger.info("User: {}", principal.getName());
+        logger.info("ContextId: {}", context.getId());
+        logger.info("Model: {}", modelUsed);
+        logger.info("Tokens Used: {}", tokensUsed);
+        logger.info("Latency: {}ms", latency);
+        logger.info("AI Reply: '{}'", replyText);
+        logger.info("=== AICHATSERVICE PROCESSING END ===");
         
         return response;
     }

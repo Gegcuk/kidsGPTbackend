@@ -38,16 +38,33 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        log.info("Chat request: user={}, contextId={}, messageLength={}, contextSize={}", 
-            principal.getUsername(), request.contextId(), request.message().length(), 
-            request.context() != null ? request.context().size() : 0);
+        // Log detailed request with full message content
+        log.info("=== CHAT REQUEST START ===");
+        log.info("User: {}", principal.getUsername());
+        log.info("ContextId: {}", request.contextId());
+        log.info("Tone: {}", request.tone());
+        log.info("User Message: '{}'", request.message());
+        log.info("Context History ({} messages):", request.context() != null ? request.context().size() : 0);
+        if (request.context() != null) {
+            for (int i = 0; i < request.context().size(); i++) {
+                var msg = request.context().get(i);
+                log.info("  [{}] {} ({}): '{}'", i, msg.role(), msg.id(), msg.content());
+            }
+        }
+        log.info("=== CHAT REQUEST END ===");
 
         Principal p = principal::getUsername;
         ChatMessageResponse response = chatService.chat(request, p);
         
-        log.info("Chat response: user={}, contextId={}, replyLength={}, model={}, latencyMs={}", 
-            principal.getUsername(), response.contextId(), response.reply().length(), 
-            response.model(), response.latencyMs());
+        // Log detailed response with full content
+        log.info("=== CHAT RESPONSE START ===");
+        log.info("User: {}", principal.getUsername());
+        log.info("ContextId: {}", response.contextId());
+        log.info("Model: {}", response.model());
+        log.info("Latency: {}ms", response.latencyMs());
+        log.info("Tokens Used: {}", response.tokensUsed());
+        log.info("AI Reply: '{}'", response.reply());
+        log.info("=== CHAT RESPONSE END ===");
         
         return ResponseEntity.ok(response);
     }
@@ -63,13 +80,25 @@ public class ChatController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        log.info("Get messages request: user={}, contextId={}, page={}, size={}", 
-            principal.getUsername(), contextId, pageable.getPageNumber(), pageable.getPageSize());
+        log.info("=== GET MESSAGES REQUEST START ===");
+        log.info("User: {}", principal.getUsername());
+        log.info("ContextId: {}", contextId);
+        log.info("Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
+        log.info("=== GET MESSAGES REQUEST END ===");
 
         Page<ChatMessageDto> page = messageService.getMessages(contextId, pageable, principal.getUsername());
         
-        log.info("Get messages response: user={}, contextId={}, totalElements={}, currentPageSize={}, totalPages={}", 
-            principal.getUsername(), contextId, page.getTotalElements(), page.getNumberOfElements(), page.getTotalPages());
+        log.info("=== GET MESSAGES RESPONSE START ===");
+        log.info("User: {}", principal.getUsername());
+        log.info("ContextId: {}", contextId);
+        log.info("Total Elements: {}, Current Page Size: {}, Total Pages: {}", 
+            page.getTotalElements(), page.getNumberOfElements(), page.getTotalPages());
+        log.info("Messages on this page ({}):", page.getNumberOfElements());
+        for (int i = 0; i < page.getContent().size(); i++) {
+            var msg = page.getContent().get(i);
+            log.info("  [{}] {} ({}): '{}' at {}", i, msg.role(), msg.id(), msg.content(), msg.createdAt());
+        }
+        log.info("=== GET MESSAGES RESPONSE END ===");
         
         return ResponseEntity.ok(page);
     }

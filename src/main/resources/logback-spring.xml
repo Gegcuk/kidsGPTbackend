@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    
+    <!-- Console appender for general application logs -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- File appender specifically for chat messages with detailed content -->
+    <appender name="CHAT_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/chat-messages.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/chat-messages.%d{yyyy-MM-dd}.%i.log</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+    
+    <!-- Dedicated logger for ChatController with detailed message content -->
+    <logger name="uk.gegc.kidsgptbackend.controller.ChatController" level="INFO" additivity="false">
+        <appender-ref ref="CHAT_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <!-- Dedicated logger for AiChatServiceImpl with detailed message content -->
+    <logger name="uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl" level="INFO" additivity="false">
+        <appender-ref ref="CHAT_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <!-- Dedicated logger for ChatMessageServiceImpl with detailed message content -->
+    <logger name="uk.gegc.kidsgptbackend.service.chat.impl.ChatMessageServiceImpl" level="INFO" additivity="false">
+        <appender-ref ref="CHAT_FILE"/>
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+    
+    <!-- Root logger -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    
+</configuration> 

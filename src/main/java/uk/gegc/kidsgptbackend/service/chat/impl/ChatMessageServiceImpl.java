@@ -31,18 +31,28 @@ public class ChatMessageServiceImpl implements ChatMessageService {
 
     @Override
     public Page<ChatMessageDto> getMessages(UUID contextId, Pageable pageable, String username) {
-        log.info("ChatMessageService: Getting messages for contextId={}, user={}, page={}, size={}", 
-            contextId, username, pageable.getPageNumber(), pageable.getPageSize());
+        log.info("=== CHATMESSAGESERVICE RETRIEVAL START ===");
+        log.info("ContextId: {}", contextId);
+        log.info("User: {}", username);
+        log.info("Page: {}, Size: {}", pageable.getPageNumber(), pageable.getPageSize());
         
         ChatContext ctx = contextRepository.findById(contextId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Context not found"));
         if (!ctx.getUsername().equals(username)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden");
         }
+        log.info("Context found - Owner: {}, Created: {}", ctx.getUsername(), ctx.getCreatedAt());
         
         Page<ChatMessage> messages = messageRepository.findByContext_IdOrderByCreatedAtAsc(contextId, pageable);
-        log.info("ChatMessageService: Retrieved {} total messages for contextId={}, user={}, returning {} on current page", 
-            messages.getTotalElements(), contextId, username, messages.getNumberOfElements());
+        log.info("Retrieved {} total messages, returning {} on current page", 
+            messages.getTotalElements(), messages.getNumberOfElements());
+        
+        log.info("Messages from database:");
+        for (int i = 0; i < messages.getContent().size(); i++) {
+            var msg = messages.getContent().get(i);
+            log.info("  [{}] {} ({}): '{}' at {}", i, msg.getRole(), msg.getId(), msg.getContent(), msg.getCreatedAt());
+        }
+        log.info("=== CHATMESSAGESERVICE RETRIEVAL END ===");
         
         return messages.map(mapper::toDto);
     }
