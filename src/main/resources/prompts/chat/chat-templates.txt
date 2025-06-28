@@ -1,3 +1,0 @@
-%s Can you think of another example?
-Let's explore this: %s What else comes to mind?
-%s What do you think about it? 
