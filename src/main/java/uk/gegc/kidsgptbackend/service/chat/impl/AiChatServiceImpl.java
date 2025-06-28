@@ -252,12 +252,12 @@ public class AiChatServiceImpl implements AiChatService {
             return ageBasedPrompt + fallbackMessages.get("FALLBACK_SYSTEM_PROMPT");
         }
     }
-    
+  
     private Resource getSystemPromptResource(Integer age) {
         if (age == null) {
             return systemPromptAge9_10; // Default fallback
         }
-        
+
         if (age <= 8) {
             return systemPromptAge6_8;
         } else if (age <= 10) {
