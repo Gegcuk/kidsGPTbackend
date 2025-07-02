@@ -6,8 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.model.user.User;
 
-import java.time.LocalDate;
 import java.util.UUID;
 
 @Entity
@@ -23,14 +23,11 @@ public class Kid {
     @Column(name = "kid_id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "first_name", nullable = false)
-    private String firstName;
+    @Column(name = "nickname", nullable = false)
+    private String nickname;
 
-    @Column(name = "last_name", nullable = false)
-    private String lastName;
-
-    @Column(name = "birth_date")
-    private LocalDate birthDate;
+    @Column(name = "age")
+    private Integer age;
 
     @Column(name = "favorite_color")
     private String favoriteColor;
@@ -45,18 +42,11 @@ public class Kid {
     @JoinColumn(name = "parent_id")
     private Parent parent;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "age_group")
-    private AgeGroup ageGroup;
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    public void updateAgeGroupFromBirthDate() {
-        if (birthDate != null) {
-            int age = java.time.Period.between(birthDate, java.time.LocalDate.now()).getYears();
-            try {
-                this.ageGroup = AgeGroup.fromAge(age);
-            } catch (IllegalArgumentException e) {
-                this.ageGroup = null;
-            }
-        }
-    }
+    @Enumerated(EnumType.STRING)
+    @Column(name = "age_group", nullable = false)
+    private AgeGroup ageGroup;
 }

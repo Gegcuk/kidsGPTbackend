@@ -231,8 +231,7 @@ class GlobalExceptionHandlerTest {
     void handleHttpMessageNotReadable_returnsMalformedJsonError() {
         org.springframework.http.converter.HttpMessageNotReadableException ex =
                 new org.springframework.http.converter.HttpMessageNotReadableException(
-                        "Malformed JSON",
-                        new RuntimeException("Invalid JSON format")
+                        "Malformed JSON"
                 );
 
         org.springframework.http.ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(

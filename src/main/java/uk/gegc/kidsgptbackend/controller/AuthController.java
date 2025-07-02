@@ -8,6 +8,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.auth.*;
+import uk.gegc.kidsgptbackend.dto.user.KidDto;
+import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
@@ -28,6 +30,18 @@ public class AuthController {
     ) {
         UserDto createdUser = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
+    }
+
+    @PostMapping("/register-kid")
+    public ResponseEntity<KidDto> registerKid(
+            @Valid @RequestBody KidRegistrationRequest request,
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        KidDto createdKid = authService.registerKid(request, principal.getUsername());
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdKid);
     }
 
     @PostMapping("/login")

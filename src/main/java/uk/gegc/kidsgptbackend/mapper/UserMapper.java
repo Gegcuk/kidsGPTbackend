@@ -2,6 +2,7 @@ package uk.gegc.kidsgptbackend.mapper;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import uk.gegc.kidsgptbackend.dto.user.KidDto;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 import uk.gegc.kidsgptbackend.model.user.Role;
@@ -55,14 +56,30 @@ public class UserMapper {
         );
     }
 
+    public static KidDto toKidDto(Kid kid) {
+        return new KidDto(
+            kid.getId(),
+            kid.getNickname(),
+            kid.getUser().getUsername(),
+            kid.getAgeGroup(),
+            kid.getFavoriteColor(),
+            kid.getAvatarId(),
+            kid.getInterests()
+        );
+    }
+
     public static ChildProfileDto toChildProfileDto(Kid kid) {
+        // Use specific age if available, otherwise calculate from age group
         int age = 0;
-        if (kid.getBirthDate() != null) {
-            age = Period.between(kid.getBirthDate(), LocalDate.now()).getYears();
+        if (kid.getAge() != null) {
+            age = kid.getAge();
+        } else if (kid.getAgeGroup() != null) {
+            age = (kid.getAgeGroup().getMinAge() + kid.getAgeGroup().getMaxAge()) / 2;
         }
+        
         return new ChildProfileDto(
             kid.getId(),
-            kid.getFirstName(), // For now, use firstName as name
+            kid.getNickname(),
             age,
             kid.getInterests(),
             kid.getAvatarId(),
@@ -71,17 +88,15 @@ public class UserMapper {
     }
 
     public static void updateKidFromRequest(Kid kid, ChildProfileUpdateRequest req) {
-        kid.setFirstName(req.name()); // For now, use name as firstName
-        // Set birthDate from age (approximate: set to Jan 1st of birth year)
-        int birthYear = LocalDate.now().getYear() - req.age();
-        kid.setBirthDate(LocalDate.of(birthYear, 1, 1));
+        kid.setNickname(req.name());
+        kid.setAge(req.age()); // Set the specific age
         kid.setInterests(req.interests());
         kid.setAvatarId(req.avatarId());
-        // Set age group from age
+        // Set age group from age if possible
         try {
             kid.setAgeGroup(uk.gegc.kidsgptbackend.model.user.AgeGroup.fromAge(req.age()));
         } catch (IllegalArgumentException e) {
-            kid.setAgeGroup(null);
+            // Keep existing age group if provided age doesn't match any group
         }
     }
 

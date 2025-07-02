@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
@@ -17,10 +18,9 @@ import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
 import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.KidDto;
 
 import java.time.LocalDateTime;
-import java.time.LocalDate;
-import java.time.Period;
 import java.util.Set;
 import java.util.UUID;
 
@@ -98,14 +98,14 @@ public class UserMapperTest {
     }
 
     @Test
-    @DisplayName("Should map Kid to ChildProfileDto with correct values and calculated age")
+    @DisplayName("Should map Kid to ChildProfileDto with correct values and age from age group")
     void toChildProfileDto_WithValidKid_ReturnsCorrectDto() {
         // Given
         Kid kid = new Kid();
         kid.setId(UUID.randomUUID());
-        kid.setFirstName("Johnny");
-        kid.setLastName("Doe");
-        kid.setBirthDate(LocalDate.of(2015, 6, 15));
+        kid.setNickname("Johnny");
+        kid.setAge(8); // Set specific age
+        kid.setAgeGroup(AgeGroup.AGE_6_8);
         kid.setInterests("soccer, reading");
         kid.setAvatarId("avatar123");
 
@@ -118,20 +118,41 @@ public class UserMapperTest {
         assertThat(result.name()).isEqualTo("Johnny");
         assertThat(result.interests()).isEqualTo("soccer, reading");
         assertThat(result.avatarId()).isEqualTo("avatar123");
+        assertThat(result.ageGroup()).isEqualTo(AgeGroup.AGE_6_8);
         
-        // Age calculation
-        int expectedAge = Period.between(kid.getBirthDate(), LocalDate.now()).getYears();
+        // Age should be the specific age, not calculated from age group
+        assertThat(result.age()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("Should return age from age group when specific age is null")
+    void toChildProfileDto_WithNullAge_ReturnsAgeFromGroup() {
+        // Given
+        Kid kid = new Kid();
+        kid.setId(UUID.randomUUID());
+        kid.setNickname("Johnny");
+        kid.setAge(null); // No specific age
+        kid.setAgeGroup(AgeGroup.AGE_6_8);
+        kid.setInterests("soccer");
+        kid.setAvatarId("avatar123");
+
+        // When
+        ChildProfileDto result = UserMapper.toChildProfileDto(kid);
+
+        // Then
+        int expectedAge = (AgeGroup.AGE_6_8.getMinAge() + AgeGroup.AGE_6_8.getMaxAge()) / 2;
         assertThat(result.age()).isEqualTo(expectedAge);
     }
 
     @Test
-    @DisplayName("Should return age 0 when Kid has null birth date")
-    void toChildProfileDto_WithNullBirthDate_ReturnsAgeZero() {
+    @DisplayName("Should return age 0 when both age and age group are null")
+    void toChildProfileDto_WithNullAgeAndGroup_ReturnsAgeZero() {
         // Given
         Kid kid = new Kid();
         kid.setId(UUID.randomUUID());
-        kid.setFirstName("Johnny");
-        kid.setBirthDate(null);
+        kid.setNickname("Johnny");
+        kid.setAge(null);
+        kid.setAgeGroup(null);
         kid.setInterests("soccer");
         kid.setAvatarId("avatar123");
 
@@ -148,8 +169,9 @@ public class UserMapperTest {
         // Given
         Kid kid = new Kid();
         kid.setId(UUID.randomUUID());
-        kid.setFirstName("Johnny");
-        kid.setBirthDate(LocalDate.of(2015, 1, 1));
+        kid.setNickname("Johnny");
+        kid.setAge(10);
+        kid.setAgeGroup(AgeGroup.AGE_9_10);
         kid.setInterests(null);
         kid.setAvatarId(null);
 
@@ -166,8 +188,9 @@ public class UserMapperTest {
     void updateKidFromRequest_WithValidRequest_UpdatesKidCorrectly() {
         // Given
         Kid kid = new Kid();
-        kid.setFirstName("Original");
-        kid.setBirthDate(LocalDate.of(2010, 1, 1));
+        kid.setNickname("Original");
+        kid.setAge(7);
+        kid.setAgeGroup(AgeGroup.AGE_6_8);
         kid.setInterests("old interests");
         kid.setAvatarId("old avatar");
 
@@ -182,13 +205,11 @@ public class UserMapperTest {
         UserMapper.updateKidFromRequest(kid, request);
 
         // Then
-        assertThat(kid.getFirstName()).isEqualTo("Johnny");
+        assertThat(kid.getNickname()).isEqualTo("Johnny");
+        assertThat(kid.getAge()).isEqualTo(8); // Specific age updated
         assertThat(kid.getInterests()).isEqualTo("soccer, reading");
         assertThat(kid.getAvatarId()).isEqualTo("avatar123");
-        
-        // Birth date should be set to Jan 1st of birth year
-        int expectedBirthYear = LocalDate.now().getYear() - 8;
-        assertThat(kid.getBirthDate()).isEqualTo(LocalDate.of(expectedBirthYear, 1, 1));
+        assertThat(kid.getAgeGroup()).isEqualTo(AgeGroup.AGE_6_8); // Age 8 matches AGE_6_8 group
     }
 
     @Test
@@ -196,7 +217,9 @@ public class UserMapperTest {
     void updateKidFromRequest_WithNullOptionalFields_SetsNullValues() {
         // Given
         Kid kid = new Kid();
-        kid.setFirstName("Original");
+        kid.setNickname("Original");
+        kid.setAge(7);
+        kid.setAgeGroup(AgeGroup.AGE_6_8);
         kid.setInterests("old interests");
         kid.setAvatarId("old avatar");
 
@@ -211,19 +234,24 @@ public class UserMapperTest {
         UserMapper.updateKidFromRequest(kid, request);
 
         // Then
-        assertThat(kid.getFirstName()).isEqualTo("Johnny");
+        assertThat(kid.getNickname()).isEqualTo("Johnny");
+        assertThat(kid.getAge()).isEqualTo(8);
         assertThat(kid.getInterests()).isNull();
         assertThat(kid.getAvatarId()).isNull();
     }
 
     @Test
-    @DisplayName("Should set birth date to current year when age is 0")
-    void updateKidFromRequest_WithAgeZero_SetsBirthDateToCurrentYear() {
+    @DisplayName("Should update age group when valid age is provided")
+    void updateKidFromRequest_WithValidAge_UpdatesAgeGroup() {
         // Given
         Kid kid = new Kid();
+        kid.setNickname("Original");
+        kid.setAge(7);
+        kid.setAgeGroup(AgeGroup.AGE_6_8);
+
         ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
                 "Johnny",
-                0,
+                12, // Should map to AGE_11_12
                 "interests",
                 "avatar"
         );
@@ -232,18 +260,22 @@ public class UserMapperTest {
         UserMapper.updateKidFromRequest(kid, request);
 
         // Then
-        int expectedBirthYear = LocalDate.now().getYear();
-        assertThat(kid.getBirthDate()).isEqualTo(LocalDate.of(expectedBirthYear, 1, 1));
+        assertThat(kid.getAge()).isEqualTo(12);
+        assertThat(kid.getAgeGroup()).isEqualTo(AgeGroup.AGE_11_12);
     }
 
     @Test
-    @DisplayName("Should set correct birth date for maximum age (16)")
-    void updateKidFromRequest_WithMaximumAge_SetsCorrectBirthDate() {
+    @DisplayName("Should keep existing age group when invalid age is provided")
+    void updateKidFromRequest_WithInvalidAge_KeepsExistingAgeGroup() {
         // Given
         Kid kid = new Kid();
+        kid.setNickname("Original");
+        kid.setAge(7);
+        kid.setAgeGroup(AgeGroup.AGE_6_8);
+
         ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
                 "Johnny",
-                16,
+                25, // Invalid age - no matching age group
                 "interests",
                 "avatar"
         );
@@ -252,23 +284,80 @@ public class UserMapperTest {
         UserMapper.updateKidFromRequest(kid, request);
 
         // Then
-        int expectedBirthYear = LocalDate.now().getYear() - 16;
-        assertThat(kid.getBirthDate()).isEqualTo(LocalDate.of(expectedBirthYear, 1, 1));
+        assertThat(kid.getAge()).isEqualTo(25); // Age still updated
+        assertThat(kid.getAgeGroup()).isEqualTo(AgeGroup.AGE_6_8); // Keeps existing age group
     }
 
     @Test
-    @DisplayName("Should calculate age correctly from birth date")
-    void toChildProfileDto_CalculatesAgeCorrectly() {
+    @DisplayName("Should calculate age correctly from age group when no specific age")
+    void toChildProfileDto_CalculatesAgeFromAgeGroup() {
         // Given
         Kid kid = new Kid();
         kid.setId(UUID.randomUUID());
-        kid.setFirstName("Johnny");
-        kid.setBirthDate(LocalDate.now().minusYears(10));
+        kid.setNickname("Johnny");
+        kid.setAge(null); // No specific age
+        kid.setAgeGroup(AgeGroup.AGE_13_14);
 
         // When
         ChildProfileDto result = UserMapper.toChildProfileDto(kid);
 
         // Then
-        assertThat(result.age()).isEqualTo(10);
+        int expectedAge = (13 + 14) / 2; 
+        assertThat(result.age()).isEqualTo(expectedAge);
+    }
+
+    @Test
+    @DisplayName("Should map Kid to KidDto correctly")
+    void toKidDto_WithValidKid_ReturnsCorrectDto() {
+        // Given
+        User kidUser = new User();
+        kidUser.setUsername("johnny_kid");
+        
+        Kid kid = new Kid();
+        kid.setId(UUID.randomUUID());
+        kid.setNickname("Johnny");
+        kid.setAgeGroup(AgeGroup.AGE_9_10);
+        kid.setFavoriteColor("blue");
+        kid.setAvatarId("avatar123");
+        kid.setInterests("soccer, reading");
+        kid.setUser(kidUser);
+
+        // When
+        KidDto result = UserMapper.toKidDto(kid);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo(kid.getId());
+        assertThat(result.nickname()).isEqualTo("Johnny");
+        assertThat(result.username()).isEqualTo("johnny_kid");
+        assertThat(result.ageGroup()).isEqualTo(AgeGroup.AGE_9_10);
+        assertThat(result.favoriteColor()).isEqualTo("blue");
+        assertThat(result.avatarId()).isEqualTo("avatar123");
+        assertThat(result.interests()).isEqualTo("soccer, reading");
+    }
+
+    @Test
+    @DisplayName("Should handle null optional fields in KidDto mapping")
+    void toKidDto_WithNullOptionalFields_ReturnsNullValues() {
+        // Given
+        User kidUser = new User();
+        kidUser.setUsername("johnny_kid");
+        
+        Kid kid = new Kid();
+        kid.setId(UUID.randomUUID());
+        kid.setNickname("Johnny");
+        kid.setAgeGroup(AgeGroup.AGE_9_10);
+        kid.setFavoriteColor(null);
+        kid.setAvatarId(null);
+        kid.setInterests(null);
+        kid.setUser(kidUser);
+
+        // When
+        KidDto result = UserMapper.toKidDto(kid);
+
+        // Then
+        assertThat(result.favoriteColor()).isNull();
+        assertThat(result.avatarId()).isNull();
+        assertThat(result.interests()).isNull();
     }
 }

@@ -10,4 +10,5 @@ import java.util.Optional;
 @Repository
 public interface KidRepository extends JpaRepository<Kid, UUID> {
     Optional<Kid> findByParentId(UUID parentId);
+    Optional<Kid> findByUserId(UUID userId);
 }
