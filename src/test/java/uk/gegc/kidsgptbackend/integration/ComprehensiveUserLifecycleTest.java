@@ -1,0 +1,251 @@
+package uk.gegc.kidsgptbackend.integration;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
+import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
+import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.model.family.Parent;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.model.user.Role;
+import uk.gegc.kidsgptbackend.model.user.RoleName;
+import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.repository.family.KidRepository;
+import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
+import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
+import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest
+@ActiveProfiles("test")
+@AutoConfigureMockMvc
+@Transactional
+@DisplayName("Comprehensive User Lifecycle Tests - Missing Happy Paths")
+class ComprehensiveUserLifecycleTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private ParentRepository parentRepository;
+
+    @Autowired
+    private KidRepository kidRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void setUp() {
+        // Ensure roles exist
+        ensureRoleExists(RoleName.ROLE_ADMIN);
+        ensureRoleExists(RoleName.ROLE_PARENT);
+        ensureRoleExists(RoleName.ROLE_CHILD);
+    }
+
+    @Test
+    @DisplayName("Complete Happy Path: Admin creation, /me endpoint, logout")
+    void adminLifecycle() throws Exception {
+        // Create admin
+        User admin = new User();
+        admin.setUsername("admin");
+        admin.setEmail("admin@kidsgpt.com");
+        admin.setHashedPassword(passwordEncoder.encode("adminpass123"));
+        admin.setActive(true);
+        admin.setRoles(Set.of(roleRepository.findByRole(RoleName.ROLE_ADMIN.name()).get()));
+        userRepository.save(admin);
+
+        // Authenticate admin
+        AuthLoginRequest adminLogin = new AuthLoginRequest("admin", "adminpass123");
+        MvcResult result = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(adminLogin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.accessToken").exists())
+                .andReturn();
+
+        JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
+        String adminToken = response.get("accessToken").asText();
+
+        // Check /me endpoint
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("admin"))
+                .andExpect(jsonPath("$.email").value("admin@kidsgpt.com"))
+                .andExpect(jsonPath("$.role").value("ROLE_ADMIN"));
+
+        // Logout
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk());
+
+        // Verify token is invalidated
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Parent creates multiple kids and updates their profiles")
+    void parentMultipleKidsWithUpdates() throws Exception {
+        // Create parent
+        String uniqueId = String.valueOf(System.currentTimeMillis()).substring(7);
+        String parentUsername = "p" + uniqueId;
+        String parentEmail = "parent" + uniqueId + "@test.com";
+        
+        RegisterUserRequest parentRequest = new RegisterUserRequest(parentUsername, parentEmail, "parentpass123");
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(parentRequest)))
+                .andExpect(status().isCreated());
+
+        Parent parentProfile = new Parent();
+        parentProfile.setFirstName("Test");
+        parentProfile.setLastName("Parent");
+        parentProfile.setEmail(parentEmail);
+        parentRepository.save(parentProfile);
+
+        AuthLoginRequest parentLogin = new AuthLoginRequest(parentUsername, "parentpass123");
+        MvcResult parentResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(parentLogin)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode parentResponse = objectMapper.readTree(parentResult.getResponse().getContentAsString());
+        String parentToken = parentResponse.get("accessToken").asText();
+
+        // Create first kid
+        KidRegistrationRequest kid1 = new KidRegistrationRequest("Emma", "emmapass", AgeGroup.AGE_9_10);
+        MvcResult kid1Result = mockMvc.perform(post("/api/v1/auth/register-kid")
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kid1)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode kid1Response = objectMapper.readTree(kid1Result.getResponse().getContentAsString());
+        String kid1Username = kid1Response.get("username").asText();
+
+        // Create second kid
+        KidRegistrationRequest kid2 = new KidRegistrationRequest("Liam", "liampass", AgeGroup.AGE_13_14);
+        mockMvc.perform(post("/api/v1/auth/register-kid")
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kid2)))
+                .andExpect(status().isCreated());
+
+        // Parent updates first kid's profile
+        ChildProfileUpdateRequest update = new ChildProfileUpdateRequest("Emma Updated", 10, "sports, reading", "avatar1");
+        mockMvc.perform(patch("/api/v1/profile")
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Emma Updated"))
+                .andExpect(jsonPath("$.interests").value("sports, reading"));
+    }
+
+    @Test
+    @DisplayName("Kid updates own profile with age group transition")
+    void kidProfileUpdateWithAgeTransition() throws Exception {
+        // Setup parent and kid
+        String uniqueId = String.valueOf(System.currentTimeMillis()).substring(7);
+        String parentUsername = "p" + uniqueId;
+        String parentEmail = "parent" + uniqueId + "@test.com";
+        
+        RegisterUserRequest parentRequest = new RegisterUserRequest(parentUsername, parentEmail, "parentpass123");
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(parentRequest)))
+                .andExpect(status().isCreated());
+
+        Parent parentProfile = new Parent();
+        parentProfile.setFirstName("Test");
+        parentProfile.setLastName("Parent");
+        parentProfile.setEmail(parentEmail);
+        parentRepository.save(parentProfile);
+
+        AuthLoginRequest parentLogin = new AuthLoginRequest(parentUsername, "parentpass123");
+        MvcResult parentResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(parentLogin)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode parentResponse = objectMapper.readTree(parentResult.getResponse().getContentAsString());
+        String parentToken = parentResponse.get("accessToken").asText();
+
+        // Create kid at age boundary
+        KidRegistrationRequest kidRequest = new KidRegistrationRequest("Sophie", "sophiepass", AgeGroup.AGE_6_8);
+        MvcResult kidResult = mockMvc.perform(post("/api/v1/auth/register-kid")
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kidRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode kidResponse = objectMapper.readTree(kidResult.getResponse().getContentAsString());
+        String kidUsername = kidResponse.get("username").asText();
+
+        // Kid authenticates
+        AuthLoginRequest kidLogin = new AuthLoginRequest(kidUsername, "sophiepass");
+        MvcResult kidAuthResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kidLogin)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode kidAuthResponse = objectMapper.readTree(kidAuthResult.getResponse().getContentAsString());
+        String kidToken = kidAuthResponse.get("accessToken").asText();
+
+        // Kid updates profile with new interests
+        ChildProfileUpdateRequest kidUpdate = new ChildProfileUpdateRequest("Sophie", 7, "painting, dancing", "princess_avatar");
+        mockMvc.perform(patch("/api/v1/profile")
+                        .header("Authorization", "Bearer " + kidToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kidUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Sophie"))
+                .andExpect(jsonPath("$.age").value(7))
+                .andExpect(jsonPath("$.interests").value("painting, dancing"))
+                .andExpect(jsonPath("$.avatarId").value("princess_avatar"));
+    }
+
+    private void ensureRoleExists(RoleName roleName) {
+        roleRepository.findByRole(roleName.name()).orElseGet(() -> {
+            Role role = new Role();
+            role.setRole(roleName.name());
+            return roleRepository.save(role);
+        });
+    }
+} 

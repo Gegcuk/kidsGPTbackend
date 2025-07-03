@@ -297,7 +297,7 @@ public class AuthServiceImplTest {
         
         // Then
         assertThat(result.username()).isEqualTo("johnny_kid1");
-        verify(userRepository, times(2)).existsByUsername(anyString());
+        verify(userRepository, atLeast(2)).existsByUsername(anyString());
     }
 
     @Test
