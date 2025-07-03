@@ -23,6 +23,7 @@ import uk.gegc.kidsgptbackend.repository.family.KidRepository;
 import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -69,7 +70,7 @@ class KidProfileServiceTest {
         // Set up roles for child user
         Role childRole = new Role();
         childRole.setRole(RoleName.ROLE_CHILD.name());
-        testUser.setRoles(Set.of(childRole));
+        testUser.setRoles(new HashSet<>(Set.of(childRole)));
 
         testParent = new Parent();
         testParent.setId(UUID.randomUUID());
@@ -132,21 +133,20 @@ class KidProfileServiceTest {
     }
 
     @Test
-    @DisplayName("Should throw ValidationException when parent is not found")
+    @DisplayName("Should throw ValidationException when user is parent (not allowed in new API)")
     void updateCurrentChildProfile_ParentNotFound_ThrowsValidationException() {
-        // Given - Setup as parent user
+        // Given - Setup as parent user (this method now only allows kids)
         Role parentRole = new Role();
         parentRole.setRole(RoleName.ROLE_PARENT.name());
-        testUser.setRoles(Set.of(parentRole));
+        testUser.setRoles(new HashSet<>(Set.of(parentRole)));
         
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
 
-        // When & Then
+        // When & Then - Now throws "Only children can update their own profiles"
         assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Parent profile not found for user");
+                .hasMessageContaining("Only children can update their own profiles");
 
         verify(kidRepository, never()).save(any());
     }
@@ -159,10 +159,10 @@ class KidProfileServiceTest {
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.empty());
 
-        // When & Then
+        // When & Then - Message changed to match current implementation
         assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Child profile not found for user");
+                .hasMessageContaining("Child profile not found");
 
         verify(kidRepository, never()).save(any());
     }
@@ -245,12 +245,12 @@ class KidProfileServiceTest {
     }
 
     @Test
-    @DisplayName("Should successfully update kid profile when authenticated as parent")
+    @DisplayName("Should throw ValidationException when user tries parent authentication (deprecated behavior)")
     void updateCurrentChildProfile_ParentAuth_SuccessfulUpdate() {
-        // Given - Setup as parent user
+        // Given - Setup as parent user (this method no longer supports parent auth)
         Role parentRole = new Role();
         parentRole.setRole(RoleName.ROLE_PARENT.name());
-        testUser.setRoles(Set.of(parentRole));
+        testUser.setRoles(new HashSet<>(Set.of(parentRole)));
         
         ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
                 "Johnny",
@@ -261,22 +261,15 @@ class KidProfileServiceTest {
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
-        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
-        // When
-        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(request);
+        // When & Then - This now throws an exception since method only allows kids
+        assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only children can update their own profiles");
 
-        // Then
-        assertThat(result).isNotNull();
-        assertThat(result.name()).isEqualTo("Johnny");
-        assertThat(result.interests()).isEqualTo("music, art");
-        assertThat(result.avatarId()).isEqualTo("avatar456");
-
-        verify(parentRepository).findByEmail("test@example.com");
-        verify(kidRepository).findByParentId(testParent.getId());
-        verify(kidRepository).save(testKid);
+        verify(parentRepository, never()).findByEmail(any());
+        verify(kidRepository, never()).findByParentId(any());
+        verify(kidRepository, never()).save(any());
     }
 
     @Test
@@ -285,15 +278,15 @@ class KidProfileServiceTest {
         // Given - Setup user with admin role (neither parent nor child)
         Role adminRole = new Role();
         adminRole.setRole(RoleName.ROLE_ADMIN.name());
-        testUser.setRoles(Set.of(adminRole));
+        testUser.setRoles(new HashSet<>(Set.of(adminRole)));
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
 
-        // When & Then
+        // When & Then - Message updated to match current implementation
         assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
                 .isInstanceOf(ValidationException.class)
-                .hasMessageContaining("User must be either a parent or child to update child profile");
+                .hasMessageContaining("Only children can update their own profiles");
 
         verify(kidRepository, never()).save(any());
         verify(parentRepository, never()).findByEmail(any());

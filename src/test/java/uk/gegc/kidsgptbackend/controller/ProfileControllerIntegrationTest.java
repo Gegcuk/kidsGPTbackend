@@ -12,7 +12,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.KidSelfUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.ParentUpdateKidRequest;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
@@ -25,8 +26,8 @@ import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 
+import java.util.HashSet;
 import java.util.Set;
-import java.util.UUID;
 
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -56,7 +57,8 @@ class ProfileControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     private MockMvc mockMvc;
-    private User testUser;
+    private User testKidUser;
+    private User testParentUser;
     private Parent testParent;
     private Kid testKid;
 
@@ -67,165 +69,96 @@ class ProfileControllerIntegrationTest {
                 .apply(springSecurity())
                 .build();
 
-        // Create test data
         setupTestData();
     }
 
     private void setupTestData() {
-        // Create role
-        Role userRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
+        // Create roles
+        Role childRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
                 .orElseGet(() -> {
                     Role role = new Role();
                     role.setRole(RoleName.ROLE_CHILD.name());
                     return roleRepository.save(role);
                 });
+        
+        Role parentRole = roleRepository.findByRole(RoleName.ROLE_PARENT.name())
+                .orElseGet(() -> {
+                    Role role = new Role();
+                    role.setRole(RoleName.ROLE_PARENT.name());
+                    return roleRepository.save(role);
+                });
 
-        // Create user
-        testUser = new User();
-        testUser.setUsername("testuser");
-        testUser.setEmail("testuser@kid.local");
-        testUser.setHashedPassword("hashedPassword");
-        testUser.setRoles(Set.of(userRole));
-        testUser.setActive(true);
-        testUser = userRepository.save(testUser);
+        // Create parent user
+        testParentUser = new User();
+        testParentUser.setUsername("testparent");
+        testParentUser.setEmail("parent@example.com");
+        testParentUser.setHashedPassword("hashedPassword");
+        testParentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+        testParentUser.setActive(true);
+        testParentUser = userRepository.save(testParentUser);
 
-        // Create parent with matching email
+        // Create parent profile
         testParent = new Parent();
         testParent.setFirstName("Test");
         testParent.setLastName("Parent");
         testParent.setEmail("parent@example.com");
         testParent = parentRepository.save(testParent);
 
+        // Create kid user
+        testKidUser = new User();
+        testKidUser.setUsername("testkid");
+        testKidUser.setEmail("testkid@kid.local");
+        testKidUser.setHashedPassword("hashedPassword");
+        testKidUser.setRoles(new HashSet<>(Set.of(childRole)));
+        testKidUser.setActive(true);
+        testKidUser = userRepository.save(testKidUser);
+
         // Create kid
         testKid = new Kid();
         testKid.setNickname("TestKid");
-        testKid.setAge(7); // Set initial age
+        testKid.setAge(7);
         testKid.setAgeGroup(AgeGroup.AGE_6_8);
         testKid.setParent(testParent);
-        testKid.setUser(testUser);
+        testKid.setUser(testKidUser);
         testKid = kidRepository.save(testKid);
     }
 
-    @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should successfully update child profile with valid request")
-    void updateProfile_ValidRequest_ReturnsUpdatedProfile() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "Johnny",
-                8,
-                "soccer, reading",
-                "avatar123"
-        );
+    // ===== TESTS FOR KIDS UPDATING THEIR OWN AVATAR =====
 
-        // When & Then
+    @Test
+    @WithMockUser(username = "testkid", roles = {"CHILD"})
+    @DisplayName("Should successfully update kid's own avatar")
+    void updateOwnProfile_ValidAvatarUpdate_ReturnsUpdatedProfile() throws Exception {
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("new_avatar_123");
+
         mockMvc.perform(patch("/api/v1/profile")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Johnny"))
-                .andExpect(jsonPath("$.age").value(8))
-                .andExpect(jsonPath("$.interests").value("soccer, reading"))
-                .andExpect(jsonPath("$.avatarId").value("avatar123"));
+                .andExpect(jsonPath("$.avatarId").value("new_avatar_123"))
+                .andExpect(jsonPath("$.name").value("TestKid")) // Name should remain unchanged
+                .andExpect(jsonPath("$.age").value(7)); // Age should remain unchanged
     }
 
     @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should return 400 when age is too young (less than 3)")
-    void updateProfile_AgeTooYoung_Returns400() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "Johnny",
-                2, // Too young
-                "soccer",
-                "avatar123"
-        );
+    @WithMockUser(username = "testkid", roles = {"CHILD"})
+    @DisplayName("Should successfully update avatar to null")
+    void updateOwnProfile_NullAvatar_ReturnsUpdatedProfile() throws Exception {
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest(null);
 
-        // When & Then
         mockMvc.perform(patch("/api/v1/profile")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value("age: Age must be at least 3"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarId").isEmpty());
     }
 
     @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should return 400 when age is too old (more than 16)")
-    void updateProfile_AgeTooOld_Returns400() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "Johnny",
-                17, // Too old
-                "soccer",
-                "avatar123"
-        );
+    @WithMockUser(username = "nonexistentkid", roles = {"CHILD"})
+    @DisplayName("Should return error when kid user not found")
+    void updateOwnProfile_KidUserNotFound_ReturnsError() throws Exception {
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
 
-        // When & Then
-        mockMvc.perform(patch("/api/v1/profile")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value("age: Age must be at most 16"));
-    }
-
-    @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should return 400 when name is too long (more than 50 characters)")
-    void updateProfile_NameTooLong_Returns400() throws Exception {
-        // Given
-        String longName = "A".repeat(51); // 51 characters, max is 50
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                longName,
-                8,
-                "soccer",
-                "avatar123"
-        );
-
-        // When & Then
-        mockMvc.perform(patch("/api/v1/profile")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value("name: Name must be at most 50 characters"));
-    }
-
-    @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should return 400 when name is empty")
-    void updateProfile_EmptyName_Returns400() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "", // Empty name
-                8,
-                "soccer",
-                "avatar123"
-        );
-
-        // When & Then
-        mockMvc.perform(patch("/api/v1/profile")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value("name: Name must not be blank"));
-    }
-
-    @Test
-    @DisplayName("Should return 401 when no authentication is provided")
-    void updateProfile_NoAuthentication_Returns401() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "Johnny",
-                8,
-                "soccer",
-                "avatar123"
-        );
-
-        // When & Then
         mockMvc.perform(patch("/api/v1/profile")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -233,60 +166,129 @@ class ProfileControllerIntegrationTest {
     }
 
     @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should successfully update profile with null optional fields")
-    void updateProfile_WithNullOptionalFields_ReturnsUpdatedProfile() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "Johnny",
-                8,
-                null, // null interests
-                null  // null avatarId
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    @DisplayName("Should return 403 when parent tries to use kid endpoint")
+    void updateOwnProfile_ParentUser_Returns403() throws Exception {
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
+
+        mockMvc.perform(patch("/api/v1/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Should return 401 when no authentication provided")
+    void updateOwnProfile_NoAuth_Returns401() throws Exception {
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
+
+        mockMvc.perform(patch("/api/v1/profile")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    // ===== TESTS FOR PARENTS UPDATING KID PROFILES =====
+
+    @Test
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    @DisplayName("Should successfully update kid profile by parent")
+    void updateKidProfile_ValidParentUpdate_ReturnsUpdatedProfile() throws Exception {
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedKidName", 
+                "newpassword123", 
+                AgeGroup.AGE_9_10
         );
 
-        // When & Then
-        mockMvc.perform(patch("/api/v1/profile")
+        mockMvc.perform(patch("/api/v1/profile/kid/" + testKid.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Johnny"))
-                .andExpect(jsonPath("$.age").value(8))
-                .andExpect(jsonPath("$.interests").isEmpty())
-                .andExpect(jsonPath("$.avatarId").isEmpty());
+                .andExpect(jsonPath("$.name").value("UpdatedKidName"))
+                .andExpect(jsonPath("$.ageGroup").value("AGE_9_10"));
     }
 
     @Test
-    @WithMockUser(username = "nonexistentuser")
-    @DisplayName("Should return 401 when user is not found in database")
-    void updateProfile_UserNotFound_Returns401() throws Exception {
-        // Given
-        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
-                "Johnny",
-                8,
-                "soccer",
-                "avatar123"
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    @DisplayName("Should return 400 when nickname is too short")
+    void updateKidProfile_NicknameTooShort_Returns400() throws Exception {
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "A", // Too short (min 2 characters)
+                null, 
+                AgeGroup.AGE_9_10
         );
 
-        // When & Then
-        mockMvc.perform(patch("/api/v1/profile")
+        mockMvc.perform(patch("/api/v1/profile/kid/" + testKid.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.error").value("Unauthorized"))
-                .andExpect(jsonPath("$.details[0]").value("User not found"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"));
     }
 
     @Test
-    @WithMockUser(username = "testuser")
-    @DisplayName("Should return 400 when request contains invalid JSON")
-    void updateProfile_InvalidJson_Returns400() throws Exception {
-        // Given
-        String invalidJson = "{ invalid json }";
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    @DisplayName("Should return 400 when nickname is too long")
+    void updateKidProfile_NicknameTooLong_Returns400() throws Exception {
+        String longNickname = "A".repeat(51); // Too long (max 50 characters)
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                longNickname,
+                null, 
+                AgeGroup.AGE_9_10
+        );
 
-        // When & Then
-        mockMvc.perform(patch("/api/v1/profile")
+        mockMvc.perform(patch("/api/v1/profile/kid/" + testKid.getId())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(invalidJson))
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"));
+    }
+
+    @Test
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    @DisplayName("Should return 400 when password is too short")
+    void updateKidProfile_PasswordTooShort_Returns400() throws Exception {
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "ValidName",
+                "123", // Too short (min 6 characters)
+                AgeGroup.AGE_9_10
+        );
+
+        mockMvc.perform(patch("/api/v1/profile/kid/" + testKid.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"));
+    }
+
+    @Test
+    @WithMockUser(username = "testkid", roles = {"CHILD"})
+    @DisplayName("Should return 403 when kid tries to use parent endpoint")
+    void updateKidProfile_KidUser_Returns403() throws Exception {
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedName", 
+                null, 
+                AgeGroup.AGE_9_10
+        );
+
+        mockMvc.perform(patch("/api/v1/profile/kid/" + testKid.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    @DisplayName("Should return 400 when kid ID is invalid")
+    void updateKidProfile_InvalidKidId_Returns400() throws Exception {
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedName", 
+                null, 
+                AgeGroup.AGE_9_10
+        );
+
+        mockMvc.perform(patch("/api/v1/profile/kid/00000000-0000-0000-0000-000000000000")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
 } 

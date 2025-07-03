@@ -15,7 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.KidSelfUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.ParentUpdateKidRequest;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.model.family.Kid;
@@ -29,6 +30,7 @@ import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -120,6 +122,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
         AgeGroup[] ageGroups = {AgeGroup.AGE_6_8, AgeGroup.AGE_11_12, AgeGroup.AGE_15_16};
         String[] kidUsernames = new String[3];
         String[] kidTokens = new String[3];
+        String[] kidIds = new String[3];
 
         for (int i = 0; i < 3; i++) {
             // Parent creates kid
@@ -141,6 +144,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
 
             JsonNode kidResponse = objectMapper.readTree(kidResult.getResponse().getContentAsString());
             kidUsernames[i] = kidResponse.get("username").asText();
+            kidIds[i] = kidResponse.get("id").asText();
             
             // Kid authenticates
             kidTokens[i] = authenticateUser(kidUsernames[i], "kidpass" + i);
@@ -154,40 +158,31 @@ class ComprehensiveUserLifecycleIntegrationTest {
         }
 
         // ===== PROFILE UPDATE SCENARIOS =====
-        // Kid updates their own profile
-        ChildProfileUpdateRequest kidSelfUpdate = new ChildProfileUpdateRequest(
-                "Alice Updated",
-                7,  // Age within AGE_6_8 range
-                "reading, drawing, puzzles",
-                "avatar_001"
-        );
+        // Kid updates their own profile (only avatar allowed)
+        KidSelfUpdateRequest kidSelfUpdate = new KidSelfUpdateRequest("avatar_001");
 
         mockMvc.perform(patch("/api/v1/profile")
                         .header("Authorization", "Bearer " + kidTokens[0])
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(kidSelfUpdate)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Alice Updated"))
-                .andExpect(jsonPath("$.age").value(7))
-                .andExpect(jsonPath("$.interests").value("reading, drawing, puzzles"))
+                .andExpect(jsonPath("$.name").value("Alice")) // Name unchanged
                 .andExpect(jsonPath("$.avatarId").value("avatar_001"));
 
-        // Parent updates kid's profile
-        ChildProfileUpdateRequest parentUpdateKid = new ChildProfileUpdateRequest(
-                "Alice Parent Update",
-                8,
-                "swimming, coding",
-                "avatar_002"
+        // Parent updates kid's profile (nickname, password, age group)
+        ParentUpdateKidRequest parentUpdateKid = new ParentUpdateKidRequest(
+                "Alice Updated", 
+                "newpassword123", 
+                AgeGroup.AGE_9_10
         );
 
-        mockMvc.perform(patch("/api/v1/profile")
+        mockMvc.perform(patch("/api/v1/profile/kid/" + kidIds[0])
                         .header("Authorization", "Bearer " + parentToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(parentUpdateKid)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Alice Parent Update"))
-                .andExpect(jsonPath("$.age").value(8))
-                .andExpect(jsonPath("$.interests").value("swimming, coding"));
+                .andExpect(jsonPath("$.name").value("Alice Updated"))
+                .andExpect(jsonPath("$.ageGroup").value("AGE_9_10"));
 
         // ===== LOGOUT SCENARIOS =====
         // Kid logout
@@ -254,6 +249,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
 
         JsonNode kid2Response = objectMapper.readTree(kid2Result.getResponse().getContentAsString());
         String kid2Username = kid2Response.get("username").asText();
+        String kid2Id = kid2Response.get("id").asText();
         
         // Verify both kids exist in database
         assertThat(kidRepository.count()).isGreaterThanOrEqualTo(2);
@@ -262,22 +258,34 @@ class ComprehensiveUserLifecycleIntegrationTest {
         String kid1Token = authenticateUser(kid1Username, "emmapass");
         String kid2Token = authenticateUser(kid2Username, "liampass");
         
-        // Each kid can update their own profile
-        ChildProfileUpdateRequest kid1Update = new ChildProfileUpdateRequest("Emma Updated", 10, "sports", "avatar1");
+        // Each kid can update their own profile (only avatar)
+        KidSelfUpdateRequest kid1Update = new KidSelfUpdateRequest("avatar1");
         mockMvc.perform(patch("/api/v1/profile")
                         .header("Authorization", "Bearer " + kid1Token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(kid1Update)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Emma Updated"));
+                .andExpect(jsonPath("$.name").value("Emma")) // Name unchanged
+                .andExpect(jsonPath("$.avatarId").value("avatar1"));
 
-        ChildProfileUpdateRequest kid2Update = new ChildProfileUpdateRequest("Liam Updated", 14, "music", "avatar2");
+        KidSelfUpdateRequest kid2Update = new KidSelfUpdateRequest("avatar2");
         mockMvc.perform(patch("/api/v1/profile")
                         .header("Authorization", "Bearer " + kid2Token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(kid2Update)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Liam Updated"));
+                .andExpect(jsonPath("$.name").value("Liam")) // Name unchanged
+                .andExpect(jsonPath("$.avatarId").value("avatar2"));
+
+        // Parent can update both kids via parent endpoint
+        ParentUpdateKidRequest parentUpdateKid1 = new ParentUpdateKidRequest("Emma Updated", null, AgeGroup.AGE_11_12);
+        mockMvc.perform(patch("/api/v1/profile/kid/" + kid1Id)
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(parentUpdateKid1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name").value("Emma Updated"))
+                .andExpect(jsonPath("$.ageGroup").value("AGE_11_12"));
     }
 
     @Test
@@ -297,7 +305,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
         createParentProfile(parentEmail);
         String parentToken = authenticateUser(parentUsername, "parentpass123");
 
-        // Create kid at age 8 (AGE_6_8)
+        // Create kid at AGE_6_8
         KidRegistrationRequest kidRequest = new KidRegistrationRequest("Sophie", "sophiepass", AgeGroup.AGE_6_8);
         MvcResult kidResult = mockMvc.perform(post("/api/v1/auth/register-kid")
                         .header("Authorization", "Bearer " + parentToken)
@@ -308,16 +316,31 @@ class ComprehensiveUserLifecycleIntegrationTest {
 
         JsonNode kidResponse = objectMapper.readTree(kidResult.getResponse().getContentAsString());
         String kidUsername = kidResponse.get("username").asText();
+        String kidId = kidResponse.get("id").asText();
         String kidToken = authenticateUser(kidUsername, "sophiepass");
 
-        // Update to age 9 (should transition to AGE_9_10)
-        ChildProfileUpdateRequest ageUpdate = new ChildProfileUpdateRequest("Sophie", 9, "growing up", "avatar");
+        // Kid updates their own avatar (kids can only update avatars)
+        KidSelfUpdateRequest kidUpdate = new KidSelfUpdateRequest("avatar");
         mockMvc.perform(patch("/api/v1/profile")
                         .header("Authorization", "Bearer " + kidToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(ageUpdate)))
+                        .content(objectMapper.writeValueAsString(kidUpdate)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.age").value(9));
+                .andExpect(jsonPath("$.name").value("Sophie")) // Name unchanged
+                .andExpect(jsonPath("$.avatarId").value("avatar"));
+
+        // Parent transitions kid to AGE_9_10 age group
+        ParentUpdateKidRequest parentUpdate = new ParentUpdateKidRequest(
+                "Sophie", 
+                null, // Don't update password
+                AgeGroup.AGE_9_10
+        );
+        mockMvc.perform(patch("/api/v1/profile/kid/" + kidId)
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(parentUpdate)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ageGroup").value("AGE_9_10"));
 
         // Verify age group was updated in database
         Kid updatedKid = kidRepository.findByUserId(
@@ -333,7 +356,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
         admin.setEmail("admin@kidsgpt.com");
         admin.setHashedPassword(passwordEncoder.encode("adminpass123"));
         admin.setActive(true);
-        admin.setRoles(Set.of(roleRepository.findByRole(RoleName.ROLE_ADMIN.name()).get()));
+        admin.setRoles(new HashSet<>(Set.of(roleRepository.findByRole(RoleName.ROLE_ADMIN.name()).get())));
         return userRepository.save(admin);
     }
 

@@ -15,7 +15,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.dto.user.ParentUpdateKidRequest;
+import uk.gegc.kidsgptbackend.dto.user.KidSelfUpdateRequest;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.model.family.Kid;
@@ -165,14 +166,14 @@ class ComprehensiveUserLifecycleTest {
                 .andExpect(status().isCreated());
 
         // Parent updates first kid's profile
-        ChildProfileUpdateRequest update = new ChildProfileUpdateRequest("Emma Updated", 10, "sports, reading", "avatar1");
-        mockMvc.perform(patch("/api/v1/profile")
+        String kid1Id = kid1Response.get("id").asText();
+        ParentUpdateKidRequest update = new ParentUpdateKidRequest("Emma Updated", null, AgeGroup.AGE_9_10);
+        mockMvc.perform(patch("/api/v1/profile/kid/" + kid1Id)
                         .header("Authorization", "Bearer " + parentToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(update)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Emma Updated"))
-                .andExpect(jsonPath("$.interests").value("sports, reading"));
+                .andExpect(jsonPath("$.name").value("Emma Updated"));
     }
 
     @Test
@@ -228,16 +229,13 @@ class ComprehensiveUserLifecycleTest {
         JsonNode kidAuthResponse = objectMapper.readTree(kidAuthResult.getResponse().getContentAsString());
         String kidToken = kidAuthResponse.get("accessToken").asText();
 
-        // Kid updates profile with new interests
-        ChildProfileUpdateRequest kidUpdate = new ChildProfileUpdateRequest("Sophie", 7, "painting, dancing", "princess_avatar");
+        // Kid updates profile with new avatar
+        KidSelfUpdateRequest kidUpdate = new KidSelfUpdateRequest("princess_avatar");
         mockMvc.perform(patch("/api/v1/profile")
                         .header("Authorization", "Bearer " + kidToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(kidUpdate)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Sophie"))
-                .andExpect(jsonPath("$.age").value(7))
-                .andExpect(jsonPath("$.interests").value("painting, dancing"))
                 .andExpect(jsonPath("$.avatarId").value("princess_avatar"));
     }
 
