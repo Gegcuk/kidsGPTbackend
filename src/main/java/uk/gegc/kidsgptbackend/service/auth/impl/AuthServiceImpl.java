@@ -12,15 +12,22 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.dto.user.KidDto;
+import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 import uk.gegc.kidsgptbackend.exception.UnauthorizedException;
+import uk.gegc.kidsgptbackend.exception.ValidationException;
 import uk.gegc.kidsgptbackend.mapper.UserMapper;
+import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.model.family.Parent;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository;
+import uk.gegc.kidsgptbackend.repository.family.KidRepository;
+import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
@@ -36,6 +43,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final ParentRepository parentRepository;
+    private final KidRepository kidRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final AuthenticationManager authenticationManager;
@@ -65,6 +74,70 @@ public class AuthServiceImpl implements AuthService {
 
         User saved = userRepository.save(user);
         return userMapper.toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public KidDto registerKid(KidRegistrationRequest request, String parentUsername) {
+        // Find parent user
+        User parentUser = userRepository.findByUsername(parentUsername)
+                .orElseThrow(() -> new ValidationException("Parent user not found"));
+
+        // Verify parent has ROLE_PARENT
+        boolean isParent = parentUser.getRoles().stream()
+                .anyMatch(role -> RoleName.ROLE_PARENT.name().equals(role.getRole()));
+        if (!isParent) {
+            throw new ValidationException("Only parents can create kid accounts");
+        }
+
+        // Find parent profile
+        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
+                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+
+        // Generate unique username for kid (nickname + random suffix)
+        String kidUsername = generateUniqueKidUsername(request.nickname());
+
+        // Check if username already exists (double-check)
+        if (userRepository.existsByUsername(kidUsername)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Generated username already in use");
+        }
+
+        // Create User account for kid
+        User kidUser = new User();
+        kidUser.setUsername(kidUsername);
+        kidUser.setEmail(kidUsername + "@kid.local"); // Fake email for kids
+        kidUser.setHashedPassword(passwordEncoder.encode(request.password()));
+        kidUser.setActive(true);
+
+        Role kidRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
+                .orElseThrow(() -> new IllegalStateException("ROLE_CHILD not found"));
+        kidUser.setRoles(Set.of(kidRole));
+
+        User savedKidUser = userRepository.save(kidUser);
+
+        // Create Kid profile
+        Kid kid = new Kid();
+        kid.setNickname(request.nickname());
+        kid.setAgeGroup(request.ageGroup());
+        kid.setParent(parent);
+        kid.setUser(savedKidUser);
+
+        Kid savedKid = kidRepository.save(kid);
+
+        return UserMapper.toKidDto(savedKid);
+    }
+
+    private String generateUniqueKidUsername(String nickname) {
+        String baseUsername = nickname.toLowerCase().replaceAll("[^a-z0-9]", "");
+        String kidUsername = baseUsername + "_kid";
+        
+        int counter = 1;
+        while (userRepository.existsByUsername(kidUsername)) {
+            kidUsername = baseUsername + "_kid" + counter;
+            counter++;
+        }
+        
+        return kidUsername;
     }
 
     @Override
@@ -104,5 +177,4 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return userMapper.toProfileDto(user);
     }
-
 }

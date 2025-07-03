@@ -15,6 +15,7 @@ import org.springframework.web.context.WebApplicationContext;
 import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
@@ -24,7 +25,6 @@ import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 
-import java.time.LocalDate;
 import java.util.Set;
 import java.util.UUID;
 
@@ -83,7 +83,7 @@ class ProfileControllerIntegrationTest {
         // Create user
         testUser = new User();
         testUser.setUsername("testuser");
-        testUser.setEmail("test@example.com");
+        testUser.setEmail("testuser@kid.local");
         testUser.setHashedPassword("hashedPassword");
         testUser.setRoles(Set.of(userRole));
         testUser.setActive(true);
@@ -93,15 +93,16 @@ class ProfileControllerIntegrationTest {
         testParent = new Parent();
         testParent.setFirstName("Test");
         testParent.setLastName("Parent");
-        testParent.setEmail("test@example.com"); // Same email as user
+        testParent.setEmail("parent@example.com");
         testParent = parentRepository.save(testParent);
 
         // Create kid
         testKid = new Kid();
-        testKid.setFirstName("Test");
-        testKid.setLastName("Kid");
-        testKid.setBirthDate(LocalDate.of(2015, 1, 1));
+        testKid.setNickname("TestKid");
+        testKid.setAge(7); // Set initial age
+        testKid.setAgeGroup(AgeGroup.AGE_6_8);
         testKid.setParent(testParent);
+        testKid.setUser(testUser);
         testKid = kidRepository.save(testKid);
     }
 

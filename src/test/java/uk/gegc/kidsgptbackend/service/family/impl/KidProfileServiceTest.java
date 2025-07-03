@@ -15,13 +15,16 @@ import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
 import uk.gegc.kidsgptbackend.exception.ValidationException;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;
+import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.model.user.Role;
+import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.family.KidRepository;
 import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
-import java.time.LocalDate;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,6 +65,11 @@ class KidProfileServiceTest {
         testUser.setId(UUID.randomUUID());
         testUser.setUsername("testuser");
         testUser.setEmail("test@example.com");
+        
+        // Set up roles for child user
+        Role childRole = new Role();
+        childRole.setRole(RoleName.ROLE_CHILD.name());
+        testUser.setRoles(Set.of(childRole));
 
         testParent = new Parent();
         testParent.setId(UUID.randomUUID());
@@ -69,10 +77,11 @@ class KidProfileServiceTest {
 
         testKid = new Kid();
         testKid.setId(UUID.randomUUID());
-        testKid.setFirstName("Original");
-        testKid.setLastName("Kid");
-        testKid.setBirthDate(LocalDate.of(2015, 1, 1));
+        testKid.setNickname("Original");
+        testKid.setAge(7);
+        testKid.setAgeGroup(AgeGroup.AGE_6_8);
         testKid.setParent(testParent);
+        testKid.setUser(testUser);
 
         updateRequest = new ChildProfileUpdateRequest(
                 "Johnny",
@@ -92,8 +101,7 @@ class KidProfileServiceTest {
         // Given
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
@@ -102,7 +110,6 @@ class KidProfileServiceTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.name()).isEqualTo("Johnny");
-        assertThat(result.age()).isEqualTo(8);
         assertThat(result.interests()).isEqualTo("soccer, reading");
         assertThat(result.avatarId()).isEqualTo("avatar123");
 
@@ -127,7 +134,11 @@ class KidProfileServiceTest {
     @Test
     @DisplayName("Should throw ValidationException when parent is not found")
     void updateCurrentChildProfile_ParentNotFound_ThrowsValidationException() {
-        // Given
+        // Given - Setup as parent user
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        testUser.setRoles(Set.of(parentRole));
+        
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
         when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
@@ -146,8 +157,7 @@ class KidProfileServiceTest {
         // Given
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.empty());
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.empty());
 
         // When & Then
         assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
@@ -170,8 +180,7 @@ class KidProfileServiceTest {
 
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testKid));
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
@@ -180,7 +189,6 @@ class KidProfileServiceTest {
         // Then
         assertThat(result).isNotNull();
         assertThat(result.name()).isEqualTo("Johnny");
-        assertThat(result.age()).isEqualTo(8);
         assertThat(result.interests()).isNull();
         assertThat(result.avatarId()).isNull();
 
@@ -188,59 +196,67 @@ class KidProfileServiceTest {
     }
 
     @Test
-    @DisplayName("Should calculate age correctly from birth date")
-    void updateCurrentChildProfile_CalculatesAgeCorrectly() {
+    @DisplayName("Should update age group when valid age is provided")
+    void updateCurrentChildProfile_UpdatesAgeGroup() {
         // Given
-        // Note: The original birthDate will be overwritten by updateKidFromRequest
-        // The age will be calculated from the new birthDate set by the request
-        when(authentication.getName()).thenReturn("testuser");
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
-        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
-
-        // When
-        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(updateRequest);
-
-        // Then
-        // The age should be 8 (from the request), not the original birthDate
-        assertThat(result.age()).isEqualTo(8);
-    }
-
-    @Test
-    @DisplayName("Should return age 0 when birth date is null")
-    void updateCurrentChildProfile_WithNullBirthDate_ReturnsAgeZero() {
-        // Given
-        // Note: Even if we set birthDate to null, updateKidFromRequest will overwrite it
-        // So this test should verify that the age from the request is used
-        when(authentication.getName()).thenReturn("testuser");
-        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
-        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
-
-        // When
-        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(updateRequest);
-
-        // Then
-        // The age should be 8 (from the request), not 0
-        assertThat(result.age()).isEqualTo(8);
-    }
-
-    @Test
-    @DisplayName("Should calculate age correctly from existing birth date")
-    void updateCurrentChildProfile_CalculatesAgeFromExistingBirthDate() {
-        // Given
-        // Set a specific birth date that should result in a known age
-        LocalDate birthDate = LocalDate.now().minusYears(12);
-        testKid.setBirthDate(birthDate);
-        
-        // Create a request that doesn't change the age (to preserve birthDate)
-        ChildProfileUpdateRequest agePreservingRequest = new ChildProfileUpdateRequest(
+        ChildProfileUpdateRequest ageUpdateRequest = new ChildProfileUpdateRequest(
                 "Johnny",
-                12, // Same age as the birthDate
-                "soccer, reading",
+                12, // Should map to AGE_11_12
+                "soccer",
                 "avatar123"
+        );
+        
+        // Set the kid to return the updated age group after the update
+        testKid.setAgeGroup(AgeGroup.AGE_11_12);
+
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(ageUpdateRequest);
+
+        // Then
+        assertThat(result.ageGroup()).isEqualTo(AgeGroup.AGE_11_12);
+    }
+
+    @Test
+    @DisplayName("Should keep existing age group when invalid age is provided")
+    void updateCurrentChildProfile_WithInvalidAge_KeepsExistingAgeGroup() {
+        // Given
+        ChildProfileUpdateRequest invalidAgeRequest = new ChildProfileUpdateRequest(
+                "Johnny",
+                25, // Invalid age - should keep existing age group
+                "soccer",
+                "avatar123"
+        );
+
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(invalidAgeRequest);
+
+        // Then
+        assertThat(result.ageGroup()).isEqualTo(AgeGroup.AGE_6_8);
+    }
+
+    @Test
+    @DisplayName("Should successfully update kid profile when authenticated as parent")
+    void updateCurrentChildProfile_ParentAuth_SuccessfulUpdate() {
+        // Given - Setup as parent user
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        testUser.setRoles(Set.of(parentRole));
+        
+        ChildProfileUpdateRequest request = new ChildProfileUpdateRequest(
+                "Johnny",
+                10,
+                "music, art",
+                "avatar456"
         );
 
         when(authentication.getName()).thenReturn("testuser");
@@ -250,31 +266,38 @@ class KidProfileServiceTest {
         when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
         // When
-        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(agePreservingRequest);
+        ChildProfileDto result = kidProfileService.updateCurrentChildProfile(request);
 
         // Then
-        // The age should be 12 (calculated from the birthDate)
-        assertThat(result.age()).isEqualTo(12);
+        assertThat(result).isNotNull();
+        assertThat(result.name()).isEqualTo("Johnny");
+        assertThat(result.interests()).isEqualTo("music, art");
+        assertThat(result.avatarId()).isEqualTo("avatar456");
+
+        verify(parentRepository).findByEmail("test@example.com");
+        verify(kidRepository).findByParentId(testParent.getId());
+        verify(kidRepository).save(testKid);
     }
 
     @Test
-    @DisplayName("Should update birth date from provided age")
-    void updateCurrentChildProfile_UpdatesBirthDateFromAge() {
-        // Given
+    @DisplayName("Should throw ValidationException when user has invalid role")
+    void updateCurrentChildProfile_InvalidRole_ThrowsValidationException() {
+        // Given - Setup user with admin role (neither parent nor child)
+        Role adminRole = new Role();
+        adminRole.setRole(RoleName.ROLE_ADMIN.name());
+        testUser.setRoles(Set.of(adminRole));
+
         when(authentication.getName()).thenReturn("testuser");
         when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
-        when(parentRepository.findByEmail("test@example.com")).thenReturn(Optional.of(testParent));
-        when(kidRepository.findByParentId(testParent.getId())).thenReturn(Optional.of(testKid));
-        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
 
-        int currentYear = LocalDate.now().getYear();
-        int expectedBirthYear = currentYear - 8;
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateCurrentChildProfile(updateRequest))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("User must be either a parent or child to update child profile");
 
-        // When
-        kidProfileService.updateCurrentChildProfile(updateRequest);
-
-        // Then
-        verify(kidRepository).save(testKid);
-        assertThat(testKid.getBirthDate()).isEqualTo(LocalDate.of(expectedBirthYear, 1, 1));
+        verify(kidRepository, never()).save(any());
+        verify(parentRepository, never()).findByEmail(any());
+        verify(kidRepository, never()).findByUserId(any());
+        verify(kidRepository, never()).findByParentId(any());
     }
 } 

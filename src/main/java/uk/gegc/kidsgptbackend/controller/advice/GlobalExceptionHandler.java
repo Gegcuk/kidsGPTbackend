@@ -48,7 +48,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     @ExceptionHandler({
-            ValidationException.class,
+            jakarta.validation.ValidationException.class,
+            uk.gegc.kidsgptbackend.exception.ValidationException.class,
             ApiError.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
