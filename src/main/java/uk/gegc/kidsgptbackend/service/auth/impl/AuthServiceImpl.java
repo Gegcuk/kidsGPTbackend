@@ -35,6 +35,7 @@ import uk.gegc.kidsgptbackend.service.auth.AuthService;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.util.HashSet;
 import java.util.Set;
 
 @Service
@@ -70,7 +71,7 @@ public class AuthServiceImpl implements AuthService {
 
         Role userRole = roleRepository.findByRole(RoleName.ROLE_PARENT.name())
                 .orElseThrow(() -> new IllegalStateException("ROLE_PARENT not found"));
-        user.setRoles(Set.of(userRole));
+        user.setRoles(new HashSet<>(Set.of(userRole)));
 
         User saved = userRepository.save(user);
         return userMapper.toDto(saved);
@@ -111,7 +112,7 @@ public class AuthServiceImpl implements AuthService {
 
         Role kidRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
                 .orElseThrow(() -> new IllegalStateException("ROLE_CHILD not found"));
-        kidUser.setRoles(Set.of(kidRole));
+        kidUser.setRoles(new HashSet<>(Set.of(kidRole)));
 
         User savedKidUser = userRepository.save(kidUser);
 
