@@ -244,7 +244,3 @@ Access Swagger UI at: `http://localhost:8080/swagger-ui/`
 - `EMAIL_CONFIGURATION.md` - Detailed email setup guide
 - `docker-compose.yml` - Docker deployment configuration
 - `.github/workflows/deploy.yml` - GitHub Actions deployment workflow
-
-## License
-
-[Add your license information here]
