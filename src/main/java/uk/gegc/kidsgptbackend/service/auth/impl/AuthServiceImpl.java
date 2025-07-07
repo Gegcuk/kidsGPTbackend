@@ -14,6 +14,7 @@ import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
 import uk.gegc.kidsgptbackend.dto.user.KidDto;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
+import uk.gegc.kidsgptbackend.dto.user.ParentDto;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
@@ -38,6 +39,7 @@ import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -89,6 +91,8 @@ public class AuthServiceImpl implements AuthService {
 
         return userMapper.toDto(saved);
     }
+
+
 
     @Override
     @Transactional
@@ -217,5 +221,73 @@ public class AuthServiceImpl implements AuthService {
         return kids.stream()
                 .map(UserMapper::toKidDto)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void deleteKid(UUID kidId, String parentUsername) {
+        // Find parent user
+        User parentUser = userRepository.findByUsername(parentUsername)
+                .orElseThrow(() -> new ValidationException("Parent user not found"));
+
+        // Verify parent has ROLE_PARENT
+        boolean isParent = parentUser.getRoles().stream()
+                .anyMatch(role -> RoleName.ROLE_PARENT.name().equals(role.getRole()));
+        if (!isParent) {
+            throw new ValidationException("Only parents can delete kid accounts");
+        }
+
+        // Find parent profile
+        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
+                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+
+        // Find the kid by ID and verify it belongs to this parent
+        Kid kid = kidRepository.findById(kidId)
+                .orElseThrow(() -> new ValidationException("Kid not found"));
+
+        if (!kid.getParent().getId().equals(parent.getId())) {
+            throw new ValidationException("You can only delete your own kids' accounts");
+        }
+
+        // Check if kid has a user account
+        if (kid.getUser() == null) {
+            throw new ValidationException("Kid user account not found");
+        }
+
+        // Delete the kid's user account
+        userRepository.delete(kid.getUser());
+
+        // Delete the kid profile
+        kidRepository.delete(kid);
+    }
+
+    @Override
+    @Transactional
+    public void deleteParentAccount(String parentUsername) {
+        // Find parent user
+        User parentUser = userRepository.findByUsername(parentUsername)
+                .orElseThrow(() -> new ValidationException("Parent user not found"));
+
+        // Verify parent has ROLE_PARENT
+        boolean isParent = parentUser.getRoles().stream()
+                .anyMatch(role -> RoleName.ROLE_PARENT.name().equals(role.getRole()));
+        if (!isParent) {
+            throw new ValidationException("Only parents can delete their accounts");
+        }
+
+        // Find parent profile
+        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
+                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+
+        // Check if parent has kids
+        if (!parent.getKids().isEmpty()) {
+            throw new ValidationException("Cannot delete parent account with existing kids. Please delete all kids first.");
+        }
+
+        // Delete the parent's user account
+        userRepository.delete(parentUser);
+
+        // Delete the parent profile
+        parentRepository.delete(parent);
     }
 }

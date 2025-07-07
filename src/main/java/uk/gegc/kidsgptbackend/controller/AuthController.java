@@ -11,11 +11,13 @@ import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.auth.*;
 import uk.gegc.kidsgptbackend.dto.user.KidDto;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
+import uk.gegc.kidsgptbackend.dto.user.ParentDto;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 
 import java.util.List;
+import java.util.UUID;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
 import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 
@@ -34,6 +36,8 @@ public class AuthController {
         UserDto createdUser = authService.register(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(createdUser);
     }
+
+
 
     @PostMapping("/register-kid")
     public ResponseEntity<KidDto> registerKid(
@@ -103,5 +107,30 @@ public class AuthController {
     public ResponseEntity<Boolean> validateResetToken(@RequestParam String token) {
         boolean isValid = passwordResetService.validateResetToken(token);
         return ResponseEntity.ok(isValid);
+    }
+
+    @DeleteMapping("/kids/{kidId}")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<Void> deleteKid(
+            @PathVariable UUID kidId,
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        authService.deleteKid(kidId, principal.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/account")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<Void> deleteParentAccount(
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        authService.deleteParentAccount(principal.getUsername());
+        return ResponseEntity.noContent().build();
     }
 }
