@@ -91,13 +91,6 @@ class BasicUserCreationIntegrationTest {
                 .andExpect(jsonPath("$.username").value("testparent"))
                 .andExpect(jsonPath("$.roles[0]").value("ROLE_PARENT"));
 
-        // Step 3: Create parent profile
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent");
-        parentProfile.setEmail("parent@example.com");
-        parentRepository.save(parentProfile);
-
         // Step 4: Authenticate parent
         AuthLoginRequest parentLogin = new AuthLoginRequest("testparent", "parentpass123");
         MvcResult parentAuthResult = mockMvc.perform(post("/api/v1/auth/login")
@@ -177,13 +170,6 @@ class BasicUserCreationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
-
-        // Create parent profile
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent2");
-        parentProfile.setEmail("parent2@example.com");
-        parentRepository.save(parentProfile);
 
         // Authenticate parent
         AuthLoginRequest parentLogin = new AuthLoginRequest("testparent2", "parentpass123");

@@ -339,12 +339,8 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
 
-        // Create parent profile
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent");
-        parentProfile.setEmail(uniqueEmail);
-        parentRepository.save(parentProfile);
+        // Parent profile is now created automatically during registration
+        // No need to manually create it
 
         // Authenticate parent
         AuthLoginRequest parentLogin = new AuthLoginRequest(uniqueUsername, "parentpass123");

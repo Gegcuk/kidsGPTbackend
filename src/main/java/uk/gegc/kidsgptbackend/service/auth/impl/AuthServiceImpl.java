@@ -36,7 +36,9 @@ import uk.gegc.kidsgptbackend.service.auth.AuthService;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -53,6 +55,7 @@ public class AuthServiceImpl implements AuthService {
     private final RevokedTokenRepository revokedTokenRepository;
 
     @Override
+    @Transactional
     public UserDto register(RegisterUserRequest request) {
 
         if (userRepository.existsByUsername(request.username())) {
@@ -74,6 +77,16 @@ public class AuthServiceImpl implements AuthService {
         user.setRoles(new HashSet<>(Set.of(userRole)));
 
         User saved = userRepository.save(user);
+
+        // Create parent profile for parent users
+        if (userRole.getRole().equals(RoleName.ROLE_PARENT.name())) {
+            Parent parent = new Parent();
+            parent.setFirstName("Parent"); // Default first name
+            parent.setLastName("User");    // Default last name
+            parent.setEmail(request.email());
+            parentRepository.save(parent);
+        }
+
         return userMapper.toDto(saved);
     }
 
@@ -177,5 +190,32 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         return userMapper.toProfileDto(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KidDto> getParentKids(String parentUsername) {
+        // Find parent user
+        User parentUser = userRepository.findByUsername(parentUsername)
+                .orElseThrow(() -> new ValidationException("Parent user not found"));
+
+        // Verify parent has ROLE_PARENT
+        boolean isParent = parentUser.getRoles().stream()
+                .anyMatch(role -> RoleName.ROLE_PARENT.name().equals(role.getRole()));
+        if (!isParent) {
+            throw new ValidationException("Only parents can retrieve their kids");
+        }
+
+        // Find parent profile
+        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
+                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+
+        // Find all kids belonging to this parent
+        List<Kid> kids = kidRepository.findAllByParentId(parent.getId());
+
+        // Convert to DTOs
+        return kids.stream()
+                .map(UserMapper::toKidDto)
+                .collect(Collectors.toList());
     }
 }

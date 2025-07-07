@@ -129,12 +129,6 @@ class ComprehensiveUserLifecycleTest {
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
 
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent");
-        parentProfile.setEmail(parentEmail);
-        parentRepository.save(parentProfile);
-
         AuthLoginRequest parentLogin = new AuthLoginRequest(parentUsername, "parentpass123");
         MvcResult parentResult = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -189,12 +183,6 @@ class ComprehensiveUserLifecycleTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
-
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent");
-        parentProfile.setEmail(parentEmail);
-        parentRepository.save(parentProfile);
 
         AuthLoginRequest parentLogin = new AuthLoginRequest(parentUsername, "parentpass123");
         MvcResult parentResult = mockMvc.perform(post("/api/v1/auth/login")
