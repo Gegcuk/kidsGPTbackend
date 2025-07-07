@@ -37,6 +37,9 @@ import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -334,5 +337,176 @@ public class AuthServiceImplTest {
         assertThatThrownBy(() -> authService.login(req))
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining(String.valueOf(HttpStatus.UNAUTHORIZED.value()));
+    }
+
+    // Get Parent Kids Tests
+    @Test
+    @DisplayName("getParentKids: successful retrieval with multiple kids")
+    void getParentKids_success_multipleKids() {
+        // Given
+        String parentUsername = "parent123";
+        UUID parentId = UUID.randomUUID();
+        
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        Parent parent = new Parent();
+        parent.setId(parentId);
+        parent.setEmail("parent@example.com");
+        
+        User kidUser1 = new User();
+        kidUser1.setId(UUID.randomUUID());
+        kidUser1.setUsername("emma_kid");
+        
+        User kidUser2 = new User();
+        kidUser2.setId(UUID.randomUUID());
+        kidUser2.setUsername("liam_kid");
+        
+        Kid kid1 = new Kid();
+        kid1.setId(UUID.randomUUID());
+        kid1.setNickname("Emma");
+        kid1.setAgeGroup(AgeGroup.AGE_6_8);
+        kid1.setUser(kidUser1);
+        kid1.setParent(parent);
+        
+        Kid kid2 = new Kid();
+        kid2.setId(UUID.randomUUID());
+        kid2.setNickname("Liam");
+        kid2.setAgeGroup(AgeGroup.AGE_9_10);
+        kid2.setUser(kidUser2);
+        kid2.setParent(parent);
+        
+        List<Kid> kids = Arrays.asList(kid1, kid2);
+        
+        // When
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidRepository.findAllByParentId(parentId)).thenReturn(kids);
+        
+        List<KidDto> result = authService.getParentKids(parentUsername);
+        
+        // Then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).nickname()).isEqualTo("Emma");
+        assertThat(result.get(0).username()).isEqualTo("emma_kid");
+        assertThat(result.get(0).ageGroup()).isEqualTo(AgeGroup.AGE_6_8);
+        assertThat(result.get(1).nickname()).isEqualTo("Liam");
+        assertThat(result.get(1).username()).isEqualTo("liam_kid");
+        assertThat(result.get(1).ageGroup()).isEqualTo(AgeGroup.AGE_9_10);
+        
+        verify(userRepository).findByUsername(parentUsername);
+        verify(parentRepository).findByEmail("parent@example.com");
+        verify(kidRepository).findAllByParentId(parentId);
+    }
+
+    @Test
+    @DisplayName("getParentKids: successful retrieval with no kids")
+    void getParentKids_success_noKids() {
+        // Given
+        String parentUsername = "parent123";
+        UUID parentId = UUID.randomUUID();
+        
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        Parent parent = new Parent();
+        parent.setId(parentId);
+        parent.setEmail("parent@example.com");
+        
+        // When
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidRepository.findAllByParentId(parentId)).thenReturn(Collections.emptyList());
+        
+        List<KidDto> result = authService.getParentKids(parentUsername);
+        
+        // Then
+        assertThat(result).isEmpty();
+        
+        verify(userRepository).findByUsername(parentUsername);
+        verify(parentRepository).findByEmail("parent@example.com");
+        verify(kidRepository).findAllByParentId(parentId);
+    }
+
+    @Test
+    @DisplayName("getParentKids: throws ValidationException when parent user not found")
+    void getParentKids_parentUserNotFound_throws() {
+        // Given
+        String parentUsername = "nonexistent";
+        
+        // When
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.empty());
+        
+        // Then
+        assertThatThrownBy(() -> authService.getParentKids(parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Parent user not found");
+        
+        verify(userRepository).findByUsername(parentUsername);
+        verifyNoInteractions(parentRepository, kidRepository);
+    }
+
+    @Test
+    @DisplayName("getParentKids: throws ValidationException when user is not a parent")
+    void getParentKids_userNotParent_throws() {
+        // Given
+        String username = "childuser";
+        
+        User childUser = new User();
+        childUser.setId(UUID.randomUUID());
+        childUser.setUsername(username);
+        childUser.setEmail("child@example.com");
+        Role childRole = new Role();
+        childRole.setRole(RoleName.ROLE_CHILD.name());
+        childUser.setRoles(Set.of(childRole));
+        
+        // When
+        when(userRepository.findByUsername(username)).thenReturn(Optional.of(childUser));
+        
+        // Then
+        assertThatThrownBy(() -> authService.getParentKids(username))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only parents can retrieve their kids");
+        
+        verify(userRepository).findByUsername(username);
+        verifyNoInteractions(parentRepository, kidRepository);
+    }
+
+    @Test
+    @DisplayName("getParentKids: throws ValidationException when parent profile not found")
+    void getParentKids_parentProfileNotFound_throws() {
+        // Given
+        String parentUsername = "parent123";
+        
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        // When
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.empty());
+        
+        // Then
+        assertThatThrownBy(() -> authService.getParentKids(parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Parent profile not found");
+        
+        verify(userRepository).findByUsername(parentUsername);
+        verify(parentRepository).findByEmail("parent@example.com");
+        verifyNoInteractions(kidRepository);
     }
 }

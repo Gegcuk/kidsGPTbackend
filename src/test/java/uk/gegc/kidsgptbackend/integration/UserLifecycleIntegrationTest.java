@@ -81,13 +81,6 @@ class UserLifecycleIntegrationTest {
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
 
-        // Create parent profile
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent");
-        parentProfile.setEmail(parentEmail);
-        parentRepository.save(parentProfile);
-
         // Authenticate parent
         AuthLoginRequest parentLogin = new AuthLoginRequest(parentUsername, "parentpass123");
         MvcResult parentAuthResult = mockMvc.perform(post("/api/v1/auth/login")

@@ -104,9 +104,6 @@ class ComprehensiveUserLifecycleIntegrationTest {
                 .andExpect(jsonPath("$.roles[0]").value("ROLE_PARENT"))
                 .andExpect(jsonPath("$.isActive").value(true));
 
-        // Create parent profile (required for kid creation)
-        createParentProfile(parentEmail);
-
         // Authenticate parent
         String parentToken = authenticateUser(parentUsername, "parentpass123");
         
@@ -220,48 +217,61 @@ class ComprehensiveUserLifecycleIntegrationTest {
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
 
-        createParentProfile(parentEmail);
+        // Authenticate parent
         String parentToken = authenticateUser(parentUsername, "parentpass123");
-
-        // Create two kids
-        KidRegistrationRequest kid1 = new KidRegistrationRequest("Emma", "emmapass", AgeGroup.AGE_9_10);
-        KidRegistrationRequest kid2 = new KidRegistrationRequest("Liam", "liampass", AgeGroup.AGE_13_14);
         
-        // Create first kid
-        MvcResult kid1Result = mockMvc.perform(post("/api/v1/auth/register-kid")
-                        .header("Authorization", "Bearer " + parentToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(kid1)))
-                .andExpect(status().isCreated())
-                .andReturn();
+        // Verify parent authentication state
+        mockMvc.perform(get("/api/v1/auth/me")
+                        .header("Authorization", "Bearer " + parentToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value(parentUsername))
+                .andExpect(jsonPath("$.role").value("ROLE_PARENT"));
 
-        JsonNode kid1Response = objectMapper.readTree(kid1Result.getResponse().getContentAsString());
-        String kid1Username = kid1Response.get("username").asText();
-        String kid1Id = kid1Response.get("id").asText();
+        // ===== CREATE MULTIPLE KIDS WITH DIFFERENT AGE GROUPS =====
+        String[] kidNames = {"Emma", "Liam"};
+        AgeGroup[] ageGroups = {AgeGroup.AGE_9_10, AgeGroup.AGE_13_14};
+        String[] kidUsernames = new String[2];
+        String[] kidIds = new String[2];
+        String[] kidTokens = new String[2];
 
-        // Create second kid
-        MvcResult kid2Result = mockMvc.perform(post("/api/v1/auth/register-kid")
-                        .header("Authorization", "Bearer " + parentToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(kid2)))
-                .andExpect(status().isCreated())
-                .andReturn();
+        for (int i = 0; i < 2; i++) {
+            // Parent creates kid
+            KidRegistrationRequest kidRequest = new KidRegistrationRequest(
+                    kidNames[i], 
+                    "kidpass" + i, 
+                    ageGroups[i]
+            );
+            
+            MvcResult kidResult = mockMvc.perform(post("/api/v1/auth/register-kid")
+                            .header("Authorization", "Bearer " + parentToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(kidRequest)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.nickname").value(kidNames[i]))
+                    .andExpect(jsonPath("$.ageGroup").value(ageGroups[i].name()))
+                    .andExpect(jsonPath("$.id").exists())
+                    .andReturn();
 
-        JsonNode kid2Response = objectMapper.readTree(kid2Result.getResponse().getContentAsString());
-        String kid2Username = kid2Response.get("username").asText();
-        String kid2Id = kid2Response.get("id").asText();
-        
-        // Verify both kids exist in database
-        assertThat(kidRepository.count()).isGreaterThanOrEqualTo(2);
-        
-        // Both kids can authenticate independently
-        String kid1Token = authenticateUser(kid1Username, "emmapass");
-        String kid2Token = authenticateUser(kid2Username, "liampass");
-        
-        // Each kid can update their own profile (only avatar)
+            JsonNode kidResponse = objectMapper.readTree(kidResult.getResponse().getContentAsString());
+            kidUsernames[i] = kidResponse.get("username").asText();
+            kidIds[i] = kidResponse.get("id").asText();
+            
+            // Kid authenticates
+            kidTokens[i] = authenticateUser(kidUsernames[i], "kidpass" + i);
+            
+            // Verify kid authentication state
+            mockMvc.perform(get("/api/v1/auth/me")
+                            .header("Authorization", "Bearer " + kidTokens[i]))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.username").value(kidUsernames[i]))
+                    .andExpect(jsonPath("$.role").value("ROLE_CHILD"));
+        }
+
+        // ===== PROFILE UPDATE SCENARIOS =====
+        // Kid updates their own profile (only avatar allowed)
         KidSelfUpdateRequest kid1Update = new KidSelfUpdateRequest("avatar1");
         mockMvc.perform(patch("/api/v1/profile")
-                        .header("Authorization", "Bearer " + kid1Token)
+                        .header("Authorization", "Bearer " + kidTokens[0])
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(kid1Update)))
                 .andExpect(status().isOk())
@@ -270,7 +280,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
 
         KidSelfUpdateRequest kid2Update = new KidSelfUpdateRequest("avatar2");
         mockMvc.perform(patch("/api/v1/profile")
-                        .header("Authorization", "Bearer " + kid2Token)
+                        .header("Authorization", "Bearer " + kidTokens[1])
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(kid2Update)))
                 .andExpect(status().isOk())
@@ -279,7 +289,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
 
         // Parent can update both kids via parent endpoint
         ParentUpdateKidRequest parentUpdateKid1 = new ParentUpdateKidRequest("Emma Updated", null, AgeGroup.AGE_11_12);
-        mockMvc.perform(patch("/api/v1/profile/kid/" + kid1Id)
+        mockMvc.perform(patch("/api/v1/profile/kid/" + kidIds[0])
                         .header("Authorization", "Bearer " + parentToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(parentUpdateKid1)))
@@ -302,7 +312,7 @@ class ComprehensiveUserLifecycleIntegrationTest {
                         .content(objectMapper.writeValueAsString(parentRequest)))
                 .andExpect(status().isCreated());
 
-        createParentProfile(parentEmail);
+        // Authenticate parent
         String parentToken = authenticateUser(parentUsername, "parentpass123");
 
         // Create kid at AGE_6_8
@@ -358,14 +368,6 @@ class ComprehensiveUserLifecycleIntegrationTest {
         admin.setActive(true);
         admin.setRoles(new HashSet<>(Set.of(roleRepository.findByRole(RoleName.ROLE_ADMIN.name()).get())));
         return userRepository.save(admin);
-    }
-
-    private void createParentProfile(String email) {
-        Parent parentProfile = new Parent();
-        parentProfile.setFirstName("Test");
-        parentProfile.setLastName("Parent");
-        parentProfile.setEmail(email);
-        parentRepository.save(parentProfile);
     }
 
     private String authenticateUser(String username, String password) throws Exception {

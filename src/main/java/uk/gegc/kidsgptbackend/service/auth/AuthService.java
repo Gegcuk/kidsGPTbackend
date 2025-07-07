@@ -8,6 +8,8 @@ import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
 
+import java.util.List;
+
 public interface AuthService {
     UserDto register(RegisterUserRequest request);
 
@@ -18,4 +20,6 @@ public interface AuthService {
     void logout(String token);
 
     UserProfileDto getProfile(String username);
+
+    List<KidDto> getParentKids(String parentUsername);
 }

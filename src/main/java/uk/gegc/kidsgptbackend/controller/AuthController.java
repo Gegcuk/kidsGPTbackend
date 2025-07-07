@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.auth.*;
@@ -13,6 +14,8 @@ import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
+
+import java.util.List;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
 import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 
@@ -68,6 +71,16 @@ public class AuthController {
         }
         UserProfileDto profile = authService.getProfile(principal.getUsername());
         return ResponseEntity.ok(profile);
+    }
+
+    @GetMapping("/kids")
+    @PreAuthorize("hasRole('PARENT')")
+    public ResponseEntity<List<KidDto>> getMyKids(@AuthenticationPrincipal org.springframework.security.core.userdetails.User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        List<KidDto> kids = authService.getParentKids(principal.getUsername());
+        return ResponseEntity.ok(kids);
     }
 
     @PostMapping("/forgot-password")
