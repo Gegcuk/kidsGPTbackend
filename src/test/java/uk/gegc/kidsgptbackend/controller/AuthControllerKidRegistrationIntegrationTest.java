@@ -27,6 +27,7 @@ import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
 import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -321,6 +322,150 @@ class AuthControllerKidRegistrationIntegrationTest {
                             .content(objectMapper.writeValueAsString(kidLogin)))
                     .andExpect(status().isOk());
         }
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/kids/{kidId} → 204 for valid parent request")
+    void deleteKid_validParentRequest_returnsNoContent() throws Exception {
+        // First create a kid
+        KidRegistrationRequest createRequest = new KidRegistrationRequest(
+                "KidToDelete",
+                "password123",
+                AgeGroup.AGE_9_10
+        );
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/auth/register-kid")
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode createResponse = objectMapper.readTree(createResult.getResponse().getContentAsString());
+        String kidId = createResponse.get("id").asText();
+        String kidUsername = createResponse.get("username").asText();
+
+        // Verify kid exists and can login
+        AuthLoginRequest kidLogin = new AuthLoginRequest(kidUsername, "password123");
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kidLogin)))
+                .andExpect(status().isOk());
+
+        // Delete the kid
+        mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
+                        .header("Authorization", "Bearer " + parentToken))
+                .andExpect(status().isNoContent());
+
+        // Verify kid no longer exists
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(kidLogin)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/kids/{kidId} → 400 when kid not found")
+    void deleteKid_kidNotFound_returnsBadRequest() throws Exception {
+        UUID nonExistentKidId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/v1/auth/kids/" + nonExistentKidId)
+                        .header("Authorization", "Bearer " + parentToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.details").value("Kid not found"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/kids/{kidId} → 401 when not authenticated")
+    void deleteKid_notAuthenticated_returnsUnauthorized() throws Exception {
+        UUID kidId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/v1/auth/kids/" + kidId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/kids/{kidId} → 403 when user is not a parent")
+    void deleteKid_userNotParent_returnsForbidden() throws Exception {
+        // Given - Create and authenticate a child user
+        String uniqueId = String.valueOf(System.currentTimeMillis()).substring(7);
+        User childUser = new User();
+        childUser.setUsername("c" + uniqueId);
+        childUser.setEmail("child" + uniqueId + "@test.com");
+        childUser.setHashedPassword(passwordEncoder.encode("password123"));
+        childUser.setActive(true);
+        childUser.setRoles(Set.of(roleRepository.findByRole(RoleName.ROLE_CHILD.name()).get()));
+        userRepository.save(childUser);
+
+        // Authenticate as child
+        AuthLoginRequest childLogin = new AuthLoginRequest(childUser.getUsername(), "password123");
+        MvcResult childAuthResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(childLogin)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode childResponse = objectMapper.readTree(childAuthResult.getResponse().getContentAsString());
+        String childToken = childResponse.get("accessToken").asText();
+
+        UUID kidId = UUID.randomUUID();
+
+        // When & Then - Spring Security blocks access before reaching service
+        mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
+                        .header("Authorization", "Bearer " + childToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.error").value("Access Denied"));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/kids/{kidId} → 400 when trying to delete another parent's kid")
+    void deleteKid_anotherParentKid_returnsBadRequest() throws Exception {
+        // Create a second parent
+        String uniqueId = String.valueOf(System.currentTimeMillis()).substring(7);
+        String secondParentUsername = "p2" + uniqueId;
+        String secondParentEmail = "parent2" + uniqueId + "@test.com";
+        
+        RegisterUserRequest secondParentRequest = new RegisterUserRequest(secondParentUsername, secondParentEmail, "parentpass123");
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(secondParentRequest)))
+                .andExpect(status().isCreated());
+
+        // Authenticate second parent
+        AuthLoginRequest secondParentLogin = new AuthLoginRequest(secondParentUsername, "parentpass123");
+        MvcResult secondParentAuthResult = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(secondParentLogin)))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        JsonNode secondParentResponse = objectMapper.readTree(secondParentAuthResult.getResponse().getContentAsString());
+        String secondParentToken = secondParentResponse.get("accessToken").asText();
+
+        // Create a kid with the first parent
+        KidRegistrationRequest createRequest = new KidRegistrationRequest(
+                "KidToDelete",
+                "password123",
+                AgeGroup.AGE_9_10
+        );
+
+        MvcResult createResult = mockMvc.perform(post("/api/v1/auth/register-kid")
+                        .header("Authorization", "Bearer " + parentToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn();
+
+        JsonNode createResponse = objectMapper.readTree(createResult.getResponse().getContentAsString());
+        String kidId = createResponse.get("id").asText();
+
+        // Try to delete with second parent (should fail)
+        mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
+                        .header("Authorization", "Bearer " + secondParentToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Bad Request"))
+                .andExpect(jsonPath("$.details").value("You can only delete your own kids' accounts"));
     }
 
     private void setupParentUser() throws Exception {

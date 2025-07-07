@@ -509,4 +509,178 @@ public class AuthServiceImplTest {
         verify(parentRepository).findByEmail("parent@example.com");
         verifyNoInteractions(kidRepository);
     }
+
+    @Test
+    @DisplayName("deleteKid: successful deletion by parent")
+    void deleteKid_success() {
+        // Given
+        UUID kidId = UUID.randomUUID();
+        String parentUsername = "parent123";
+        UUID parentId = UUID.randomUUID();
+        UUID kidUserId = UUID.randomUUID();
+        
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        Parent parent = new Parent();
+        parent.setId(parentId);
+        parent.setEmail("parent@example.com");
+        
+        User kidUser = new User();
+        kidUser.setId(kidUserId);
+        kidUser.setUsername("emma_kid");
+        
+        Kid kid = new Kid();
+        kid.setId(kidId);
+        kid.setNickname("Emma");
+        kid.setUser(kidUser);
+        kid.setParent(parent);
+        
+        // When
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidRepository.findById(kidId)).thenReturn(Optional.of(kid));
+        
+        authService.deleteKid(kidId, parentUsername);
+        
+        // Then
+        verify(kidRepository).delete(kid);
+        verify(userRepository).delete(kidUser);
+    }
+
+    @Test
+    @DisplayName("deleteKid: throws ValidationException when parent user not found")
+    void deleteKid_parentUserNotFound_throws() {
+        UUID kidId = UUID.randomUUID();
+        String parentUsername = "nonexistent";
+        
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.deleteKid(kidId, parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Parent user not found");
+    }
+
+    @Test
+    @DisplayName("deleteKid: throws ValidationException when user is not a parent")
+    void deleteKid_userNotParent_throws() {
+        UUID kidId = UUID.randomUUID();
+        String parentUsername = "user";
+        
+        User nonParentUser = new User();
+        nonParentUser.setUsername("user");
+        Role childRole = new Role();
+        childRole.setRole(RoleName.ROLE_CHILD.name());
+        nonParentUser.setRoles(Set.of(childRole));
+        
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(nonParentUser));
+
+        assertThatThrownBy(() -> authService.deleteKid(kidId, parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only parents can delete kid accounts");
+    }
+
+    @Test
+    @DisplayName("deleteKid: throws ValidationException when kid not found")
+    void deleteKid_kidNotFound_throws() {
+        UUID kidId = UUID.randomUUID();
+        String parentUsername = "parent123";
+        
+        User parentUser = new User();
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        Parent parent = new Parent();
+        parent.setEmail("parent@example.com");
+        
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidRepository.findById(kidId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.deleteKid(kidId, parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Kid not found");
+    }
+
+    @Test
+    @DisplayName("deleteKid: throws ValidationException when trying to delete another parent's kid")
+    void deleteKid_anotherParentKid_throws() {
+        UUID kidId = UUID.randomUUID();
+        String parentUsername = "parent123";
+        UUID parentId = UUID.randomUUID();
+        UUID otherParentId = UUID.randomUUID();
+        
+        User parentUser = new User();
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        Parent parent = new Parent();
+        parent.setId(parentId);
+        parent.setEmail("parent@example.com");
+        
+        Parent otherParent = new Parent();
+        otherParent.setId(otherParentId);
+        otherParent.setEmail("other@example.com");
+        
+        User kidUser = new User();
+        kidUser.setUsername("emma_kid");
+        
+        Kid kid = new Kid();
+        kid.setId(kidId);
+        kid.setNickname("Emma");
+        kid.setUser(kidUser);
+        kid.setParent(otherParent); // Kid belongs to different parent
+        
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidRepository.findById(kidId)).thenReturn(Optional.of(kid));
+
+        assertThatThrownBy(() -> authService.deleteKid(kidId, parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("You can only delete your own kids' accounts");
+    }
+
+    @Test
+    @DisplayName("deleteKid: throws ValidationException when kid user account not found")
+    void deleteKid_kidUserNotFound_throws() {
+        UUID kidId = UUID.randomUUID();
+        String parentUsername = "parent123";
+        UUID parentId = UUID.randomUUID();
+        
+        User parentUser = new User();
+        parentUser.setUsername(parentUsername);
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+        
+        Parent parent = new Parent();
+        parent.setId(parentId);
+        parent.setEmail("parent@example.com");
+        
+        Kid kid = new Kid();
+        kid.setId(kidId);
+        kid.setNickname("Emma");
+        kid.setUser(null); // No user associated
+        kid.setParent(parent);
+        
+        when(userRepository.findByUsername(parentUsername)).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidRepository.findById(kidId)).thenReturn(Optional.of(kid));
+
+        assertThatThrownBy(() -> authService.deleteKid(kidId, parentUsername))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Kid user account not found");
+    }
 }
