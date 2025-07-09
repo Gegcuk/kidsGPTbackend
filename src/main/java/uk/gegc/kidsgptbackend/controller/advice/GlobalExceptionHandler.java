@@ -166,6 +166,29 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         );
     }
 
+    @ExceptionHandler(CredentialUpdateException.class)
+    public ResponseEntity<ErrorResponse> handleCredentialUpdate(CredentialUpdateException ex) {
+        // Check if it's an email conflict error
+        if (ex.getMessage() != null && ex.getMessage().contains("Email already in use")) {
+            ErrorResponse body = new ErrorResponse(
+                    LocalDateTime.now(),
+                    HttpStatus.CONFLICT.value(),
+                    "Conflict",
+                    List.of(ex.getMessage())
+            );
+            return new ResponseEntity<>(body, HttpStatus.CONFLICT);
+        }
+        
+        // Default to Bad Request for other credential update errors
+        ErrorResponse body = new ErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "Credential Update Failed",
+                List.of(ex.getMessage() != null ? ex.getMessage() : "Failed to update credentials")
+        );
+        return new ResponseEntity<>(body, HttpStatus.BAD_REQUEST);
+    }
+
     // Handle Spring Security authentication exceptions
     @ExceptionHandler({
             AuthenticationException.class,
