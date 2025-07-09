@@ -133,4 +133,28 @@ public class AuthController {
         authService.deleteParentAccount(principal.getUsername());
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/update-email")
+    public ResponseEntity<UserProfileDto> updateEmail(
+            @Valid @RequestBody UpdateEmailRequest request,
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        UserProfileDto updatedProfile = authService.updateEmail(principal.getUsername(), request);
+        return ResponseEntity.ok(updatedProfile);
+    }
+
+    @PutMapping("/update-password")
+    public ResponseEntity<UserProfileDto> updatePassword(
+            @Valid @RequestBody UpdatePasswordRequest request,
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User principal
+    ) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        UserProfileDto updatedProfile = authService.updatePassword(principal.getUsername(), request);
+        return ResponseEntity.ok(updatedProfile);
+    }
 }

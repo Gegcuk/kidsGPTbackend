@@ -12,12 +12,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.dto.auth.UpdateEmailRequest;
+import uk.gegc.kidsgptbackend.dto.auth.UpdatePasswordRequest;
 import uk.gegc.kidsgptbackend.dto.user.KidDto;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.ParentDto;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
 import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
+import uk.gegc.kidsgptbackend.exception.CredentialUpdateException;
 import uk.gegc.kidsgptbackend.exception.UnauthorizedException;
 import uk.gegc.kidsgptbackend.exception.ValidationException;
 import uk.gegc.kidsgptbackend.mapper.UserMapper;
@@ -76,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
 
         Role userRole = roleRepository.findByRole(RoleName.ROLE_PARENT.name())
                 .orElseThrow(() -> new IllegalStateException("ROLE_PARENT not found"));
-        user.setRoles(new HashSet<>(Set.of(userRole)));
+        user.setRoles(new HashSet<>(java.util.Arrays.asList(userRole)));
 
         User saved = userRepository.save(user);
 
@@ -129,7 +132,7 @@ public class AuthServiceImpl implements AuthService {
 
         Role kidRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
                 .orElseThrow(() -> new IllegalStateException("ROLE_CHILD not found"));
-        kidUser.setRoles(new HashSet<>(Set.of(kidRole)));
+        kidUser.setRoles(new HashSet<>(java.util.Arrays.asList(kidRole)));
 
         User savedKidUser = userRepository.save(kidUser);
 
@@ -289,5 +292,49 @@ public class AuthServiceImpl implements AuthService {
 
         // Delete the parent profile
         parentRepository.delete(parent);
+    }
+
+    @Override
+    @Transactional
+    public UserProfileDto updateEmail(String username, UpdateEmailRequest request) {
+        // Find the user
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // Check if the new email is already in use by another user
+        if (userRepository.existsByEmail(request.newEmail()) && 
+            !user.getEmail().equals(request.newEmail())) {
+            throw new CredentialUpdateException("Email already in use");
+        }
+
+        // Update the email
+        user.setEmail(request.newEmail());
+        User savedUser = userRepository.save(user);
+
+        return userMapper.toProfileDto(savedUser);
+    }
+
+    @Override
+    @Transactional
+    public UserProfileDto updatePassword(String username, UpdatePasswordRequest request) {
+        // Find the user
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.currentPassword(), user.getHashedPassword())) {
+            throw new CredentialUpdateException("Current password is incorrect");
+        }
+
+        // Check if new password is the same as current password
+        if (passwordEncoder.matches(request.newPassword(), user.getHashedPassword())) {
+            throw new CredentialUpdateException("New password must be different from current password");
+        }
+
+        // Update the password
+        user.setHashedPassword(passwordEncoder.encode(request.newPassword()));
+        User savedUser = userRepository.save(user);
+
+        return userMapper.toProfileDto(savedUser);
     }
 }
