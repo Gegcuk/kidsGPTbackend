@@ -143,6 +143,9 @@ public class AuthServiceImpl implements AuthService {
         kid.setParent(parent);
         kid.setUser(savedKidUser);
 
+        // Add kid to parent's collection to maintain bidirectional relationship
+        parent.getKids().add(kid);
+
         Kid savedKid = kidRepository.save(kid);
 
         return UserMapper.toKidDto(savedKid);
@@ -257,6 +260,9 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException("Kid user account not found");
         }
 
+        // Remove kid from parent's collection to maintain bidirectional relationship
+        parent.getKids().remove(kid);
+
         // Delete the kid's user account
         userRepository.delete(kid.getUser());
 
@@ -282,8 +288,9 @@ public class AuthServiceImpl implements AuthService {
         Parent parent = parentRepository.findByEmail(parentUser.getEmail())
                 .orElseThrow(() -> new ValidationException("Parent profile not found"));
 
-        // Check if parent has kids
-        if (!parent.getKids().isEmpty()) {
+        // Check if parent has kids by querying the database directly
+        List<Kid> existingKids = kidRepository.findAllByParentId(parent.getId());
+        if (!existingKids.isEmpty()) {
             throw new ValidationException("Cannot delete parent account with existing kids. Please delete all kids first.");
         }
 
