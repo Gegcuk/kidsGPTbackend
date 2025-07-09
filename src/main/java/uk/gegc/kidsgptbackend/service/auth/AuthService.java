@@ -31,7 +31,6 @@ public interface AuthService {
     
     void deleteParentAccount(String parentUsername);
     
-    // New methods for updating credentials
     UserProfileDto updateEmail(String username, UpdateEmailRequest request);
     
     UserProfileDto updatePassword(String username, UpdatePasswordRequest request);
