@@ -41,3 +41,4 @@ build/
 logs/
 *.log
 
+/consent_impl.md
