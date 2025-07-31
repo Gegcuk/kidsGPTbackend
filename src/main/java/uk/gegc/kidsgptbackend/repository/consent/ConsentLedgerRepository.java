@@ -1,0 +1,43 @@
+package uk.gegc.kidsgptbackend.repository.consent;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
+import uk.gegc.kidsgptbackend.model.consent.ConsentLedger;
+import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+@Repository
+public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UUID> {
+    
+    List<ConsentLedger> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    
+    List<ConsentLedger> findByUserIdAndConsentTypeOrderByCreatedAtDesc(UUID userId, ConsentType consentType);
+    
+    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            UUID userId, ConsentType consentType, ConsentStatus consentStatus);
+    
+    List<ConsentLedger> findByParentVerificationId(UUID parentVerificationId);
+    
+    @Query("SELECT cl FROM ConsentLedger cl WHERE cl.retentionExpiresAt <= :now")
+    List<ConsentLedger> findExpiredConsents(@Param("now") LocalDateTime now);
+    
+    @Query("SELECT cl FROM ConsentLedger cl WHERE cl.userId = :userId AND cl.consentType = :consentType AND cl.consentVersion = :version AND cl.consentStatus = 'GRANTED'")
+    Optional<ConsentLedger> findActiveGrantByUserTypeAndVersion(
+            @Param("userId") UUID userId, 
+            @Param("consentType") ConsentType consentType, 
+            @Param("version") String version);
+    
+    @Query("SELECT COUNT(cl) FROM ConsentLedger cl WHERE cl.userId = :userId AND cl.consentType = :consentType AND cl.consentStatus = 'GRANTED'")
+    long countActiveGrantsByUserAndType(@Param("userId") UUID userId, @Param("consentType") ConsentType consentType);
+    
+    List<ConsentLedger> findByJurisdictionAndRegion(String jurisdiction, String region);
+    
+    List<ConsentLedger> findByConsentTimestampBetween(LocalDateTime fromDate, LocalDateTime toDate);
+} 
