@@ -10,44 +10,33 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    # TestContainers needs Docker
     services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: bestuser
-          MYSQL_DATABASE: kidsgptdb
-          MYSQL_USER: bestuser
-          MYSQL_PASSWORD: bestuser
-        ports: [ "3306:3306" ]
+      docker:
+        image: docker:dind
         options: >-
-          --health-cmd="mysqladmin ping --silent"
+          --health-cmd="docker info"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
 
-    env:
-      TEST_DB_URL: jdbc:mysql://127.0.0.1:3306/kidsgptdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
-      TEST_DB_USERNAME: bestuser
-      TEST_DB_PASSWORD: bestuser
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Wait for MySQL
-        run: |
-          until mysqladmin ping -h 127.0.0.1 -ubestuser -pbestuser --silent; do
-            echo "Waiting for MySQL…"
-            sleep 4
-          done
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Set up JDK 17
+      - name: Set up JDK 22
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 22
 
       - name: Make mvnw executable
         run: chmod +x mvnw
 
       - name: Build & test
         run: ./mvnw --batch-mode clean verify
+        env:
+          # TestContainers configuration
+          TESTCONTAINERS_RYUK_DISABLED: true

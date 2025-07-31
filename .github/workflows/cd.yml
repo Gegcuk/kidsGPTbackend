@@ -2,7 +2,8 @@ name: Continuous Deployment
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, main ]
+  workflow_dispatch:
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKER_USER }}/kidsgptbackend
@@ -43,5 +44,44 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            # Create .env file with all required secrets including consent management
+            cat > .env << EOF
+            # Database Configuration
+            DB_URL=${{ secrets.DB_URL }}
+            DB_USERNAME=${{ secrets.DB_USERNAME }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            
+            # JWT Configuration
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            
+            # OpenAI Configuration
+            OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            
+            # Email Configuration
+            MAIL_HOST=${{ secrets.MAIL_HOST }}
+            MAIL_PORT=${{ secrets.MAIL_PORT }}
+            MAIL_USERNAME=${{ secrets.MAIL_USERNAME }}
+            MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+            MAIL_FROM=${{ secrets.MAIL_FROM }}
+            MAIL_ENABLED=${{ secrets.MAIL_ENABLED }}
+            
+            # Frontend URL
+            FRONTEND_URL=${{ secrets.FRONTEND_URL }}
+            
+            # Docker Configuration
+            MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}
+            MYSQL_USER=${{ secrets.MYSQL_USER }}
+            MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
+            DOCKER_USER=${{ secrets.DOCKER_USER }}
+            APP_TAG=${{ github.sha }}
+            
+            # Consent Management Configuration
+            CONSENT_HMAC_SECRET=${{ secrets.CONSENT_HMAC_SECRET }}
+            VERIFICATION_TIMEOUT_MINUTES=${{ secrets.VERIFICATION_TIMEOUT_MINUTES || '30' }}
+            VERIFICATION_MAX_ATTEMPTS=${{ secrets.VERIFICATION_MAX_ATTEMPTS || '3' }}
+            DEFAULT_RETENTION_YEARS=${{ secrets.DEFAULT_RETENTION_YEARS || '7' }}
+            CONSENT_AUDIT_ENABLED=${{ secrets.CONSENT_AUDIT_ENABLED || 'true' }}
+            EOF
+            
             APP_TAG=${{ github.sha }} DOCKER_USER=${{ secrets.DOCKER_USER }} \
             bash /opt/kidsgptbackend/deploy.sh

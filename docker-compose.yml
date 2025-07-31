@@ -2,6 +2,7 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
+    command: --log-bin-trust-function-creators=1
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
       MYSQL_DATABASE: kidsgptdb
@@ -9,6 +10,7 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-bestuser}
     volumes:
       - mysql_data:/var/lib/mysql
+      - ./mysql-config.cnf:/etc/mysql/conf.d/mysql-config.cnf:ro
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "--silent" ]
       interval: 10s
@@ -41,6 +43,13 @@ services:
 
       # Frontend URL
       FRONTEND_URL: ${FRONTEND_URL}
+
+      # Consent Management Configuration
+      CONSENT_HMAC_SECRET: ${CONSENT_HMAC_SECRET}
+      CONSENT_VERIFICATION_TIMEOUT_HOURS: ${CONSENT_VERIFICATION_TIMEOUT_HOURS:-24}
+      CONSENT_MAX_VERIFICATION_ATTEMPTS: ${CONSENT_MAX_VERIFICATION_ATTEMPTS:-3}
+      CONSENT_DEFAULT_RETENTION_YEARS: ${CONSENT_DEFAULT_RETENTION_YEARS:-7}
+      CONSENT_AUDIT_ENABLED: ${CONSENT_AUDIT_ENABLED:-true}
     depends_on:
       db:
         condition: service_healthy
