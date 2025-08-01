@@ -6,7 +6,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
+import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
 import uk.gegc.kidsgptbackend.model.consent.*;
@@ -42,6 +46,8 @@ class ConsentServiceImplTest {
     private UUID testUserId;
     private UUID testVerificationId;
     private List<UUID> testKids;
+    private String serverIp;
+    private String serverUa;
 
     @BeforeEach
     void setUp() {
@@ -53,6 +59,14 @@ class ConsentServiceImplTest {
         testUserId = UUID.randomUUID();
         testVerificationId = UUID.randomUUID();
         testKids = List.of(UUID.randomUUID(), UUID.randomUUID());
+
+        // Default server captured values
+        serverIp = "203.0.113.5";
+        serverUa = "JUnitAgent/1.0";
+
+        MockHttpServletRequest mockRequest = new MockHttpServletRequest();
+        mockRequest.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(serverIp, serverUa));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockRequest));
 
         validRequest = new ConsentGrantRequest(
                 testUserId,
@@ -72,6 +86,11 @@ class ConsentServiceImplTest {
         );
     }
 
+    @org.junit.jupiter.api.AfterEach
+    void tearDown() {
+        RequestContextHolder.resetRequestAttributes();
+    }
+
     @Test
     void grantConsent_Success_ShouldCreateConsentLedgerAndChildCoverage() {
         // Arrange
@@ -85,7 +104,7 @@ class ConsentServiceImplTest {
 
         when(consentLedgerRepository.save(any(ConsentLedger.class))).thenReturn(savedConsent);
         when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -109,33 +128,33 @@ class ConsentServiceImplTest {
         assertEquals(1, response.latestByType().size());
 
         // Verify consent ledger was saved with correct data
-        verify(consentLedgerRepository).save(argThat(consent -> 
+        verify(consentLedgerRepository).save(argThat(consent ->
                 consent.getUserId().equals(testUserId) &&
-                consent.getConsentType().equals(ConsentType.PRIVACY_POLICY) &&
-                consent.getConsentStatus().equals(ConsentStatus.GRANTED) &&
-                consent.getConsentVersion().equals("1.0.0") &&
-                consent.getPolicyUrl().equals("https://example.com/privacy") &&
-                consent.getContentHash().equals("abc123hash") &&
-                consent.getJurisdiction().equals("GB") &&
-                consent.getRegion().equals("England") &&
-                consent.getLocale().equals("en-GB") &&
-                consent.getSource().equals(ConsentSource.WEB) &&
-                consent.getIpAddress().equals("192.168.1.1") &&
-                consent.getUserAgent().equals("Mozilla/5.0") &&
-                consent.getLawfulBasis().equals(LawfulBasis.CONSENT) &&
-                consent.getParentVerificationId().equals(testVerificationId) &&
-                consent.getReceiptJson() != null &&
-                consent.getRecordSignature() != null &&
-                consent.getRetentionExpiresAt() != null
+                        consent.getConsentType().equals(ConsentType.PRIVACY_POLICY) &&
+                        consent.getConsentStatus().equals(ConsentStatus.GRANTED) &&
+                        consent.getConsentVersion().equals("1.0.0") &&
+                        consent.getPolicyUrl().equals("https://example.com/privacy") &&
+                        consent.getContentHash().equals("abc123hash") &&
+                        consent.getJurisdiction().equals("GB") &&
+                        consent.getRegion().equals("England") &&
+                        consent.getLocale().equals("en-GB") &&
+                        consent.getSource().equals(ConsentSource.WEB) &&
+                        consent.getIpAddress().equals(serverIp) &&
+                        consent.getUserAgent().equals(serverUa) &&
+                        consent.getLawfulBasis().equals(LawfulBasis.CONSENT) &&
+                        consent.getParentVerificationId().equals(testVerificationId) &&
+                        consent.getReceiptJson() != null &&
+                        consent.getRecordSignature() != null &&
+                        consent.getRetentionExpiresAt() != null
         ));
 
         // Verify child coverage records were created
         verify(consentChildCoverageRepository).saveAll(argThat(coverageList -> {
             List<ConsentChildCoverage> list = (List<ConsentChildCoverage>) coverageList;
             return list.size() == 2 &&
-                    list.stream().allMatch(coverage -> 
+                    list.stream().allMatch(coverage ->
                             coverage.getConsentId().equals(savedConsent.getConsentId()) &&
-                            testKids.contains(coverage.getKidId())
+                                    testKids.contains(coverage.getKidId())
                     );
         }));
     }
@@ -468,6 +487,11 @@ class ConsentServiceImplTest {
                 LawfulBasis.CONSENT
         );
 
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(serverIp,
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
         ConsentLedger savedConsent = ConsentLedger.builder()
                 .consentId(UUID.randomUUID())
                 .userId(testUserId)
@@ -728,4 +752,158 @@ class ConsentServiceImplTest {
             return true;
         }));
     }
-} 
+
+
+    @Test
+    void grantConsent_ShouldUseServerCapturedIpAndUa() {
+        String capturedIp = "203.0.113.55";
+        String capturedUa = "ServerUA/2.0";
+        MockHttpServletRequest req = new MockHttpServletRequest();
+        req.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(capturedIp, capturedUa));
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
+
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.save(any(ConsentLedger.class))).thenReturn(savedConsent);
+        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.PRIVACY_POLICY) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest reqBody = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "10.0.0.1",
+                "BadUA/0.1",
+                LawfulBasis.CONSENT
+        );
+
+        consentService.grantConsent(reqBody);
+
+        verify(consentLedgerRepository).save(argThat(c ->
+                capturedIp.equals(c.getIpAddress()) && capturedUa.equals(c.getUserAgent())));
+    }
+
+    @Test
+    void grantConsent_WhenSameVersionAlreadyGranted_ShouldReturnExistingId() {
+        UUID existingId = UUID.randomUUID();
+        ConsentLedger existing = ConsentLedger.builder()
+                .consentId(existingId)
+                .userId(testUserId)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                eq(testUserId), eq(ConsentType.PRIVACY_POLICY), eq(ConsentStatus.GRANTED)))
+                .thenReturn(Optional.of(existing));
+        for (ConsentType t : ConsentType.values()) {
+            if (t != ConsentType.PRIVACY_POLICY) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentStatusResponse resp = consentService.grantConsent(validRequest);
+
+        assertEquals(existingId, resp.consentId());
+        verify(consentLedgerRepository, never()).save(any());
+    }
+
+    @Test
+    void grantConsent_WithInvalidPolicyUrl_ShouldThrow() {
+        ConsentGrantRequest bad = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "http://malicious.com/privacy",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "1.2.3.4",
+                "UA",
+                LawfulBasis.CONSENT
+        );
+
+        assertThrows(ResponseStatusException.class, () -> consentService.grantConsent(bad));
+    }
+
+    @Test
+    void grantConsent_WithDuplicateKids_ShouldDeduplicateAndSort() {
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        ConsentLedger saved = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.save(any(ConsentLedger.class))).thenReturn(saved);
+        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
+        for (ConsentType t : ConsentType.values()) {
+            if (t == ConsentType.PARENTAL_CONSENT) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.of(saved));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest r = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                List.of(kidB, kidA, kidA),
+                "1.2.3.4",
+                "UA",
+                LawfulBasis.CONSENT
+        );
+
+        consentService.grantConsent(r);
+
+        verify(consentChildCoverageRepository).saveAll(argThat(l -> {
+            List<ConsentChildCoverage> list = (List<ConsentChildCoverage>) l;
+            return list.size() == 2 &&
+                    list.get(0).getKidId().equals(kidA) &&
+                    list.get(1).getKidId().equals(kidB);
+        }));
+    }
+}
