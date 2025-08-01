@@ -2,6 +2,7 @@ package uk.gegc.kidsgptbackend.service.consent.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import jakarta.validation.ConstraintViolationException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,6 +22,7 @@ import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 import uk.gegc.kidsgptbackend.service.consent.ConsentService;
 import uk.gegc.kidsgptbackend.util.RequestContextUtil;
+import uk.gegc.kidsgptbackend.validation.SimpleConstraintViolation;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -98,8 +100,10 @@ public class ConsentServiceImpl implements ConsentService {
         // ---- Enforce when needed
         if ((request.consentType() == ConsentType.PARENTAL_CONSENT || request.consentType() == ConsentType.DATA_PROCESSING)
                 && kids.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "kids are required for " + request.consentType());
-        }
+            throw new ConstraintViolationException(
+                    "kids are required",
+                    Set.of(new SimpleConstraintViolation("kids are required for " + request.consentType()))
+            );        }
         
         // ---- Ignore (and drop) kids for non-child consents to avoid leaking child IDs
         if (request.consentType() == ConsentType.TERMS_OF_SERVICE || request.consentType() == ConsentType.PRIVACY_POLICY) {

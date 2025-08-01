@@ -20,7 +20,6 @@ import java.util.UUID;
 public class ConsentLedger {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "consent_id", updatable = false, nullable = false)
     private UUID consentId;
     
