@@ -12,6 +12,7 @@ import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
 import uk.gegc.kidsgptbackend.model.consent.*;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
+import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -30,6 +31,9 @@ class ConsentServiceImplTest {
 
     @Mock
     private ConsentChildCoverageRepository consentChildCoverageRepository;
+
+    @Mock
+    private ParentVerificationRepository parentVerificationRepository;
 
     @InjectMocks
     private ConsentServiceImpl consentService;
@@ -544,5 +548,184 @@ class ConsentServiceImplTest {
         assertEquals("1.0.0", status.version());
         assertEquals(ConsentStatus.GRANTED, status.status());
         assertEquals("https://example.com/privacy", status.policyUrl());
+    }
+
+    @Test
+    void grantConsent_ShouldCalculateRetentionBasedOnConsentType() {
+        // Arrange
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.TERMS_OF_SERVICE)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.save(any(ConsentLedger.class))).thenReturn(savedConsent);
+        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
+        
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.TERMS_OF_SERVICE) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.TERMS_OF_SERVICE,
+                "1.0.0",
+                "https://example.com/terms",
+                "abc123hash",
+                testVerificationId,
+                "UK", // UK jurisdiction should result in 6 years for TERMS_OF_SERVICE
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        // Act
+        consentService.grantConsent(request);
+
+        // Assert
+        verify(consentLedgerRepository).save(argThat(consent -> {
+            LocalDateTime retentionExpiresAt = consent.getRetentionExpiresAt();
+            assertNotNull(retentionExpiresAt);
+            
+            // Should be 6 years for UK TERMS_OF_SERVICE
+            LocalDateTime expectedExpiry = LocalDateTime.now().plusYears(6);
+            assertTrue(retentionExpiresAt.isAfter(expectedExpiry.minusDays(1)));
+            assertTrue(retentionExpiresAt.isBefore(expectedExpiry.plusDays(1)));
+            return true;
+        }));
+    }
+
+    @Test
+    void grantConsent_ShouldResolveVerificationMethod() {
+        // Arrange
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        uk.gegc.kidsgptbackend.model.consent.ParentVerification verification = uk.gegc.kidsgptbackend.model.consent.ParentVerification.builder()
+                .verificationId(testVerificationId)
+                .verificationMethod(VerificationMethod.EMAIL)
+                .build();
+
+        when(consentLedgerRepository.save(any(ConsentLedger.class))).thenReturn(savedConsent);
+        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
+        when(parentVerificationRepository.findById(testVerificationId)).thenReturn(Optional.of(verification));
+        
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.PARENTAL_CONSENT) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "UK",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        // Act
+        consentService.grantConsent(request);
+
+        // Assert
+        verify(consentLedgerRepository).save(argThat(consent -> {
+            String receiptJson = consent.getReceiptJson();
+            assertNotNull(receiptJson);
+            assertTrue(receiptJson.contains("\"method\":\"EMAIL\""));
+            return true;
+        }));
+    }
+
+    @Test
+    void grantConsent_ShouldHandleUnknownVerificationMethod() {
+        // Arrange
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.save(any(ConsentLedger.class))).thenReturn(savedConsent);
+        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
+        when(parentVerificationRepository.findById(testVerificationId)).thenReturn(Optional.empty());
+        
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.PARENTAL_CONSENT) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "UK",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        // Act
+        consentService.grantConsent(request);
+
+        // Assert
+        verify(consentLedgerRepository).save(argThat(consent -> {
+            String receiptJson = consent.getReceiptJson();
+            assertNotNull(receiptJson);
+            assertTrue(receiptJson.contains("\"method\":\"unknown\""));
+            return true;
+        }));
     }
 } 

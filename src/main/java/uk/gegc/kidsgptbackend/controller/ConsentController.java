@@ -25,7 +25,11 @@ public class ConsentController {
     public ResponseEntity<ConsentStatusResponse> grantConsent(@Valid @RequestBody ConsentGrantRequest request) {
         log.info("Granting consent for user: {}", request.userId());
         ConsentStatusResponse response = consentService.grantConsent(request);
-        return ResponseEntity.ok(response);
+        
+        // Return consent ID in header for easy correlation
+        return ResponseEntity.ok()
+                .header("X-Consent-Id", response.consentId().toString())
+                .body(response);
     }
 
     /**
