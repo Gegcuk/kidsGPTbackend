@@ -14,6 +14,7 @@ import uk.gegc.kidsgptbackend.model.consent.*;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.service.consent.ConsentService;
+import uk.gegc.kidsgptbackend.util.RequestContextUtil;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -76,9 +77,15 @@ public class ConsentServiceImpl implements ConsentService {
         // ---- Generate consentId once and reuse across receipt + row
         UUID consentId = UUID.randomUUID();
 
-        // ---- Server-derived IP/UA should override client body if available (TODO: inject from filter)
-        String ip = request.ipAddress();     // TODO replace with serverCapturedIp
-        String ua = request.userAgent();     // TODO replace with serverCapturedUa
+        // ---- Server-derived IP/UA override client body for security
+        String ip = RequestContextUtil.getServerCapturedIp();
+        String ua = RequestContextUtil.getServerCapturedUserAgent();
+        
+        // Log the override for audit purposes
+        if (!ip.equals(request.ipAddress()) || !ua.equals(request.userAgent())) {
+            log.info("Overriding client-provided IP/UA with server-captured values - Client IP: {} -> Server IP: {}, Client UA: {} -> Server UA: {}", 
+                    request.ipAddress(), ip, request.userAgent(), ua);
+        }
 
         // ---- Normalize fields for consistency before signing
         String jurisdiction = request.jurisdiction() == null ? null : request.jurisdiction().trim().toUpperCase(Locale.ROOT);
