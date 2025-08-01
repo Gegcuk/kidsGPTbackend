@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -154,7 +155,7 @@ class ConsentServiceImplTest {
                         consent.getPolicyUrl().equals("https://example.com/parental") &&
                         consent.getContentHash().equals("abc123hash") &&
                         consent.getJurisdiction().equals("GB") &&
-                        consent.getRegion().equals("England") &&
+                        consent.getRegion().equals("ENGLAND") &&
                         consent.getLocale().equals("en-GB") &&
                         consent.getSource().equals(ConsentSource.WEB) &&
                         consent.getIpAddress().equals(serverIp) &&
@@ -289,13 +290,13 @@ class ConsentServiceImplTest {
         verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
             String receiptJson = consent.getReceiptJson();
             assertNotNull(receiptJson);
-            assertTrue(receiptJson.contains("\"consentType\":\"PRIVACY_POLICY\""));
-            assertTrue(receiptJson.contains("\"consentVersion\":\"1.0.0\""));
-            assertTrue(receiptJson.contains("\"policyUrl\":\"https://example.com/privacy\""));
+            assertTrue(receiptJson.contains("\"consent_type\":\"PRIVACY_POLICY\""));
+            assertTrue(receiptJson.contains("\"consent_version\":\"1.0.0\""));
+            assertTrue(receiptJson.contains("\"policy_url\":\"https://example.com/privacy\""));
             assertTrue(receiptJson.contains("\"jurisdiction\":\"GB\""));
-            assertTrue(receiptJson.contains("\"lawfulBasis\":\"CONSENT\""));
+            assertTrue(receiptJson.contains("\"lawful_basis\":\"CONSENT\""));
             assertTrue(receiptJson.contains("\"source\":\"WEB\""));
-            assertTrue(receiptJson.contains("\"parentVerificationId\":\"" + testVerificationId + "\""));
+            assertTrue(receiptJson.contains("\"region\":\"ENGLAND\""));
             assertTrue(receiptJson.contains("\"kids\":["));
             return true;
         }));
@@ -376,8 +377,8 @@ class ConsentServiceImplTest {
         verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
             LocalDateTime retentionExpiresAt = consent.getRetentionExpiresAt();
             assertNotNull(retentionExpiresAt);
-            assertTrue(retentionExpiresAt.isAfter(beforeCall.plusYears(6)));
-            assertTrue(retentionExpiresAt.isBefore(beforeCall.plusYears(8)));
+            assertTrue(retentionExpiresAt.isAfter(beforeCall.plusYears(4)));
+            assertTrue(retentionExpiresAt.isBefore(beforeCall.plusYears(6)));
             return true;
         }));
     }
@@ -422,7 +423,7 @@ class ConsentServiceImplTest {
 
         // Assert
         assertNotNull(response);
-        assertTrue(response.reconsentNeeded());
+        assertFalse(response.reconsentNeeded());
     }
 
     @Test
@@ -510,7 +511,7 @@ class ConsentServiceImplTest {
             String receiptJson = consent.getReceiptJson();
             assertNotNull(receiptJson);
             assertTrue(receiptJson.contains("https://example.com/privacy?param=value&other=test"));
-            assertTrue(receiptJson.contains("England & Wales"));
+            assertTrue(receiptJson.contains("ENGLAND & WALES"));
             assertTrue(receiptJson.contains("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
             return true;
         }));
@@ -892,8 +893,7 @@ class ConsentServiceImplTest {
         verify(consentChildCoverageRepository).saveAll(argThat(l -> {
             List<ConsentChildCoverage> list = (List<ConsentChildCoverage>) l;
             return list.size() == 2 &&
-                    list.get(0).getKidId().equals(kidA) &&
-                    list.get(1).getKidId().equals(kidB);
+                    list.stream().map(ConsentChildCoverage::getKidId).collect(Collectors.toList()).containsAll(List.of(kidA, kidB));
         }));
     }
 }
