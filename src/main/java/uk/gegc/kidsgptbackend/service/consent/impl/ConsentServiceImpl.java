@@ -79,12 +79,6 @@ public class ConsentServiceImpl implements ConsentService {
         Instant nowUtc = Instant.now();
         LocalDateTime nowLocal = LocalDateTime.ofInstant(nowUtc, ZoneOffset.UTC);
 
-        // ---- Retention calculation based on consent type and jurisdiction
-        int retentionYears = calculateRetentionYears(request.consentType(), request.jurisdiction());
-        LocalDateTime retentionExpiresAt = nowLocal.plusYears(retentionYears);
-        log.info("Calculated retention: {} years for consent type {} jurisdiction {} (default: {})", 
-                retentionYears, request.consentType(), request.jurisdiction(), defaultRetentionYears);
-
         // ---- Generate consentId once and reuse across receipt + row
         UUID consentId = UUID.randomUUID();
 
@@ -115,13 +109,19 @@ public class ConsentServiceImpl implements ConsentService {
             kids = Collections.emptyList(); // <— ensures receipt_json has no kids and no coverage rows are created
         }
         
-        // ---- Dedup kids before saving coverage
-        kids = kids.stream().distinct().toList();
+        // ---- Dedup and sort kids for canonical order (stable signatures)
+        kids = kids.stream().distinct().sorted(Comparator.comparing(UUID::toString)).toList();
 
         // ---- Normalize fields for consistency before signing
         String jurisdiction = request.jurisdiction() == null ? null : request.jurisdiction().trim().toUpperCase(Locale.ROOT);
         String region = request.region() == null ? null : request.region().trim().toUpperCase(Locale.ROOT);
-        String locale = request.locale() == null ? null : request.locale().trim();
+        String locale = normalizeLocale(request.locale());
+
+        // ---- Retention calculation based on consent type and jurisdiction (after normalization)
+        int retentionYears = calculateRetentionYears(request.consentType(), jurisdiction);
+        LocalDateTime retentionExpiresAt = nowLocal.plusYears(retentionYears);
+        log.info("Calculated retention: {} years for consent type {} jurisdiction {} (default: {})", 
+                retentionYears, request.consentType(), jurisdiction, defaultRetentionYears);
 
         // ---- Resolve verification method for receipt
         String verificationMethod = resolveVerificationMethod(request.verificationId());
@@ -164,11 +164,11 @@ public class ConsentServiceImpl implements ConsentService {
             if (isDuplicateKey(e)) {
                 log.warn("Duplicate grant raced; returning current status. user={}, type={}, v={}",
                          request.userId(), request.consentType(), request.consentVersion());
-                // Get the existing consent ID for the response
-                Optional<ConsentLedger> existingConsent = consentLedgerRepository
-                    .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
-                        request.userId(), request.consentType(), ConsentStatus.GRANTED);
-                UUID existingConsentId = existingConsent.map(ConsentLedger::getConsentId).orElse(null);
+                // Fetch by exact version to avoid returning newer version if published between requests
+                UUID existingConsentId = consentLedgerRepository
+                    .findActiveGrantByUserTypeAndVersion(request.userId(), request.consentType(), request.consentVersion())
+                    .map(ConsentLedger::getConsentId)
+                    .orElse(null);
                 return new ConsentStatusResponse(buildLatestConsentStatus(request.userId()), false, existingConsentId);
             }
             throw e; // not a duplicate — bubble up
@@ -242,7 +242,17 @@ public class ConsentServiceImpl implements ConsentService {
         try {
             URI uri = URI.create(policyUrl);
             String host = uri.getHost();
-            return host != null && (host.endsWith("kidsgpt.club") || host.equals("localhost"));
+            if (host == null) {
+                return false;
+            }
+            
+            // Normalize host to lowercase for consistent comparison
+            String normalizedHost = host.toLowerCase(Locale.ROOT);
+            
+            // Allow exact match or subdomain of kidsgpt.club (prevents evilkidsgpt.club)
+            return normalizedHost.equals("kidsgpt.club") || 
+                   normalizedHost.endsWith(".kidsgpt.club") || 
+                   normalizedHost.equals("localhost");
         } catch (Exception e) {
             return false;
         }
@@ -395,13 +405,13 @@ public class ConsentServiceImpl implements ConsentService {
      * @return Retention period in years
      */
     private int calculateRetentionYears(ConsentType consentType, String jurisdiction) {
-        // TODO: Implement jurisdiction-specific retention logic
-        // For now, use consent type-based retention with fallback to default
+        String j = jurisdiction == null ? "" : jurisdiction.toUpperCase(Locale.ROOT);
+        if ("UK".equals(j)) j = "GB"; // tolerate both UK and GB
         
         switch (consentType) {
             case TERMS_OF_SERVICE:
                 // Contract terms typically have longer retention (6-10 years)
-                return jurisdiction != null && jurisdiction.equalsIgnoreCase("UK") ? 6 : 7;
+                return "GB".equals(j) ? 6 : 7;
                 
             case PRIVACY_POLICY:
                 // Privacy policies often have standard retention (5-7 years)
@@ -410,7 +420,7 @@ public class ConsentServiceImpl implements ConsentService {
             case PARENTAL_CONSENT:
                 // Parental consent may have child-age-based retention
                 // TODO: Consider child's age when calculating retention
-                return jurisdiction != null && jurisdiction.equalsIgnoreCase("UK") ? 8 : 7;
+                return "GB".equals(j) ? 8 : 7;
                 
             case DATA_PROCESSING:
                 // Data processing consent may have longer retention for audit purposes
@@ -420,5 +430,45 @@ public class ConsentServiceImpl implements ConsentService {
                 log.warn("Unknown consent type: {}, using default retention of {} years", consentType, defaultRetentionYears);
                 return defaultRetentionYears;
         }
+    }
+    
+    /**
+     * Normalize locale to IETF BCP-47 format.
+     * Converts formats like "en-gb" to "en-GB" for consistency in receipts.
+     * 
+     * @param locale The locale string to normalize
+     * @return Normalized locale string in IETF BCP-47 format, or null if input is null
+     */
+    private String normalizeLocale(String locale) {
+        if (locale == null || locale.trim().isEmpty()) {
+            return null;
+        }
+        
+        String trimmed = locale.trim();
+        
+        // Handle common patterns for locale normalization
+        // Convert "en-gb" -> "en-GB", "en-us" -> "en-US", etc.
+        if (trimmed.contains("-")) {
+            String[] parts = trimmed.split("-", 2);
+            if (parts.length == 2) {
+                String language = parts[0].toLowerCase();
+                String region = parts[1].toUpperCase();
+                
+                // Validate basic format (language should be 2-3 chars, region should be 2-3 chars)
+                if (language.length() >= 2 && language.length() <= 3 && 
+                    region.length() >= 2 && region.length() <= 3) {
+                    return language + "-" + region;
+                }
+            }
+        }
+        
+        // If no region part or invalid format, just return lowercase language code
+        if (trimmed.length() >= 2 && trimmed.length() <= 3) {
+            return trimmed.toLowerCase();
+        }
+        
+        // If format is unrecognized, return as-is but trimmed
+        log.debug("Unrecognized locale format: {}, returning as-is", locale);
+        return trimmed;
     }
 } 

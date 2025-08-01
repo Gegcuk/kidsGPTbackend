@@ -28,9 +28,8 @@ public class RequestContextFilter implements Filter {
             
             RequestContext requestContext = new RequestContext(serverCapturedIp, serverCapturedUserAgent);
             
-            // Store in RequestContextHolder for access in service layer
-            RequestContextHolder.currentRequestAttributes()
-                    .setAttribute("requestContext", requestContext, ServletRequestAttributes.SCOPE_REQUEST);
+            // Store directly in request attributes for safer access
+            request.setAttribute("requestContext", requestContext);
             
             log.debug("Captured server-side request data - IP: {}, User-Agent: {}", 
                     serverCapturedIp, serverCapturedUserAgent);

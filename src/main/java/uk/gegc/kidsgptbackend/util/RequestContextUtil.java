@@ -13,18 +13,20 @@ public class RequestContextUtil {
     private static final String REQUEST_CONTEXT_ATTRIBUTE = "requestContext";
 
     /**
-     * Get the current RequestContext from RequestContextHolder.
+     * Get the current RequestContext from request attributes.
      * 
      * @return RequestContext if available, null otherwise
      */
     public static RequestContext getCurrentRequestContext() {
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.currentRequestAttributes();
-            return (RequestContext) attributes.getAttribute(REQUEST_CONTEXT_ATTRIBUTE, ServletRequestAttributes.SCOPE_REQUEST);
+            if (attributes != null && attributes.getRequest() != null) {
+                return (RequestContext) attributes.getRequest().getAttribute(REQUEST_CONTEXT_ATTRIBUTE);
+            }
         } catch (Exception e) {
             log.debug("Could not retrieve RequestContext: {}", e.getMessage());
-            return null;
         }
+        return null;
     }
 
     /**
