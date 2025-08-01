@@ -206,8 +206,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.TERMS_OF_SERVICE) {
@@ -261,8 +260,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PARENTAL_CONSENT) {
@@ -293,8 +291,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -340,8 +337,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -380,8 +376,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -431,8 +426,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -467,8 +461,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
@@ -518,8 +511,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -562,8 +554,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
@@ -605,8 +596,7 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
-        
+
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.TERMS_OF_SERVICE) {
@@ -793,7 +783,6 @@ class ConsentServiceImplTest {
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-        when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
