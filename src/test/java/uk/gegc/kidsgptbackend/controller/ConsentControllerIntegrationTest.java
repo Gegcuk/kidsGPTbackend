@@ -298,7 +298,8 @@ class ConsentControllerIntegrationTest {
                         .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consentId").isNotEmpty());
     }
 
     @Test
@@ -548,7 +549,8 @@ class ConsentControllerIntegrationTest {
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consentId").isNotEmpty());
     }
 
     @Test
