@@ -251,30 +251,6 @@ class ConsentServiceImplTest {
                 LawfulBasis.LEGITIMATE_INTEREST
         );
 
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PARENTAL_CONSENT)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
-
-        // Stub for all consent types that buildLatestConsentStatus might call
-        for (ConsentType type : ConsentType.values()) {
-            if (type == ConsentType.PARENTAL_CONSENT) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
-                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
-                        .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
-            } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
-                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
-                        .thenReturn(Optional.empty());
-            }
-        }
-
         // Act & Assert
         assertThrows(ConstraintViolationException.class, () -> consentService.grantConsent(requestWithNoKids));
     }
