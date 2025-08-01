@@ -62,9 +62,14 @@ class ConsentControllerIntegrationTest {
             return roleRepository.save(r);
         });
 
+        // Create a unique user for each test to avoid optimistic locking conflicts
+        String uniqueId = String.valueOf(System.nanoTime());
+        String username = "consentuser" + uniqueId;
+        String email = "consent" + uniqueId + "@example.com";
+        
         User u = new User();
-        u.setUsername("consentuser");
-        u.setEmail("consent@example.com");
+        u.setUsername(username);
+        u.setEmail(email);
         u.setHashedPassword(passwordEncoder.encode("password123"));
         u.setActive(true);
         u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").get()));
@@ -73,7 +78,7 @@ class ConsentControllerIntegrationTest {
 
         // Get access token
         try {
-            accessToken = obtainAccessToken();
+            accessToken = obtainAccessToken(username);
         } catch (Exception e) {
             throw new RuntimeException("Failed to obtain access token", e);
         }
@@ -82,8 +87,8 @@ class ConsentControllerIntegrationTest {
         testKids = List.of(UUID.randomUUID(), UUID.randomUUID());
     }
 
-    private String obtainAccessToken() throws Exception {
-        AuthLoginRequest req = new AuthLoginRequest("consentuser", "password123");
+    private String obtainAccessToken(String username) throws Exception {
+        AuthLoginRequest req = new AuthLoginRequest(username, "password123");
         String response = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -92,22 +97,50 @@ class ConsentControllerIntegrationTest {
         JsonNode node = objectMapper.readTree(response);
         return node.get("accessToken").asText();
     }
+    
+    private static class UserAndToken {
+        final UUID userId;
+        final String token;
+        
+        UserAndToken(UUID userId, String token) {
+            this.userId = userId;
+            this.token = token;
+        }
+    }
+    
+    private UserAndToken createUniqueUserAndGetToken() throws Exception {
+        String uniqueId = String.valueOf(System.nanoTime());
+        String username = "consentuser" + uniqueId;
+        String email = "consent" + uniqueId + "@example.com";
+        
+        User u = new User();
+        u.setUsername(username);
+        u.setEmail(email);
+        u.setHashedPassword(passwordEncoder.encode("password123"));
+        u.setActive(true);
+        u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").get()));
+        userRepository.save(u);
+        
+        return new UserAndToken(u.getId(), obtainAccessToken(username));
+    }
 
     @Test
     void grantConsent_ValidRequest_ShouldReturnSuccess() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -117,30 +150,34 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.latestByType").exists())
-                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean())
+                .andExpect(jsonPath("$.consentId").isNotEmpty())
+                .andExpect(header().string("X-Consent-Id", notNullValue()));
     }
 
     @Test
     void grantConsent_WithTermsOfService_ShouldReturnSuccess() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.TERMS_OF_SERVICE,
                 "2.0.0",
-                "https://example.com/terms",
+                "https://kidsgpt.club/terms",
                 "def456hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "US",
                 "CA",
                 "en-US",
                 ConsentSource.IOS,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "10.0.0.1",
                 "iOS App",
                 LawfulBasis.CONTRACT
@@ -150,29 +187,33 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestByType").exists())
-                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean())
+                .andExpect(jsonPath("$.consentId").isNotEmpty())
+                .andExpect(header().string("X-Consent-Id", notNullValue()));
     }
 
     @Test
     void grantConsent_WithParentalConsent_ShouldReturnSuccess() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
-                "https://example.com/parental",
+                "https://kidsgpt.club/parental",
                 "ghi789hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "AU",
                 null,
                 "en-AU",
                 ConsentSource.ANDROID,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "172.16.0.1",
                 "Android App",
                 LawfulBasis.LEGITIMATE_INTEREST
@@ -182,29 +223,33 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestByType").exists())
-                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean())
+                .andExpect(jsonPath("$.consentId").isNotEmpty())
+                .andExpect(header().string("X-Consent-Id", notNullValue()));
     }
 
     @Test
     void grantConsent_WithNullVerificationId_ShouldReturnSuccess() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
                 null, // null verification ID
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -214,24 +259,28 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.latestByType").exists())
-                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean())
+                .andExpect(jsonPath("$.consentId").isNotEmpty())
+                .andExpect(header().string("X-Consent-Id", notNullValue()));
     }
 
     @Test
     void grantConsent_WithEmptyKidsList_ShouldReturnBadRequest() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
@@ -246,7 +295,7 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -255,18 +304,20 @@ class ConsentControllerIntegrationTest {
     @Test
     void grantConsent_WithNullUserId_ShouldReturnBadRequest() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
                 null, // null user ID
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -276,7 +327,7 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -285,18 +336,20 @@ class ConsentControllerIntegrationTest {
     @Test
     void grantConsent_WithNullConsentType_ShouldReturnBadRequest() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 null, // null consent type
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -306,7 +359,7 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -315,18 +368,20 @@ class ConsentControllerIntegrationTest {
     @Test
     void grantConsent_WithEmptyConsentVersion_ShouldReturnBadRequest() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "", // empty consent version
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -336,7 +391,7 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -345,18 +400,20 @@ class ConsentControllerIntegrationTest {
     @Test
     void grantConsent_WithEmptyPolicyUrl_ShouldReturnBadRequest() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
                 "", // empty policy URL
                 "abc123hash",
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -366,7 +423,7 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -375,18 +432,20 @@ class ConsentControllerIntegrationTest {
     @Test
     void grantConsent_WithEmptyContentHash_ShouldReturnBadRequest() throws Exception {
         // Arrange
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "", // empty content hash
-                testVerificationId,
+                UUID.randomUUID(),
                 "GB",
                 "England",
                 "en-GB",
                 ConsentSource.WEB,
-                testKids,
+                List.of(UUID.randomUUID(), UUID.randomUUID()),
                 "192.168.1.1",
                 "Mozilla/5.0",
                 LawfulBasis.CONSENT
@@ -396,7 +455,7 @@ class ConsentControllerIntegrationTest {
 
         // Act & Assert
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest());
@@ -409,7 +468,7 @@ class ConsentControllerIntegrationTest {
                 testUserId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
                 testVerificationId,
                 "", // empty jurisdiction
@@ -439,7 +498,7 @@ class ConsentControllerIntegrationTest {
                 testUserId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
                 testVerificationId,
                 "GB",
@@ -469,7 +528,7 @@ class ConsentControllerIntegrationTest {
                 testUserId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
                 testVerificationId,
                 "GB",
@@ -499,7 +558,7 @@ class ConsentControllerIntegrationTest {
                 testUserId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
                 testVerificationId,
                 "GB",
@@ -542,7 +601,7 @@ class ConsentControllerIntegrationTest {
                 testUserId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy",
+                "https://kidsgpt.club/privacy",
                 "abc123hash",
                 testVerificationId,
                 "GB",
@@ -571,7 +630,7 @@ class ConsentControllerIntegrationTest {
                 testUserId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
-                "https://example.com/privacy?param=value&other=test",
+                "https://kidsgpt.club/privacy?param=value&other=test",
                 "abc123hash",
                 testVerificationId,
                 "GB",
@@ -607,7 +666,7 @@ class ConsentControllerIntegrationTest {
                     testUserId, // use the actual test user
                     consentType,
                     "1.0.0",
-                    "https://example.com/" + consentType.name().toLowerCase(),
+                    "https://kidsgpt.club/" + consentType.name().toLowerCase(),
                     "hash" + consentType.name(),
                     testVerificationId,
                     "GB",
@@ -644,7 +703,7 @@ class ConsentControllerIntegrationTest {
                     testUserId, // use the actual test user
                     ConsentType.PRIVACY_POLICY,
                     "1.0.0",
-                    "https://example.com/privacy",
+                    "https://kidsgpt.club/privacy",
                     "hash" + lawfulBasis.name(),
                     testVerificationId,
                     "GB",
@@ -679,7 +738,7 @@ class ConsentControllerIntegrationTest {
                     testUserId, // use the actual test user
                     ConsentType.PRIVACY_POLICY,
                     "1.0.0",
-                    "https://example.com/privacy",
+                    "https://kidsgpt.club/privacy",
                     "hash" + source.name(),
                     testVerificationId,
                     "GB",
@@ -704,15 +763,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithHttpPolicyUrl_ShouldReturnBadRequest() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
                 "http://kidsgpt.club/privacy", // HTTP instead of HTTPS
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -724,25 +783,25 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("Invalid policyUrl")));
+                .andExpect(jsonPath("$.error").value("Invalid policyUrl: must be HTTPS and from allowed host"))
+                .andExpect(jsonPath("$.details[0]").value("Invalid policyUrl: must be HTTPS and from allowed host"));
     }
 
     @Test
     void grantConsent_WithNonAllowlistedPolicyUrl_ShouldReturnBadRequest() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
                 "https://malicious-site.com/privacy", // Non-allowlisted host
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -754,25 +813,25 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("Invalid policyUrl")));
+                .andExpect(jsonPath("$.error").value("Invalid policyUrl: must be HTTPS and from allowed host"))
+                .andExpect(jsonPath("$.details[0]").value("Invalid policyUrl: must be HTTPS and from allowed host"));
     }
 
     @Test
     void grantConsent_ParentalConsentWithoutKids_ShouldReturnBadRequest() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
                 "https://kidsgpt.club/privacy",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -784,7 +843,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -794,15 +853,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_ParentalConsentWithEmptyKids_ShouldReturnBadRequest() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
                 "https://kidsgpt.club/privacy",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -814,7 +873,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
@@ -824,16 +883,16 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithDuplicateKids_ShouldDeduplicateAndSucceed() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         UUID kidId = UUID.randomUUID();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
                 "https://kidsgpt.club/privacy",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -845,7 +904,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -857,15 +916,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_ShouldReturnConsentIdInHeader() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PARENTAL_CONSENT,
                 "1.0.0",
                 "https://kidsgpt.club/privacy",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -877,7 +936,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -887,15 +946,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithTermsOfService_ShouldClearKidsList() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.TERMS_OF_SERVICE,
                 "1.0.0",
                 "https://kidsgpt.club/terms",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -907,7 +966,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -919,15 +978,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithPrivacyPolicy_ShouldClearKidsList() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.PRIVACY_POLICY,
                 "1.0.0",
                 "https://kidsgpt.club/privacy",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK",
                 "England",
                 "en-GB",
@@ -939,7 +998,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -951,15 +1010,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithUKJurisdiction_ShouldCalculateCorrectRetention() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.TERMS_OF_SERVICE,
                 "1.0.0",
                 "https://kidsgpt.club/terms",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "UK", // UK jurisdiction should result in 6 years for TERMS_OF_SERVICE
                 "England",
                 "en-GB",
@@ -971,7 +1030,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -983,15 +1042,15 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithNonUKJurisdiction_ShouldUseDefaultRetention() throws Exception {
-        String accessToken = obtainAccessToken();
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
         
         ConsentGrantRequest request = new ConsentGrantRequest(
-                testUserId,
+                userAndToken.userId,
                 ConsentType.TERMS_OF_SERVICE,
                 "1.0.0",
                 "https://kidsgpt.club/terms",
                 "abc123",
-                UUID.randomUUID().toString(),
+                UUID.randomUUID(),
                 "US", // Non-UK jurisdiction should use default retention
                 "California",
                 "en-US",
@@ -1003,7 +1062,7 @@ class ConsentControllerIntegrationTest {
         );
 
         mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
+                        .header("Authorization", "Bearer " + userAndToken.token)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -1015,59 +1074,30 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void grantConsent_WithDifferentConsentTypes_ShouldCalculateDifferentRetention() throws Exception {
-        String accessToken = obtainAccessToken();
-        
-        // Test PRIVACY_POLICY (should be 5 years)
-        ConsentGrantRequest privacyRequest = new ConsentGrantRequest(
-                testUserId,
-                ConsentType.PRIVACY_POLICY,
-                "1.0.0",
-                "https://kidsgpt.club/privacy",
-                "abc123",
-                UUID.randomUUID().toString(),
-                "UK",
-                "England",
-                "en-GB",
-                ConsentSource.WEB,
-                List.of(UUID.randomUUID(), UUID.randomUUID()),
-                "192.168.1.1",
-                "Mozilla/5.0",
-                LawfulBasis.CONSENT
-        );
-
-        mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(privacyRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.consentId").isNotEmpty());
-
-        // Test DATA_PROCESSING (should be 8 years)
-        ConsentGrantRequest dataProcessingRequest = new ConsentGrantRequest(
-                testUserId,
-                ConsentType.DATA_PROCESSING,
-                "1.0.0",
-                "https://kidsgpt.club/data-processing",
-                "abc123",
-                UUID.randomUUID().toString(),
-                "UK",
-                "England",
-                "en-GB",
-                ConsentSource.WEB,
-                List.of(UUID.randomUUID(), UUID.randomUUID()),
-                "192.168.1.1",
-                "Mozilla/5.0",
-                LawfulBasis.CONSENT
-        );
-
-        mockMvc.perform(post("/api/v1/consent/grant")
-                        .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dataProcessingRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.consentId").isNotEmpty());
-        
-        // The retention calculation is verified by checking the log output
-        // In a real scenario, you might want to verify the database state
+        for (ConsentType consentType : ConsentType.values()) {
+            UserAndToken userAndToken = createUniqueUserAndGetToken();
+            ConsentGrantRequest request = new ConsentGrantRequest(
+                    userAndToken.userId,
+                    consentType,
+                    "1.0.0-" + consentType.name().toLowerCase(), // Unique version per consent type
+                    "https://kidsgpt.club/" + consentType.name().toLowerCase(),
+                    "abc123",
+                    UUID.randomUUID(),
+                    "UK",
+                    "England",
+                    "en-GB",
+                    ConsentSource.WEB,
+                    List.of(UUID.randomUUID(), UUID.randomUUID()),
+                    "192.168.1.1",
+                    "Mozilla/5.0",
+                    LawfulBasis.CONSENT
+            );
+            mockMvc.perform(post("/api/v1/consent/grant")
+                            .header("Authorization", "Bearer " + userAndToken.token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.consentId").isNotEmpty());
+        }
     }
 } 

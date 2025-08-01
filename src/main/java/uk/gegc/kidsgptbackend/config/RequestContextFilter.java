@@ -14,7 +14,7 @@ import java.io.IOException;
  * Filter to capture server-side request data (IP, User-Agent) and store in RequestContext.
  * This ensures we use server-derived values rather than trusting client-provided data.
  */
-@Component
+@Component("customRequestContextFilter")
 @Slf4j
 public class RequestContextFilter implements Filter {
 
