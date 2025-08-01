@@ -1,0 +1,702 @@
+package uk.gegc.kidsgptbackend.controller;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
+import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
+import uk.gegc.kidsgptbackend.model.consent.*;
+import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
+import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+
+import java.util.List;
+import java.util.UUID;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest
+@ActiveProfiles("test")
+@AutoConfigureMockMvc
+@Transactional
+class ConsentControllerIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private RoleRepository roleRepository;
+
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    private UUID testUserId;
+    private UUID testVerificationId;
+    private List<UUID> testKids;
+    private String accessToken;
+
+    @BeforeEach
+    void setUp() {
+        // Set up role and user
+        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
+            uk.gegc.kidsgptbackend.model.user.Role r = new uk.gegc.kidsgptbackend.model.user.Role();
+            r.setRole("ROLE_PARENT");
+            return roleRepository.save(r);
+        });
+
+        User u = new User();
+        u.setUsername("consentuser");
+        u.setEmail("consent@example.com");
+        u.setHashedPassword(passwordEncoder.encode("password123"));
+        u.setActive(true);
+        u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").get()));
+        userRepository.save(u);
+        testUserId = u.getId(); // Use the actual DB id
+
+        // Get access token
+        try {
+            accessToken = obtainAccessToken();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to obtain access token", e);
+        }
+
+        testVerificationId = UUID.randomUUID();
+        testKids = List.of(UUID.randomUUID(), UUID.randomUUID());
+    }
+
+    private String obtainAccessToken() throws Exception {
+        AuthLoginRequest req = new AuthLoginRequest("consentuser", "password123");
+        String response = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode node = objectMapper.readTree(response);
+        return node.get("accessToken").asText();
+    }
+
+    @Test
+    void grantConsent_ValidRequest_ShouldReturnSuccess() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(jsonPath("$.latestByType").exists())
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+    }
+
+    @Test
+    void grantConsent_WithTermsOfService_ShouldReturnSuccess() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.TERMS_OF_SERVICE,
+                "2.0.0",
+                "https://example.com/terms",
+                "def456hash",
+                testVerificationId,
+                "US",
+                "CA",
+                "en-US",
+                ConsentSource.IOS,
+                testKids,
+                "10.0.0.1",
+                "iOS App",
+                LawfulBasis.CONTRACT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestByType").exists())
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+    }
+
+    @Test
+    void grantConsent_WithParentalConsent_ShouldReturnSuccess() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "ghi789hash",
+                testVerificationId,
+                "AU",
+                null,
+                "en-AU",
+                ConsentSource.ANDROID,
+                testKids,
+                "172.16.0.1",
+                "Android App",
+                LawfulBasis.LEGITIMATE_INTEREST
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestByType").exists())
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+    }
+
+    @Test
+    void grantConsent_WithNullVerificationId_ShouldReturnSuccess() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                null, // null verification ID
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestByType").exists())
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+    }
+
+    @Test
+    void grantConsent_WithEmptyKidsList_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                List.of(), // empty kids list
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithNullUserId_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                null, // null user ID
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithNullConsentType_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                null, // null consent type
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithEmptyConsentVersion_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "", // empty consent version
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithEmptyPolicyUrl_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "", // empty policy URL
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithEmptyContentHash_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "", // empty content hash
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithEmptyJurisdiction_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "", // empty jurisdiction
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithNullSource_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                null, // null source
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithNullKidsList_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                null, // null kids list
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithNullLawfulBasis_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                null // null lawful basis
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithInvalidJson_ShouldReturnBadRequest() throws Exception {
+        // Arrange
+        String invalidJson = "{ invalid json }";
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void grantConsent_WithMissingContentType_ShouldReturnUnsupportedMediaType() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .content(requestJson))
+                .andExpect(status().isUnsupportedMediaType());
+    }
+
+    @Test
+    void grantConsent_WithSpecialCharactersInFields_ShouldReturnSuccess() throws Exception {
+        // Arrange
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy?param=value&other=test",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England & Wales",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+                LawfulBasis.CONSENT
+        );
+
+        String requestJson = objectMapper.writeValueAsString(request);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.latestByType").exists())
+                .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+    }
+
+    @Test
+    void grantConsent_WithAllConsentTypes_ShouldReturnSuccess() throws Exception {
+        // Test all consent types
+        ConsentType[] consentTypes = ConsentType.values();
+        
+        for (ConsentType consentType : consentTypes) {
+            // Arrange
+            ConsentGrantRequest request = new ConsentGrantRequest(
+                    testUserId, // use the actual test user
+                    consentType,
+                    "1.0.0",
+                    "https://example.com/" + consentType.name().toLowerCase(),
+                    "hash" + consentType.name(),
+                    testVerificationId,
+                    "GB",
+                    "England",
+                    "en-GB",
+                    ConsentSource.WEB,
+                    testKids,
+                    "192.168.1.1",
+                    "Mozilla/5.0",
+                    LawfulBasis.CONSENT
+            );
+
+            String requestJson = objectMapper.writeValueAsString(request);
+
+            // Act & Assert
+            mockMvc.perform(post("/api/v1/consent/grant")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.latestByType").exists())
+                    .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+        }
+    }
+
+    @Test
+    void grantConsent_WithAllLawfulBasis_ShouldReturnSuccess() throws Exception {
+        // Test all lawful basis types
+        LawfulBasis[] lawfulBases = LawfulBasis.values();
+        
+        for (LawfulBasis lawfulBasis : lawfulBases) {
+            // Arrange
+            ConsentGrantRequest request = new ConsentGrantRequest(
+                    testUserId, // use the actual test user
+                    ConsentType.PRIVACY_POLICY,
+                    "1.0.0",
+                    "https://example.com/privacy",
+                    "hash" + lawfulBasis.name(),
+                    testVerificationId,
+                    "GB",
+                    "England",
+                    "en-GB",
+                    ConsentSource.WEB,
+                    testKids,
+                    "192.168.1.1",
+                    "Mozilla/5.0",
+                    lawfulBasis
+            );
+
+            String requestJson = objectMapper.writeValueAsString(request);
+
+            // Act & Assert
+            mockMvc.perform(post("/api/v1/consent/grant")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.latestByType").exists())
+                    .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+        }
+    }
+
+    @Test
+    void grantConsent_WithAllConsentSources_ShouldReturnSuccess() throws Exception {
+        // Test all consent sources
+        ConsentSource[] sources = ConsentSource.values();
+        for (ConsentSource source : sources) {
+            ConsentGrantRequest request = new ConsentGrantRequest(
+                    testUserId, // use the actual test user
+                    ConsentType.PRIVACY_POLICY,
+                    "1.0.0",
+                    "https://example.com/privacy",
+                    "hash" + source.name(),
+                    testVerificationId,
+                    "GB",
+                    "England",
+                    "en-GB",
+                    source,
+                    testKids,
+                    "192.168.1.1",
+                    "Mozilla/5.0",
+                    LawfulBasis.CONSENT
+            );
+            String requestJson = objectMapper.writeValueAsString(request);
+            mockMvc.perform(post("/api/v1/consent/grant")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(requestJson))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.latestByType").exists())
+                    .andExpect(jsonPath("$.reconsentNeeded").isBoolean());
+        }
+    }
+} 
