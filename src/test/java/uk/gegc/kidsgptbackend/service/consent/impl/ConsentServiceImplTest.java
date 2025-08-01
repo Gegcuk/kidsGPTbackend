@@ -1,5 +1,6 @@
 package uk.gegc.kidsgptbackend.service.consent.impl;
 
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -97,7 +98,7 @@ class ConsentServiceImplTest {
         ConsentLedger savedConsent = ConsentLedger.builder()
                 .consentId(UUID.randomUUID())
                 .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentType(ConsentType.PARENTAL_CONSENT)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
                 .build();
@@ -107,7 +108,7 @@ class ConsentServiceImplTest {
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
-            if (type == ConsentType.PRIVACY_POLICY) {
+            if (type == ConsentType.PARENTAL_CONSENT) {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
@@ -120,8 +121,24 @@ class ConsentServiceImplTest {
         }
 
         // Act
-        ConsentStatusResponse response = consentService.grantConsent(validRequest);
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
 
+        ConsentStatusResponse response = consentService.grantConsent(request);
         // Assert
         assertNotNull(response);
         assertFalse(response.reconsentNeeded());
@@ -131,10 +148,10 @@ class ConsentServiceImplTest {
         // Verify consent ledger was saved with correct data
         verify(consentLedgerRepository).saveAndFlush(argThat(consent ->
                 consent.getUserId().equals(testUserId) &&
-                        consent.getConsentType().equals(ConsentType.PRIVACY_POLICY) &&
+                        consent.getConsentType().equals(ConsentType.PARENTAL_CONSENT) &&
                         consent.getConsentStatus().equals(ConsentStatus.GRANTED) &&
                         consent.getConsentVersion().equals("1.0.0") &&
-                        consent.getPolicyUrl().equals("https://example.com/privacy") &&
+                        consent.getPolicyUrl().equals("https://example.com/parental") &&
                         consent.getContentHash().equals("abc123hash") &&
                         consent.getJurisdiction().equals("GB") &&
                         consent.getRegion().equals("England") &&
@@ -260,15 +277,8 @@ class ConsentServiceImplTest {
             }
         }
 
-        // Act
-        ConsentStatusResponse response = consentService.grantConsent(requestWithNoKids);
-
-        // Assert
-        assertNotNull(response);
-        verify(consentChildCoverageRepository).saveAll(argThat(coverageList -> {
-            List<ConsentChildCoverage> list = (List<ConsentChildCoverage>) coverageList;
-            return list.isEmpty();
-        }));
+        // Act & Assert
+        assertThrows(ConstraintViolationException.class, () -> consentService.grantConsent(requestWithNoKids));
     }
 
     @Test
@@ -886,7 +896,9 @@ class ConsentServiceImplTest {
         for (ConsentType t : ConsentType.values()) {
             if (t == ConsentType.PARENTAL_CONSENT) {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
-                        eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.of(saved));
+                        eq(testUserId), eq(t), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty())
+                        .thenReturn(Optional.of(saved));
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
                         eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.empty());
