@@ -19,6 +19,7 @@ import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 class ConsentServiceImplTest {
@@ -65,6 +67,9 @@ class ConsentServiceImplTest {
         // Default server captured values
         serverIp = "203.0.113.5";
         serverUa = "JUnitAgent/1.0";
+
+        // Setup common mocks
+        lenient().when(parentVerificationRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
 
         MockHttpServletRequest mockRequest = new MockHttpServletRequest();
         mockRequest.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(serverIp, serverUa));
@@ -106,6 +111,7 @@ class ConsentServiceImplTest {
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
         when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
+        when(parentVerificationRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
@@ -895,5 +901,252 @@ class ConsentServiceImplTest {
             return list.size() == 2 &&
                     list.stream().map(ConsentChildCoverage::getKidId).collect(Collectors.toList()).containsAll(List.of(kidA, kidB));
         }));
+    }
+
+    @Test
+    void grantConsent_TermsOrPrivacy_ShouldNotWriteChildCoverage() {
+        // Arrange
+        ConsentGrantRequest req = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.TERMS_OF_SERVICE,
+                "1.0.0",
+                "https://example.com/terms",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids, // Include kids but should be ignored
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONTRACT
+        );
+
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.TERMS_OF_SERVICE)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.TERMS_OF_SERVICE) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty())
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        // Act
+        consentService.grantConsent(req);
+
+        // Assert
+        verify(consentChildCoverageRepository, never()).saveAll(anyList());
+    }
+
+    @Test
+    void grantConsent_WithBase64HmacKey_ShouldGenerateSignature() {
+        // Arrange
+        String base64Key = java.util.Base64.getEncoder().encodeToString("binkey-32bytes-or-more".getBytes(StandardCharsets.UTF_8));
+        ReflectionTestUtils.setField(consentService, "hmacSecret", base64Key);
+
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.PRIVACY_POLICY) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty())
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        // Act
+        consentService.grantConsent(validRequest);
+
+        // Assert
+        verify(consentLedgerRepository).saveAndFlush(argThat(c -> 
+            c.getRecordSignature() != null && c.getRecordSignature().length > 0));
+    }
+
+    @Test
+    void grantConsent_SameKidsDifferentOrder_ShouldProduceSameSignature() {
+        // Arrange
+        UUID testUserId = UUID.randomUUID();
+        UUID consentId = UUID.randomUUID();
+        UUID kidA = UUID.randomUUID();
+        UUID kidB = UUID.randomUUID();
+        ConsentGrantRequest req1 = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                List.of(kidB, kidA),
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+        ConsentGrantRequest req2 = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                List.of(kidA, kidB),
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+        // Use ReflectionTestUtils to call the private method
+        String json1 = (String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                consentService, "buildCanonicalReceiptJson",
+                consentId, req1, "GB", "ENGLAND", "en-GB", "192.168.1.1", "Mozilla/5.0",
+                java.time.Instant.parse("2025-08-01T23:49:37.472530200Z"), List.of(kidB, kidA), "unknown"
+        );
+        String json2 = (String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                consentService, "buildCanonicalReceiptJson",
+                consentId, req2, "GB", "ENGLAND", "en-GB", "192.168.1.1", "Mozilla/5.0",
+                java.time.Instant.parse("2025-08-01T23:49:37.472530200Z"), List.of(kidA, kidB), "unknown"
+        );
+        // Assert
+        assertEquals(json1, json2);
+    }
+
+    @Test
+    void grantConsent_ShouldNormalizeLocale() {
+        // Arrange
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.PRIVACY_POLICY) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty())
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest req = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-gb", // lowercase
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        // Act
+        consentService.grantConsent(req);
+
+        // Assert
+        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> 
+            "en-GB".equals(consent.getLocale())));
+    }
+
+    @Test
+    void grantConsent_ShouldHandleSimpleLocale() {
+        // Arrange
+        ConsentLedger savedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .build();
+
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+
+        // Stub for all consent types that buildLatestConsentStatus might call
+        for (ConsentType type : ConsentType.values()) {
+            if (type == ConsentType.PRIVACY_POLICY) {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty())
+                        .thenReturn(Optional.of(savedConsent));
+            } else {
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
+                        .thenReturn(Optional.empty());
+            }
+        }
+
+        ConsentGrantRequest req = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://example.com/privacy",
+                "hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "ru", // simple locale
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        // Act
+        consentService.grantConsent(req);
+
+        // Assert
+        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> 
+            "ru".equals(consent.getLocale())));
     }
 }

@@ -1102,4 +1102,178 @@ class ConsentControllerIntegrationTest {
                     .andExpect(jsonPath("$.consentId").isNotEmpty());
         }
     }
+
+    @Test
+    void grantConsent_ParentalConsentMissingVerificationId_ShouldReturnBadRequest() throws Exception {
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                userAndToken.userId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://kidsgpt.club/parental",
+                "abc123",
+                null, // Missing verificationId
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + userAndToken.token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[0]").value(containsString("verificationId is required")));
+    }
+
+    @Test
+    void grantConsent_DataProcessingWithoutKids_ShouldReturnBadRequest() throws Exception {
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                userAndToken.userId,
+                ConsentType.DATA_PROCESSING,
+                "1.0.0",
+                "https://kidsgpt.club/processing",
+                "abc123",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                null, // null kids
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + userAndToken.token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[0]").value(containsString("kids are required")));
+    }
+
+    @Test
+    void grantConsent_DataProcessingWithEmptyKids_ShouldReturnBadRequest() throws Exception {
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                userAndToken.userId,
+                ConsentType.DATA_PROCESSING,
+                "1.0.0",
+                "https://kidsgpt.club/processing",
+                "abc123",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                List.of(), // empty kids
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + userAndToken.token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[0]").value(containsString("kids are required")));
+    }
+
+    @Test
+    void grantConsent_WithSubdomainPolicyUrl_ShouldReturnSuccess() throws Exception {
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                userAndToken.userId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://legal.kidsgpt.club/privacy", // Subdomain
+                "abc123",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + userAndToken.token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consentId").isNotEmpty());
+    }
+
+    @Test
+    void grantConsent_WithUppercaseHost_ShouldReturnSuccess() throws Exception {
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                userAndToken.userId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://KIDSGPT.CLUB/privacy", // Uppercase host
+                "abc123",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + userAndToken.token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consentId").isNotEmpty());
+    }
+
+    @Test
+    void grantConsent_WithEvilSubdomain_ShouldReturnBadRequest() throws Exception {
+        UserAndToken userAndToken = createUniqueUserAndGetToken();
+        
+        ConsentGrantRequest request = new ConsentGrantRequest(
+                userAndToken.userId,
+                ConsentType.PRIVACY_POLICY,
+                "1.0.0",
+                "https://kidsgpt.club.evil.com/privacy", // Evil subdomain
+                "abc123",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + userAndToken.token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.details[0]").value(containsString("Invalid policyUrl")));
+    }
 } 

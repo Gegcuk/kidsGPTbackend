@@ -277,7 +277,7 @@ public class ConsentServiceImpl implements ConsentService {
             Map<String, Object> m = new TreeMap<>(); // TreeMap => sorted keys
             m.put("consent_id", consentId.toString());
             m.put("parent_uuid", req.userId().toString());
-            m.put("kids", kids.stream().map(UUID::toString).collect(Collectors.toList()));
+            m.put("kids", kids.stream().map(UUID::toString).sorted().collect(Collectors.toList()));
             m.put("jurisdiction", jurisdiction);
             m.put("region", region);
             m.put("method", verificationMethod);
