@@ -12,56 +12,6 @@ Comprehensive test plan for the **/api/v1/consent/withdraw** endpoint and the `C
 
 ---
 
-## A. Happy-path coverage
-
-1. **I — Withdraw current active version (basic happy-path)**  
-   - Pre: one `GRANTED` record for user/type/version `V1`.  
-   - Call `/withdraw` with matching `type` and `version=V1`.  
-   - Assert: `200`, `X-Consent-Id` present; response `reconsentNeeded=true`; latest status for that type is `WITHDRAWN` with correct `version`, `policyUrl`, and `timestamp`.
-
-2. **I — All consent types happy-path**  
-   - Repeat (1) for each `ConsentType` (`TERMS_OF_SERVICE`, `PRIVACY_POLICY`, `PARENTAL_CONSENT`, `DATA_PROCESSING`).  
-   - Assert same outcomes.
-
-3. **I — Cross-type unaffected**  
-   - Pre: multiple `GRANTED` rows across different types.  
-   - Withdraw one type.  
-   - Assert: the withdrawn type is `WITHDRAWN`; all other types remain `GRANTED` in `latestByType`.
-
-4. **U — Withdrawal persists correct ledger fields**  
-   - Verify persisted `ConsentLedger` for withdrawal has:  
-     `consentStatus=WITHDRAWN`, `withdrawnConsentId` referencing the grant, `consentVersion` = **grant’s version**, `policyUrl/contentHash/jurisdiction/region/locale/lawfulBasis/source` copied from grant, `retentionExpiresAt` unchanged.
-
-5. **U — Receipt JSON (withdrawal) content**  
-   - Ensure `receiptJson` contains:
-     - `consent_id` (new withdrawal ID)  
-     - `parent_uuid`  
-     - `withdrawn_consent_id` (grant ID)  
-     - `consent_type`  
-     - `consent_version` (grant’s version)  
-     - `policy_url`, `content_hash`  
-     - `jurisdiction`, `region`, `locale`  
-     - `lawful_basis`, `source`  
-     - `timestamp`, `ip`, `ua`  
-     - `action: "WITHDRAWN"`  
-   - And **includes** `reason` only when provided (see negative variants below).
-
-6. **U — HMAC signature present**  
-   - After building receipt JSON, `recordSignature` is non-null and non-empty.
-
-7. **U — Base64 HMAC key path**  
-   - Configure `hmacSecret` as a valid Base64 string.  
-   - Assert `recordSignature` is still produced (exercises Base64 branch).
-
-8. **I — IP/UA override (audit)**  
-   - Provide client `ipAddress`/`userAgent` in request, set server-captured IP/UA via request context.  
-   - Assert persisted withdrawal row uses **server-captured** IP/UA (not client-provided).
-
-9. **U — No child coverage writes on withdrawal**  
-   - Ensure no calls to `ConsentChildCoverageRepository.saveAll` are made during withdrawal (coverage is not mutated).
-
----
-
 ## B. Idempotency & ordering
 
 10. **I — Idempotent retry same version**  

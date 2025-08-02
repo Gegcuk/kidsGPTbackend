@@ -27,6 +27,8 @@ import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -1485,5 +1487,70 @@ class ConsentControllerIntegrationTest {
         // Note: In a real integration test, we would verify that the persisted withdrawal
         // uses serverCapturedIp and serverCapturedUa instead of clientProvidedIp and clientProvidedUa.
         // This verification would require database access or checking the service layer directly.
+    }
+
+    @Test
+    void withdrawConsent_IdempotentRetrySameVersion_ShouldReturnExistingWithdrawalId() throws Exception {
+        // Arrange - Create a granted consent first
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId, ConsentType.PARENTAL_CONSENT, "1.0.0", "https://example.com/parental", "hash",
+                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
+                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+        );
+        
+        // Grant consent first
+        mockMvc.perform(post("/api/v1/consent/grant")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+        
+        // Create withdrawal request
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+        
+        // Act - First withdrawal call (should create withdrawal)
+        String firstResponse = mockMvc.perform(post("/api/v1/consent/withdraw")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Consent-Id", notNullValue()))
+                .andExpect(jsonPath("$.reconsentNeeded").value(true))
+                .andExpect(jsonPath("$.latestByType").isArray())
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].status").value("WITHDRAWN"))
+                .andReturn().getResponse().getContentAsString();
+        
+        // Extract the first withdrawal ID
+        JsonNode firstResponseNode = objectMapper.readTree(firstResponse);
+        String firstWithdrawalId = firstResponseNode.get("consentId").asText();
+        assertNotNull(firstWithdrawalId);
+        
+        // Act - Second withdrawal call for the same user/type/version (should return existing withdrawal)
+        String secondResponse = mockMvc.perform(post("/api/v1/consent/withdraw")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Consent-Id", notNullValue()))
+                .andExpect(jsonPath("$.reconsentNeeded").value(true))
+                .andExpect(jsonPath("$.latestByType").isArray())
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].status").value("WITHDRAWN"))
+                .andReturn().getResponse().getContentAsString();
+        
+        // Extract the second withdrawal ID
+        JsonNode secondResponseNode = objectMapper.readTree(secondResponse);
+        String secondWithdrawalId = secondResponseNode.get("consentId").asText();
+        assertNotNull(secondWithdrawalId);
+        
+        // Assert - Both calls should return the same withdrawal ID (idempotency)
+        assertEquals(firstWithdrawalId, secondWithdrawalId, 
+                "Withdrawal IDs should be identical for idempotent calls");
     }
 } 

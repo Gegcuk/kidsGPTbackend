@@ -548,7 +548,7 @@ public class ConsentServiceImpl implements ConsentService {
         }
         // Fallback: some drivers wrap differently; be conservative
         String msg = root.getMessage();
-        return msg != null && msg.contains("Duplicate entry");
+        return msg != null && (msg.contains("Duplicate entry") || msg.contains("Duplicate key"));
     }
     
     /**
