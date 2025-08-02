@@ -61,19 +61,19 @@ public class ConsentController {
      */
     @GetMapping("/history/{userId}")
     public ResponseEntity<ConsentHistoryResponse.PaginatedConsentHistoryResponse> getConsentHistory(
-            @PathVariable String userId,
+            @PathVariable UUID userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         log.info("Retrieving consent history for user: {} (page: {}, size: {})", userId, page, size);
         
         // Authorization: Only allow users to access their own consent history
         String currentUserId = getCurrentUserId();
-        if (!currentUserId.equals(userId)) {
+        if (!currentUserId.equals(userId.toString())) {
             log.warn("User {} attempted to access consent history for user {}", currentUserId, userId);
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only view your own consent history");
         }
         
-        ConsentHistoryResponse.PaginatedConsentHistoryResponse response = consentService.getConsentHistory(userId, page, size);
+        ConsentHistoryResponse.PaginatedConsentHistoryResponse response = consentService.getConsentHistory(userId.toString(), page, size);
         return ResponseEntity.ok(response);
     }
     
