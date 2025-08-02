@@ -3,13 +3,19 @@ package uk.gegc.kidsgptbackend.controller;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
 import uk.gegc.kidsgptbackend.service.consent.ConsentService;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/consent")
@@ -50,14 +56,51 @@ public class ConsentController {
     }
 
     /**
-     * Get consent history for a user
-     * GET /api/v1/consent/history/{userId}
+     * Get consent history for a user (with optional pagination)
+     * GET /api/v1/consent/history/{userId}?page=0&size=20
      */
     @GetMapping("/history/{userId}")
-    public ResponseEntity<ConsentHistoryResponse> getConsentHistory(@PathVariable String userId) {
-        log.info("Retrieving consent history for user: {}", userId);
-        ConsentHistoryResponse response = consentService.getConsentHistory(userId);
+    public ResponseEntity<ConsentHistoryResponse> getConsentHistory(
+            @PathVariable String userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        log.info("Retrieving consent history for user: {} (page: {}, size: {})", userId, page, size);
+        
+        // Authorization: Only allow users to access their own consent history
+        String currentUserId = getCurrentUserId();
+        if (!currentUserId.equals(userId)) {
+            log.warn("User {} attempted to access consent history for user {}", currentUserId, userId);
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only view your own consent history");
+        }
+        
+        ConsentHistoryResponse response = consentService.getConsentHistory(userId, page, size);
         return ResponseEntity.ok(response);
+    }
+    
+    /**
+     * Get the current authenticated user ID
+     * @return The current user ID as a string
+     * @throws ResponseStatusException if no authenticated user is found
+     */
+    private String getCurrentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
+        
+        String principal = authentication.getName();
+        if (principal == null || principal.equals("anonymousUser")) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Valid authentication required");
+        }
+        
+        // Assuming the principal is the user ID (UUID string)
+        try {
+            UUID.fromString(principal); // Validate UUID format
+            return principal;
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid user ID format in authentication principal: {}", principal);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Invalid user authentication");
+        }
     }
 
     /**

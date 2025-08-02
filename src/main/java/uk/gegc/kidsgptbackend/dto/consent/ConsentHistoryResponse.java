@@ -30,6 +30,7 @@ public record ConsentHistoryResponse(
         String parentVerificationId,
         LocalDateTime retentionExpiresAt,
         LocalDateTime createdAt,
-        List<String> coveredKids
+        List<String> coveredKids,
+        String withdrawnConsentId
     ) {}
 } 

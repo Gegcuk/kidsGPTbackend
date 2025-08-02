@@ -9,6 +9,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -320,16 +323,139 @@ public class ConsentServiceImpl implements ConsentService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public ConsentHistoryResponse getConsentHistory(String userId) {
-        log.info("Stub implementation: Getting consent history for user: {}", userId);
-        // TODO: Implement actual consent history retrieval
-        // - Query consent_ledger table for user
-        // - Include consent_child_coverage information
-        // - Format response with proper pagination
+        log.info("Getting consent history for user: {}", userId);
         
-        return new ConsentHistoryResponse(
-            userId,
-            null // entries - to be implemented
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // Query consent_ledger table for user, ordered by consent timestamp (canonical event time)
+            List<ConsentLedger> consentLedgers = consentLedgerRepository.findByUserIdOrderByConsentTimestampDesc(userUuid);
+            
+            if (consentLedgers.isEmpty()) {
+                return new ConsentHistoryResponse(userId, Collections.emptyList());
+            }
+            
+            // Batch fetch all child coverage data to avoid N+1 queries
+            List<UUID> consentIds = consentLedgers.stream()
+                .map(ConsentLedger::getConsentId)
+                .collect(Collectors.toList());
+            
+            List<ConsentChildCoverage> allCoverages = consentChildCoverageRepository.findByConsentIds(consentIds);
+            
+            // Group coverages by consent ID for efficient lookup
+            Map<UUID, List<String>> coverageMap = allCoverages.stream()
+                .collect(Collectors.groupingBy(
+                    ConsentChildCoverage::getConsentId,
+                    Collectors.mapping(
+                        coverage -> coverage.getKidId().toString(),
+                        Collectors.toList()
+                    )
+                ));
+            
+            List<ConsentHistoryResponse.ConsentHistoryEntry> entries = consentLedgers.stream()
+                .map(consentLedger -> buildConsentHistoryEntry(consentLedger, coverageMap))
+                .collect(Collectors.toList());
+            
+            return new ConsentHistoryResponse(userId, entries);
+            
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID format for userId: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user ID format");
+        } catch (Exception e) {
+            log.error("Error retrieving consent history for user: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve consent history");
+        }
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public ConsentHistoryResponse getConsentHistory(String userId, int page, int size) {
+        log.info("Getting paginated consent history for user: {} (page: {}, size: {})", userId, page, size);
+        
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // Validate pagination parameters
+            if (page < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page number must be non-negative");
+            }
+            if (size <= 0 || size > 100) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page size must be between 1 and 100");
+            }
+            
+            Pageable pageable = PageRequest.of(page, size);
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserIdOrderByConsentTimestampDesc(userUuid, pageable);
+            
+            if (consentLedgerPage.isEmpty()) {
+                return new ConsentHistoryResponse(userId, Collections.emptyList());
+            }
+            
+            List<ConsentLedger> consentLedgers = consentLedgerPage.getContent();
+            
+            // Batch fetch all child coverage data to avoid N+1 queries
+            List<UUID> consentIds = consentLedgers.stream()
+                .map(ConsentLedger::getConsentId)
+                .collect(Collectors.toList());
+            
+            List<ConsentChildCoverage> allCoverages = consentChildCoverageRepository.findByConsentIds(consentIds);
+            
+            // Group coverages by consent ID for efficient lookup
+            Map<UUID, List<String>> coverageMap = allCoverages.stream()
+                .collect(Collectors.groupingBy(
+                    ConsentChildCoverage::getConsentId,
+                    Collectors.mapping(
+                        coverage -> coverage.getKidId().toString(),
+                        Collectors.toList()
+                    )
+                ));
+            
+            List<ConsentHistoryResponse.ConsentHistoryEntry> entries = consentLedgers.stream()
+                .map(consentLedger -> buildConsentHistoryEntry(consentLedger, coverageMap))
+                .collect(Collectors.toList());
+            
+            return new ConsentHistoryResponse(userId, entries);
+            
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID format for userId: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user ID format");
+        } catch (Exception e) {
+            log.error("Error retrieving paginated consent history for user: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve consent history");
+        }
+    }
+    
+    private ConsentHistoryResponse.ConsentHistoryEntry buildConsentHistoryEntry(
+            ConsentLedger consentLedger, 
+            Map<UUID, List<String>> coverageMap) {
+        
+        // Get covered kids for this consent (sorted for deterministic output)
+        List<String> coveredKids = coverageMap.getOrDefault(consentLedger.getConsentId(), Collections.emptyList())
+            .stream()
+            .sorted()
+            .collect(Collectors.toList());
+        
+        return new ConsentHistoryResponse.ConsentHistoryEntry(
+            consentLedger.getConsentId().toString(),
+            consentLedger.getConsentType(),
+            consentLedger.getConsentVersion(),
+            consentLedger.getConsentStatus(),
+            consentLedger.getPolicyUrl(),
+            consentLedger.getContentHash(),
+            consentLedger.getJurisdiction(),
+            consentLedger.getRegion(),
+            consentLedger.getLocale(),
+            consentLedger.getLawfulBasis(),
+            consentLedger.getSource(),
+            consentLedger.getIpAddress(),
+            consentLedger.getUserAgent(),
+            consentLedger.getConsentTimestamp(),
+            consentLedger.getParentVerificationId() != null ? consentLedger.getParentVerificationId().toString() : null,
+            consentLedger.getRetentionExpiresAt(),
+            consentLedger.getCreatedAt(),
+            coveredKids,
+            consentLedger.getWithdrawnConsentId() != null ? consentLedger.getWithdrawnConsentId().toString() : null
         );
     }
     

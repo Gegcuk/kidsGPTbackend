@@ -1,5 +1,7 @@
 package uk.gegc.kidsgptbackend.repository.consent;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,6 +19,10 @@ import java.util.UUID;
 public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UUID> {
     
     List<ConsentLedger> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    
+    List<ConsentLedger> findByUserIdOrderByConsentTimestampDesc(UUID userId);
+    
+    Page<ConsentLedger> findByUserIdOrderByConsentTimestampDesc(UUID userId, Pageable pageable);
     
     List<ConsentLedger> findByUserIdAndConsentTypeOrderByCreatedAtDesc(UUID userId, ConsentType consentType);
     
