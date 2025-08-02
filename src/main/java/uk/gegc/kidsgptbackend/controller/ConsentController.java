@@ -42,7 +42,11 @@ public class ConsentController {
     public ResponseEntity<ConsentStatusResponse> withdrawConsent(@Valid @RequestBody ConsentWithdrawRequest request) {
         log.info("Withdrawing consent for user: {}", request.userId());
         ConsentStatusResponse response = consentService.withdrawConsent(request);
-        return ResponseEntity.ok(response);
+        
+        // Return consent ID in header for easy correlation (parity with /grant)
+        return ResponseEntity.ok()
+                .header("X-Consent-Id", response.consentId().toString())
+                .body(response);
     }
 
     /**

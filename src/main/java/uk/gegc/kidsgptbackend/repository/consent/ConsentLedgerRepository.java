@@ -20,6 +20,8 @@ public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UU
     
     List<ConsentLedger> findByUserIdAndConsentTypeOrderByCreatedAtDesc(UUID userId, ConsentType consentType);
     
+    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(UUID userId, ConsentType consentType);
+    
     Optional<ConsentLedger> findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
             UUID userId, ConsentType consentType, ConsentStatus consentStatus);
     
@@ -40,4 +42,7 @@ public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UU
     List<ConsentLedger> findByJurisdictionAndRegion(String jurisdiction, String region);
     
     List<ConsentLedger> findByConsentTimestampBetween(LocalDateTime fromDate, LocalDateTime toDate);
+
+    @Query("SELECT COUNT(cl) > 0 FROM ConsentLedger cl WHERE cl.userId = :userId AND cl.consentType = :consentType AND cl.consentVersion = :version AND cl.consentStatus = 'WITHDRAWN'")
+    boolean existsWithdrawalByUserTypeAndVersion(@Param("userId") UUID userId, @Param("consentType") ConsentType consentType, @Param("version") String version);
 } 

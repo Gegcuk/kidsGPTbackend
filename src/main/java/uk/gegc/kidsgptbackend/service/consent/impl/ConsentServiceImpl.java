@@ -201,17 +201,121 @@ public class ConsentServiceImpl implements ConsentService {
     }
     
     @Override
+    @Transactional
     public ConsentStatusResponse withdrawConsent(ConsentWithdrawRequest request) {
-        log.info("Stub implementation: Withdrawing consent for user: {}", request.userId());
-        // TODO: Implement actual consent withdrawal logic
-        // - Insert new WITHDRAWN record into consent_ledger
-        // - Update any active grants to EXPIRED status
-        // - Generate withdrawal receipt
+        log.info("Withdrawing consent for user: {}", request.userId());
         
+        // ---- Validate and parse userId
+        UUID userId;
+        try {
+            userId = UUID.fromString(request.userId());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid userId format: " + request.userId());
+        }
+        
+        Instant nowUtc = Instant.now();
+        LocalDateTime nowLocal = LocalDateTime.ofInstant(nowUtc, ZoneOffset.UTC);
+        String ip = RequestContextUtil.getServerCapturedIp();
+        String ua = RequestContextUtil.getServerCapturedUserAgent();
+        
+        // Log the override for audit purposes
+        if (!ip.equals(request.ipAddress()) || !ua.equals(request.userAgent())) {
+            log.info("Overriding client-provided IP/UA with server-captured values - Client IP: {} -> Server IP: {}, Client UA: {} -> Server UA: {}", 
+                    request.ipAddress(), ip, request.userAgent(), ua);
+        }
+        
+        // ---- Locate exact grant (version is @NotBlank, so always use exact version)
+        Optional<ConsentLedger> target = consentLedgerRepository
+            .findActiveGrantByUserTypeAndVersion(userId, request.consentType(), request.consentVersion());
+        
+        if (target.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, 
+                "No active consent found to withdraw for user " + request.userId() + " and type " + request.consentType() + " version " + request.consentVersion());
+        }
+        ConsentLedger granted = target.get();
+        
+        // ---- Check if this is the current active version (prevent withdrawing old versions)
+        Optional<ConsentLedger> latestGranted = consentLedgerRepository
+            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                userId, request.consentType(), ConsentStatus.GRANTED);
+        
+        if (latestGranted.isPresent() && !latestGranted.get().getConsentVersion().equals(request.consentVersion())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, 
+                "Cannot withdraw version " + request.consentVersion() + " when version " + latestGranted.get().getConsentVersion() + " is active. " +
+                "Only the current active version can be withdrawn.");
+        }
+        
+        // ---- Idempotency: check if withdrawal already exists for this (user,type,version)
+        if (consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(userId, request.consentType(), granted.getConsentVersion())) {
+            // Fetch the existing withdrawal
+            Optional<ConsentLedger> existingWithdrawal = consentLedgerRepository
+                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                    userId, request.consentType(), ConsentStatus.WITHDRAWN);
+            if (existingWithdrawal.isPresent()) {
+                UUID existingId = existingWithdrawal.get().getConsentId();
+                log.info("Consent already withdrawn for user {} type {} v{}, returning existing withdrawal ID: {}", 
+                        request.userId(), request.consentType(), granted.getConsentVersion(), existingId);
+                return new ConsentStatusResponse(
+                    buildEffectiveConsentStatus(userId), // show WITHDRAWN
+                    true,
+                    existingId
+                );
+            }
+        }
+        
+        UUID withdrawalId = UUID.randomUUID();
+        String receiptJson = buildWithdrawalReceiptJson(withdrawalId, request, granted, ip, ua, nowUtc);
+        byte[] recordSignature = generateHmacSignature(receiptJson);
+        
+        // ---- Persist withdrawal ledger row
+        ConsentLedger withdrawalLedger = ConsentLedger.builder()
+                .consentId(withdrawalId)
+                .userId(userId)
+                .consentType(granted.getConsentType())
+                .consentVersion(granted.getConsentVersion()) // Use version from grant, not request
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl(granted.getPolicyUrl())
+                .contentHash(granted.getContentHash())
+                .jurisdiction(granted.getJurisdiction())
+                .region(granted.getRegion())
+                .locale(granted.getLocale())
+                .lawfulBasis(granted.getLawfulBasis())
+                .source(granted.getSource())
+                .ipAddress(ip)
+                .userAgent(ua)
+                .consentTimestamp(nowLocal)
+                .parentVerificationId(granted.getParentVerificationId())
+                .retentionExpiresAt(granted.getRetentionExpiresAt())
+                .withdrawnConsentId(granted.getConsentId()) // Link to the withdrawn consent
+                .receiptJson(receiptJson)
+                .recordSignature(recordSignature)
+                .build();
+        
+        ConsentLedger savedWithdrawal;
+        try {
+            savedWithdrawal = consentLedgerRepository.saveAndFlush(withdrawalLedger);
+            log.info("Saved consent withdrawal entry with ID: {}", savedWithdrawal.getConsentId());
+        } catch (DataIntegrityViolationException e) {
+            if (isDuplicateKey(e)) {
+                log.warn("Duplicate withdrawal raced; returning current status. user={}, type={}, v={}",
+                         request.userId(), request.consentType(), granted.getConsentVersion());
+                // Fetch existing withdrawal
+                UUID existingWithdrawalId = consentLedgerRepository
+                    .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                        userId, request.consentType(), ConsentStatus.WITHDRAWN)
+                    .map(ConsentLedger::getConsentId)
+                    .orElse(null);
+                return new ConsentStatusResponse(buildEffectiveConsentStatus(userId), true, existingWithdrawalId);
+            }
+            log.error("Failed to save consent withdrawal", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to process consent withdrawal");
+        }
+        
+        // ---- Return effective statuses (not GRANTED-only)
         return new ConsentStatusResponse(
-            null, // latestByType - to be implemented
-            false, // reconsentNeeded - to be implemented
-            null // consentId - to be implemented
+            buildEffectiveConsentStatus(userId),
+            true, // reconsentNeeded is true after withdrawal
+            withdrawalId
         );
     }
     
@@ -304,6 +408,45 @@ public class ConsentServiceImpl implements ConsentService {
         }
     }
     
+    /** Build withdrawal receipt JSON with withdrawal-specific fields */
+    private String buildWithdrawalReceiptJson(
+            UUID consentId,
+            ConsentWithdrawRequest req,
+            ConsentLedger grantedConsent,
+            String ip, String ua,
+            Instant nowUtc) {
+        try {
+            Map<String, Object> m = new TreeMap<>(); // TreeMap => sorted keys
+            m.put("consent_id", consentId.toString());
+            m.put("parent_uuid", req.userId());
+            m.put("withdrawn_consent_id", grantedConsent.getConsentId().toString());
+            m.put("consent_type", req.consentType().name());
+            m.put("consent_version", grantedConsent.getConsentVersion());
+            m.put("policy_url", grantedConsent.getPolicyUrl());
+            m.put("content_hash", grantedConsent.getContentHash());
+            m.put("jurisdiction", grantedConsent.getJurisdiction());
+            m.put("region", grantedConsent.getRegion());
+            m.put("locale", grantedConsent.getLocale());
+            m.put("lawful_basis", grantedConsent.getLawfulBasis().name());
+            m.put("source", grantedConsent.getSource().name());
+            m.put("timestamp", DateTimeFormatter.ISO_INSTANT.format(nowUtc));
+            m.put("ip", ip);
+            m.put("ua", ua);
+            m.put("action", "WITHDRAWN");
+            if (req.reason() != null && !req.reason().trim().isEmpty()) {
+                m.put("reason", req.reason().trim());
+            }
+
+            // Jackson with canonical ordering
+            ObjectMapper om = new ObjectMapper();
+            om.configure(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS, true);
+            return om.writeValueAsString(m);
+        } catch (Exception e) {
+            log.error("Failed to build withdrawal receipt JSON", e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to build withdrawal receipt");
+        }
+    }
+    
     private byte[] generateHmacSignature(String data) {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
@@ -351,6 +494,32 @@ public class ConsentServiceImpl implements ConsentService {
                 .collect(Collectors.toList());
     }
     
+    /**
+     * Build effective consent status that shows the latest status per type (GRANTED or WITHDRAWN)
+     * This is used for withdrawal responses to show the actual current status
+     * Uses consentTimestamp for ordering to be consistent with the canonical event time
+     */
+    private List<ConsentStatusResponse.ConsentStatusByType> buildEffectiveConsentStatus(UUID userId) {
+        // Get latest consent for each type (regardless of status)
+        List<ConsentLedger> latestConsents = new ArrayList<>();
+        
+        for (ConsentType type : ConsentType.values()) {
+            // Use consentTimestamp for ordering to be consistent with canonical event time
+            Optional<ConsentLedger> latestConsent = consentLedgerRepository
+                .findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(userId, type);
+            latestConsent.ifPresent(latestConsents::add);
+        }
+        
+        return latestConsents.stream()
+                .map(consent -> new ConsentStatusResponse.ConsentStatusByType(
+                        consent.getConsentType(),
+                        consent.getConsentVersion(),
+                        consent.getConsentStatus(),
+                        consent.getConsentTimestamp(),
+                        consent.getPolicyUrl()))
+                .collect(Collectors.toList());
+    }
+    
     private boolean checkReconsentNeeded(UUID userId, ConsentType consentType, String currentVersion) {
         // Check if there's a newer version of the policy that requires reconsent
         // This is a simplified implementation - in practice, you'd check against active policies
@@ -379,7 +548,7 @@ public class ConsentServiceImpl implements ConsentService {
         }
         // Fallback: some drivers wrap differently; be conservative
         String msg = root.getMessage();
-        return msg != null && msg.contains("Duplicate entry");
+        return msg != null && (msg.contains("Duplicate entry") || msg.contains("Duplicate key"));
     }
     
     /**
