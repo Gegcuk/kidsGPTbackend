@@ -1530,4 +1530,61 @@ class ConsentServiceImplTest {
             return true;
         }));
     }
+
+    @Test
+    void withdrawConsent_ShouldNotWriteChildCoverage() {
+        // Arrange - Create a granted consent with kids (that would have child coverage)
+        UUID grantedConsentId = UUID.randomUUID();
+        ConsentLedger grantedConsent = ConsentLedger.builder()
+                .consentId(grantedConsentId)
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now())
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grant\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(Optional.of(grantedConsent));
+
+        when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(false);
+
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Mock saveAndFlush to return the withdrawal object
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        consentService.withdrawConsent(withdrawRequest);
+
+        // Assert - Verify that NO calls to ConsentChildCoverageRepository.saveAll are made
+        verify(consentChildCoverageRepository, never()).saveAll(any());
+        
+        // Also verify that the withdrawal ledger was saved (to ensure the test is working)
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
+    }
  }
