@@ -1553,4 +1553,88 @@ class ConsentControllerIntegrationTest {
         assertEquals(firstWithdrawalId, secondWithdrawalId, 
                 "Withdrawal IDs should be identical for idempotent calls");
     }
+
+    @Test
+    void withdrawConsent_NoActiveGrantForVersion_ShouldReturnNotFound() throws Exception {
+        // Arrange - Create a granted consent with version "1.0.0"
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId, ConsentType.PARENTAL_CONSENT, "1.0.0", "https://example.com/parental", "hash",
+                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
+                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+        );
+        
+        // Grant consent first
+        mockMvc.perform(post("/api/v1/consent/grant")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+        
+        // Create withdrawal request for a version that doesn't exist ("2.0.0")
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "2.0.0", // Version that doesn't exist
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+        
+        // Act & Assert - Should return 404 with meaningful error message
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value(containsString("No active consent found to withdraw")));
+    }
+
+    @Test
+    void withdrawConsent_NonCurrentVersion_ShouldReturnConflict() throws Exception {
+        // Arrange - Create a granted consent with version "1.0.0" (older version)
+        ConsentGrantRequest grantV1Request = new ConsentGrantRequest(
+                testUserId, ConsentType.PARENTAL_CONSENT, "1.0.0", "https://example.com/parental-v1", "hash-v1",
+                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
+                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+        );
+        
+        // Grant V1 consent first
+        mockMvc.perform(post("/api/v1/consent/grant")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(grantV1Request)))
+                .andExpect(status().isOk());
+        
+        // Create a granted consent with version "2.0.0" (latest version)
+        ConsentGrantRequest grantV2Request = new ConsentGrantRequest(
+                testUserId, ConsentType.PARENTAL_CONSENT, "2.0.0", "https://example.com/parental-v2", "hash-v2",
+                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
+                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+        );
+        
+        // Grant V2 consent (this should make V2 the current active version)
+        mockMvc.perform(post("/api/v1/consent/grant")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(grantV2Request)))
+                .andExpect(status().isOk());
+        
+        // Create withdrawal request for the older version "1.0.0" (non-current)
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0", // Older version that is no longer current
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+        
+        // Act & Assert - Should return 409 Conflict with explanatory message
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value(containsString("Cannot withdraw version 1.0.0 when version 2.0.0 is active")));
+    }
 } 

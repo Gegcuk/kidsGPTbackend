@@ -2036,4 +2036,90 @@ class ConsentServiceImplTest {
         verify(consentLedgerRepository).findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT));
     }
+
+    @Test
+    void withdrawConsent_GrantVersionSourceOfTruth_ShouldUseGrantVersion() {
+        // Arrange
+        UUID testUserId = UUID.randomUUID();
+        UUID testVerificationId = UUID.randomUUID();
+        UUID grantedConsentId = UUID.randomUUID();
+
+        // Create a granted consent with version "1.0.0"
+        ConsentLedger grantedConsent = ConsentLedger.builder()
+                .consentId(grantedConsentId)
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0") // Grant has version "1.0.0"
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now())
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grant\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(Optional.of(grantedConsent));
+
+        when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(false);
+
+        // Mock saveAndFlush to return the saved withdrawal
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
+                .thenReturn(Optional.of(grantedConsent));
+
+        // Mock findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc for all consent types
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
+                .thenReturn(Optional.of(grantedConsent));
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
+                .thenReturn(Optional.empty());
+
+        // Create withdrawal request with the SAME version ("1.0.0") as the grant
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0", // Request has same version as grant
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Act
+        ConsentStatusResponse response = consentService.withdrawConsent(withdrawRequest);
+
+        // Assert
+        assertNotNull(response);
+        
+        // Verify that saveAndFlush was called with a withdrawal that has the GRANT's version as source of truth
+        verify(consentLedgerRepository).saveAndFlush(argThat(withdrawal -> {
+            // The withdrawal should have the grant's version ("1.0.0") as the source of truth
+            return withdrawal.getConsentVersion().equals("1.0.0") && 
+                   withdrawal.getConsentStatus() == ConsentStatus.WITHDRAWN &&
+                   withdrawal.getWithdrawnConsentId().equals(grantedConsentId);
+        }));
+    }
 }
