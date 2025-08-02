@@ -21,26 +21,26 @@ This document lists **all necessary tests** for the `/api/v1/consent/history/{us
 4. **Batch coverage fetch (no N+1)** ✅ IMPLEMENTED
    - With N ledger rows, service calls `findByConsentIds` **once** with all relevant IDs; never calls per‑row coverage fetch methods.
 
-5. **Mapping: all fields copied correctly** ❌ NOT IMPLEMENTED
+5. **Mapping: all fields copied correctly** ✅ IMPLEMENTED
    - Verify each `ConsentHistoryEntry` field mirrors `ConsentLedger` values; `parentVerificationId` and `withdrawnConsentId` stringified or null; timestamps preserved.
 
-6. **`coveredKids` distinct + sorted** ❌ NOT IMPLEMENTED
+6. **`coveredKids` distinct + sorted** ✅ IMPLEMENTED
    - Input coverage includes duplicates/unordered ⇒ output is unique and sorted.
 
-7. **Ordering not overridden in service** ❌ NOT IMPLEMENTED
+7. **Ordering not overridden in service** ✅ IMPLEMENTED
    - Service honors repository/page ordering (no resorting).
 
-8. **Repository exception surfaces as 500** ❌ NOT IMPLEMENTED
+8. **Repository exception surfaces as 500** ✅ IMPLEMENTED
    - If `consentLedgerRepository.findByUserId(..)` throws, service wraps with `ResponseStatusException(500)`; similarly for `consentChildCoverageRepository.findByConsentIds(..)`.
 
-9. **Pagination metadata computation (wrapper)** ❌ NOT IMPLEMENTED
+9. **Pagination metadata computation (wrapper)** ✅ IMPLEMENTED
    - Using total elements from `Page`, `PaginatedConsentHistoryResponse.from` produces correct `totalPages`, `hasNext`, `hasPrevious` for:
      - total=0, size=20
      - total=1, size=20
      - total=20, size=20
      - total=21, size=20 (2 pages), testing pages 0 and 1.
 
-10. **Coverage absent for some consents** ❌ NOT IMPLEMENTED
+10. **Coverage absent for some consents** ✅ IMPLEMENTED
     - Some consent IDs missing in `coverageMap` ⇒ their `coveredKids=[]`.
 
 ---
