@@ -2,18 +2,24 @@ package uk.gegc.kidsgptbackend.service.consent.impl;
 
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
 import uk.gegc.kidsgptbackend.model.consent.*;
@@ -2482,5 +2488,124 @@ class ConsentServiceImplTest {
                 .anyMatch(status -> status.type() == ConsentType.DATA_PROCESSING &&
                         status.status() == ConsentStatus.WITHDRAWN),
                 "Response should contain WITHDRAWN status for DATA_PROCESSING");
+    }
+
+    // ---------- getConsentHistory Pagination Tests ----------
+    
+    @Test
+    @DisplayName("page < 0 -> 400 BAD_REQUEST")
+    void pageNegative_throwsBadRequest() {
+        String userId = UUID.randomUUID().toString();
+
+        ResponseStatusException ex = assertThrows(
+            ResponseStatusException.class,
+            () -> consentService.getConsentHistory(userId, -1, 20)
+        );
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("Page number must be non-negative", ex.getReason());
+        verifyNoInteractions(consentLedgerRepository, consentChildCoverageRepository);
+    }
+
+    @Test
+    @DisplayName("size <= 0 -> 400 BAD_REQUEST")
+    void sizeZeroOrLess_throwsBadRequest() {
+        String userId = UUID.randomUUID().toString();
+
+        ResponseStatusException ex = assertThrows(
+            ResponseStatusException.class,
+            () -> consentService.getConsentHistory(userId, 0, 0)
+        );
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("Page size must be between 1 and 100", ex.getReason());
+        verifyNoInteractions(consentLedgerRepository, consentChildCoverageRepository);
+    }
+
+    @Test
+    @DisplayName("size > 100 -> 400 BAD_REQUEST")
+    void sizeGreaterThan100_throwsBadRequest() {
+        String userId = UUID.randomUUID().toString();
+
+        ResponseStatusException ex = assertThrows(
+            ResponseStatusException.class,
+            () -> consentService.getConsentHistory(userId, 0, 101)
+        );
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("Page size must be between 1 and 100", ex.getReason());
+        verifyNoInteractions(consentLedgerRepository, consentChildCoverageRepository);
+    }
+
+    // ---------- 2) Invalid userId UUID ----------
+    @Test
+    @DisplayName("Non-UUID userId -> 400 BAD_REQUEST (Invalid user ID format)")
+    void invalidUuidUserId_throwsBadRequest() {
+        String notAUuid = "not-a-uuid";
+
+        ResponseStatusException ex = assertThrows(
+            ResponseStatusException.class,
+            () -> consentService.getConsentHistory(notAUuid, 0, 20)
+        );
+
+        assertEquals(400, ex.getStatusCode().value());
+        assertEquals("Invalid user ID format", ex.getReason());
+        verifyNoInteractions(consentLedgerRepository, consentChildCoverageRepository);
+    }
+
+    // ---------- 3) Empty page result handling ----------
+    @Test
+    @DisplayName("Empty Page -> entries=[], total=0, correct paging metadata")
+    void emptyPage_returnsEmptyPayloadAndZeroTotals() {
+        // Given
+        String userId = UUID.randomUUID().toString();
+        UUID userUuid = UUID.fromString(userId);
+        int page = 0;
+        int size = 20;
+
+        // The service builds PageRequest with Sort: consentTimestamp DESC, createdAt DESC
+        // Return an empty page with the same pageable (so metadata matches)
+        // We capture the pageable to verify sorting and paging.
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+
+        when(consentLedgerRepository.findByUserId(eq(userUuid), any(Pageable.class)))
+            .thenAnswer(inv -> {
+                Pageable p = inv.getArgument(1);
+                // Return an empty Page with that pageable
+                return Page.empty(p);
+            });
+
+        // When
+        ConsentHistoryResponse.PaginatedConsentHistoryResponse resp =
+            consentService.getConsentHistory(userId, page, size);
+
+        // Then: response metadata
+        assertNotNull(resp);
+        assertEquals(userId, resp.userId());
+        assertNotNull(resp.entries());
+        assertTrue(resp.entries().isEmpty());
+        assertEquals(page, resp.page());
+        assertEquals(size, resp.size());
+        assertEquals(0L, resp.total());
+        assertEquals(0, resp.totalPages());
+        assertFalse(resp.hasNext());
+        assertFalse(resp.hasPrevious());
+
+        // Verify repo called once with expected pageable (page=0,size=20, sort by consentTimestamp DESC, createdAt DESC)
+        verify(consentLedgerRepository).findByUserId(eq(userUuid), pageableCaptor.capture());
+        Pageable used = pageableCaptor.getValue();
+        assertEquals(page, used.getPageNumber());
+        assertEquals(size, used.getPageSize());
+
+        // Verify sort orders
+        Sort.Order first = used.getSort().getOrderFor("consentTimestamp");
+        Sort.Order second = used.getSort().getOrderFor("createdAt");
+        assertNotNull(first);
+        assertNotNull(second);
+        assertEquals(Sort.Direction.DESC, first.getDirection());
+        assertEquals(Sort.Direction.DESC, second.getDirection());
+
+        // Coverage repo should NOT be called for empty page
+        verifyNoInteractions(consentChildCoverageRepository);
     }
 }

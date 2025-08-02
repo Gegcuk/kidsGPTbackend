@@ -436,6 +436,9 @@ public class ConsentServiceImpl implements ConsentService {
             ConsentHistoryResponse response = new ConsentHistoryResponse(userId, entries);
             return ConsentHistoryResponse.PaginatedConsentHistoryResponse.from(response, page, size, consentLedgerPage.getTotalElements());
             
+        } catch (ResponseStatusException e) {
+            // Re-throw ResponseStatusException as-is (for validation errors)
+            throw e;
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format for userId: {}", userId, e);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user ID format");

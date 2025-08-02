@@ -782,75 +782,75 @@ class ConsentControllerHistoryIntegrationTest {
          Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
      }
 
-     @Test
-     void largePageWithinLimitWorks() throws Exception {
-         // Given: authenticated principal equals userId and size=100 (maximum allowed)
-         String userId = UUID.randomUUID().toString();
-         LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
-         LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+         @Test
+    void largePageWithinLimitWorks() throws Exception {
+        // Given: authenticated principal equals userId and size=100 (maximum allowed)
+        String userId = UUID.randomUUID().toString();
+        LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+        LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
 
-         // Set up authentication context manually
-         User principal = new User(
-                 userId,
-                 "password",
-                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
-         );
-         UsernamePasswordAuthenticationToken authentication =
-                 new UsernamePasswordAuthenticationToken(
-                         principal,
-                         principal.getPassword(),
-                         principal.getAuthorities()
-                 );
-         SecurityContextHolder.getContext().setAuthentication(authentication);
+        // Set up authentication context manually
+        User principal = new User(
+                userId,
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
 
-         // Create 100 mock entries to test large page size
-         java.util.List<ConsentHistoryResponse.ConsentHistoryEntry> entries = new java.util.ArrayList<>();
-         for (int i = 0; i < 100; i++) {
-             ConsentHistoryResponse.ConsentHistoryEntry entry = new ConsentHistoryResponse.ConsentHistoryEntry(
-                     "consent-" + i, ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
-                     "policy-url", "hash" + i, "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
-                     "192.168.1.1", "Mozilla/5.0", timestamp.plusMinutes(i), null,
-                     LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt.plusMinutes(i),
-                     java.util.List.of("kid" + i), null
-             );
-             entries.add(entry);
-         }
+        // Create 100 mock entries to test large page size
+        java.util.List<ConsentHistoryResponse.ConsentHistoryEntry> entries = new java.util.ArrayList<>();
+        for (int i = 0; i < 100; i++) {
+            ConsentHistoryResponse.ConsentHistoryEntry entry = new ConsentHistoryResponse.ConsentHistoryEntry(
+                    "consent-" + i, ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                    "policy-url", "hash" + i, "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                    "192.168.1.1", "Mozilla/5.0", timestamp.plusMinutes(i), null,
+                    LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt.plusMinutes(i),
+                    java.util.List.of("kid" + i), null
+            );
+            entries.add(entry);
+        }
 
-         // Mock service response with 100 entries and correct metadata
-         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
-                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
-                         userId,
-                         entries, // 100 entries
-                         0, // page
-                         100, // size = 100 (maximum)
-                         100L, // total = 100
-                         1, // totalPages = 1 (all entries fit in one page)
-                         false, // hasNext = false (no more pages)
-                         false // hasPrevious = false (first page)
-                 );
-         
-         Mockito.when(consentService.getConsentHistory(userId, 0, 100))
-                 .thenReturn(mockResponse);
+        // Mock service response with 100 entries and correct metadata
+        ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                        userId,
+                        entries, // 100 entries
+                        0, // page
+                        100, // size = 100 (maximum)
+                        100L, // total = 100
+                        1, // totalPages = 1 (all entries fit in one page)
+                        false, // hasNext = false (no more pages)
+                        false // hasPrevious = false (first page)
+                );
+        
+        Mockito.when(consentService.getConsentHistory(userId, 0, 100))
+                .thenReturn(mockResponse);
 
-         // When / Then: GET with size=100 should return up to 100 entries and correct metadata
-         mockMvc.perform(get("/api/v1/consent/history/{userId}?page=0&size=100", userId)
-                 .accept(MediaType.APPLICATION_JSON))
-            .andExpect(status().isOk())
-            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
-            .andExpect(jsonPath("$.userId").value(userId))
-            .andExpect(jsonPath("$.entries").isArray())
-            .andExpect(jsonPath("$.entries.length()").value(100)) // exactly 100 entries
-            .andExpect(jsonPath("$.page").value(0))
-            .andExpect(jsonPath("$.size").value(100)) // size = 100
-            .andExpect(jsonPath("$.total").value(100)) // total = 100
-            .andExpect(jsonPath("$.totalPages").value(1)) // totalPages = 1
-            .andExpect(jsonPath("$.hasNext").value(false)) // hasNext = false
-            .andExpect(jsonPath("$.hasPrevious").value(false)) // hasPrevious = false
-            // Verify first and last entries are present
-            .andExpect(jsonPath("$.entries[0].consentId").value("consent-0"))
-            .andExpect(jsonPath("$.entries[99].consentId").value("consent-99"));
+        // When / Then: GET with size=100 should return up to 100 entries and correct metadata
+        mockMvc.perform(get("/api/v1/consent/history/{userId}?page=0&size=100", userId)
+                .accept(MediaType.APPLICATION_JSON))
+           .andExpect(status().isOk())
+           .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+           .andExpect(jsonPath("$.userId").value(userId))
+           .andExpect(jsonPath("$.entries").isArray())
+           .andExpect(jsonPath("$.entries.length()").value(100)) // exactly 100 entries
+           .andExpect(jsonPath("$.page").value(0))
+           .andExpect(jsonPath("$.size").value(100)) // size = 100
+           .andExpect(jsonPath("$.total").value(100)) // total = 100
+           .andExpect(jsonPath("$.totalPages").value(1)) // totalPages = 1
+           .andExpect(jsonPath("$.hasNext").value(false)) // hasNext = false
+           .andExpect(jsonPath("$.hasPrevious").value(false)) // hasPrevious = false
+           // Verify first and last entries are present
+           .andExpect(jsonPath("$.entries[0].consentId").value("consent-0"))
+           .andExpect(jsonPath("$.entries[99].consentId").value("consent-99"));
 
-         // Verify service was called with correct parameters
-         Mockito.verify(consentService).getConsentHistory(userId, 0, 100);
-     }
+        // Verify service was called with correct parameters
+        Mockito.verify(consentService).getConsentHistory(userId, 0, 100);
+    }
 } 
