@@ -65,7 +65,7 @@ public class ConsentServiceImpl implements ConsentService {
         
         // ---- Idempotency: short-circuit if already granted for this (user,type,version)
         Optional<ConsentLedger> existing = consentLedgerRepository
-            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 request.userId(), request.consentType(), ConsentStatus.GRANTED);
         if (existing.isPresent() && existing.get().getConsentVersion().equals(request.consentVersion())) {
             log.info("Consent already granted for user {} type {} v{}", request.userId(), request.consentType(), request.consentVersion());
@@ -240,7 +240,7 @@ public class ConsentServiceImpl implements ConsentService {
         
         // ---- Check if this is the current active version (prevent withdrawing old versions)
         Optional<ConsentLedger> latestGranted = consentLedgerRepository
-            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 userId, request.consentType(), ConsentStatus.GRANTED);
         
         if (latestGranted.isPresent() && !latestGranted.get().getConsentVersion().equals(request.consentVersion())) {
@@ -253,7 +253,7 @@ public class ConsentServiceImpl implements ConsentService {
         if (consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(userId, request.consentType(), granted.getConsentVersion())) {
             // Fetch the existing withdrawal
             Optional<ConsentLedger> existingWithdrawal = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                     userId, request.consentType(), ConsentStatus.WITHDRAWN);
             if (existingWithdrawal.isPresent()) {
                 UUID existingId = existingWithdrawal.get().getConsentId();
@@ -305,7 +305,7 @@ public class ConsentServiceImpl implements ConsentService {
                          request.userId(), request.consentType(), granted.getConsentVersion());
                 // Fetch existing withdrawal
                 UUID existingWithdrawalId = consentLedgerRepository
-                    .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                    .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         userId, request.consentType(), ConsentStatus.WITHDRAWN)
                     .map(ConsentLedger::getConsentId)
                     .orElse(null);
@@ -331,13 +331,14 @@ public class ConsentServiceImpl implements ConsentService {
         try {
             UUID userUuid = UUID.fromString(userId);
             
-            // Query consent_ledger table for user with explicit deterministic sorting
-            List<ConsentLedger> consentLedgers = consentLedgerRepository.findByUserId(userUuid);
-            // Sort by consent timestamp (canonical event time) with deterministic tie-breaker
-            consentLedgers.sort((a, b) -> {
-                int timestampCompare = b.getConsentTimestamp().compareTo(a.getConsentTimestamp());
-                return timestampCompare != 0 ? timestampCompare : b.getCreatedAt().compareTo(a.getCreatedAt());
-            });
+            // Use paginated query with large page size to avoid deprecated unpaged method
+            // This ensures consistent ordering and prevents large in-memory loads
+            Pageable pageable = PageRequest.of(0, 1000, Sort.by(
+                Sort.Order.desc("consentTimestamp"),
+                Sort.Order.desc("createdAt")
+            ));
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserId(userUuid, pageable);
+            List<ConsentLedger> consentLedgers = consentLedgerPage.getContent();
             
             if (consentLedgers.isEmpty()) {
                 return new ConsentHistoryResponse(userId, Collections.emptyList());
@@ -624,7 +625,7 @@ public class ConsentServiceImpl implements ConsentService {
         List<ConsentLedger> latestConsents = new ArrayList<>();
         
         for (ConsentType type : ConsentType.values()) {
-            consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                     userId, type, ConsentStatus.GRANTED)
                     .ifPresent(latestConsents::add);
         }
@@ -669,7 +670,7 @@ public class ConsentServiceImpl implements ConsentService {
         // Check if there's a newer version of the policy that requires reconsent
         // This is a simplified implementation - in practice, you'd check against active policies
         Optional<ConsentLedger> latestGrant = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         userId, consentType, ConsentStatus.GRANTED);
         
         if (latestGrant.isPresent()) {

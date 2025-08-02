@@ -117,12 +117,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PARENTAL_CONSENT) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -218,12 +218,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.TERMS_OF_SERVICE) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -279,12 +279,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -325,12 +325,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -364,12 +364,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -414,12 +414,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.of(existingConsent))
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -448,7 +448,7 @@ class ConsentServiceImplTest {
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
-            when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                     eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                     .thenReturn(Optional.empty());
         }
@@ -499,12 +499,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -542,12 +542,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -584,12 +584,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.TERMS_OF_SERVICE) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -651,12 +651,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PARENTAL_CONSENT) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -709,12 +709,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PARENTAL_CONSENT) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -769,12 +769,12 @@ class ConsentServiceImplTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -814,12 +814,12 @@ class ConsentServiceImplTest {
                 .consentStatus(ConsentStatus.GRANTED)
                 .build();
 
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PRIVACY_POLICY), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(existing));
         for (ConsentType t : ConsentType.values()) {
             if (t != ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.empty());
             }
         }
@@ -868,12 +868,12 @@ class ConsentServiceImplTest {
         when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
         for (ConsentType t : ConsentType.values()) {
             if (t == ConsentType.PARENTAL_CONSENT) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(t), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(saved));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(t), eq(ConsentStatus.GRANTED))).thenReturn(Optional.empty());
             }
         }
@@ -937,12 +937,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.TERMS_OF_SERVICE) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -974,12 +974,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -1063,12 +1063,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -1115,12 +1115,12 @@ class ConsentServiceImplTest {
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
             if (type == ConsentType.PRIVACY_POLICY) {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
                         .thenReturn(Optional.of(savedConsent));
             } else {
-                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty());
             }
@@ -1662,15 +1662,15 @@ class ConsentServiceImplTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status check
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status check
         // This is called to check if this is the current active version
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
         
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc to return the existing withdrawal
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc to return the existing withdrawal
         // This is the method called in the DataIntegrityViolationException catch block
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.WITHDRAWN)))
                 .thenReturn(Optional.of(existingWithdrawal));
         
@@ -1754,8 +1754,8 @@ class ConsentServiceImplTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
                 .thenThrow(new DataIntegrityViolationException("Foreign key constraint violation"));
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status check
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status check
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
@@ -1882,15 +1882,15 @@ class ConsentServiceImplTest {
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
                 .thenReturn(true);
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status
         // This is called to check if the version is current (should return V1 grant)
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(v1GrantedConsent));
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for WITHDRAWN status
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for WITHDRAWN status
         // This should return the V1 withdrawal when looking for V1 withdrawal
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.WITHDRAWN)))
                 .thenReturn(Optional.of(v1Withdrawal));
 
@@ -1929,9 +1929,9 @@ class ConsentServiceImplTest {
         verify(consentLedgerRepository).existsWithdrawalByUserTypeAndVersion(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0"));
         
-        // Verify that findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc was called
+        // Verify that findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc was called
         // to get the existing V1 withdrawal
-        verify(consentLedgerRepository).findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        verify(consentLedgerRepository).findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.WITHDRAWN));
         
         // Verify that saveAndFlush was NOT called (since withdrawal already exists)
@@ -2079,8 +2079,8 @@ class ConsentServiceImplTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
@@ -2165,8 +2165,8 @@ class ConsentServiceImplTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
@@ -2251,8 +2251,8 @@ class ConsentServiceImplTest {
                     return savedWithdrawal;
                 });
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
@@ -2345,8 +2345,8 @@ class ConsentServiceImplTest {
                     return savedWithdrawal;
                 });
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
@@ -2436,8 +2436,8 @@ class ConsentServiceImplTest {
                     return savedWithdrawal;
                 });
 
-        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
