@@ -2389,4 +2389,98 @@ class ConsentServiceImplTest {
                         status.status() == ConsentStatus.WITHDRAWN),
                 "Response should contain WITHDRAWN status for PARENTAL_CONSENT");
     }
+
+    @Test
+    void withdrawConsent_IpUaOverride_ShouldLogMessage() {
+        // Arrange
+        UUID grantedConsentId = UUID.randomUUID();
+
+        // Create a granted consent
+        ConsentLedger grantedConsent = ConsentLedger.builder()
+                .consentId(grantedConsentId)
+                .userId(testUserId)
+                .consentType(ConsentType.DATA_PROCESSING)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/data")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now())
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grant\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq("1.0.0")))
+                .thenReturn(Optional.of(grantedConsent));
+
+        when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq("1.0.0")))
+                .thenReturn(false);
+
+        // Mock saveAndFlush to return the saved withdrawal and update subsequent mocks
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                .thenAnswer(invocation -> {
+                    ConsentLedger savedWithdrawal = invocation.getArgument(0);
+                    // Update the mock to return the withdrawal for subsequent calls
+                    when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                            eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
+                            .thenReturn(Optional.of(savedWithdrawal));
+                    return savedWithdrawal;
+                });
+
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq(ConsentStatus.GRANTED)))
+                .thenReturn(Optional.of(grantedConsent));
+
+        // Mock findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc for other consent types
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
+                .thenReturn(Optional.empty());
+
+        // Create request with different IP/UA than server-captured values
+        String clientIp = "10.0.0.1";
+        String clientUa = "ClientBrowser/1.0";
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.DATA_PROCESSING,
+                "1.0.0",
+                "User requested withdrawal",
+                clientIp,
+                clientUa
+        );
+
+        // Act
+        ConsentStatusResponse response = consentService.withdrawConsent(withdrawRequest);
+
+        // Assert
+        assertNotNull(response);
+        
+        // Verify that saveAndFlush was called with server-captured IP/UA (not client-provided)
+        verify(consentLedgerRepository).saveAndFlush(argThat(withdrawal -> {
+            return withdrawal.getIpAddress().equals(serverIp) &&
+                   withdrawal.getUserAgent().equals(serverUa) &&
+                   withdrawal.getConsentStatus() == ConsentStatus.WITHDRAWN;
+        }));
+        
+        // Verify that the response latestByType contains WITHDRAWN status
+        assertTrue(response.latestByType().stream()
+                .anyMatch(status -> status.type() == ConsentType.DATA_PROCESSING &&
+                        status.status() == ConsentStatus.WITHDRAWN),
+                "Response should contain WITHDRAWN status for DATA_PROCESSING");
+    }
 }

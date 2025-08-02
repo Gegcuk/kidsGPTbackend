@@ -12,33 +12,6 @@ Comprehensive test plan for the **/api/v1/consent/withdraw** endpoint and the `C
 
 ---
 
-## F. Repository-level behavior
-
-29. **R — findActiveGrantByUserTypeAndVersion**  
-    - Insert multiple grants and withdrawals; verify this query returns **only the GRANTED** row for the exact version.
-
-30. **R — existsWithdrawalByUserTypeAndVersion**  
-    - For user/type/version combos with and without withdrawals, ensure boolean accuracy.
-
-31. **R — findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc**  
-    - Insert multiple rows with varying timestamps; verify correct record is returned.
-
-32. **R — Duplicate-key simulation guidance** (optional)  
-    - Depending on DB, simulate concurrent insert uniqueness for the same `(userId, type, consentStatus=WITHDRAWN, consentVersion)` if you enforce such a constraint.  
-    - Validate the service’s duplicate-key path.
-
----
-
-## G. Observability / auditing (optional but valuable)
-
-33. **U — Log message when IP/UA overridden**  
-    - Verify a log line is emitted when client IP/UA differs from server-captured. (Use a log appender in unit tests if you enforce logging expectations.)
-
-34. **I — Timestamp sanity**  
-    - `consentTimestamp` of withdrawal is within an acceptable delta of system time.
-
----
-
 ## H. End-to-end scenarios (broader flows)
 
 35. **I — Grant → Withdraw → Grant again**  

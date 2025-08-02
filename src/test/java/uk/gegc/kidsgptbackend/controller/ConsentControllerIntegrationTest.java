@@ -19,9 +19,13 @@ import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
 import uk.gegc.kidsgptbackend.model.consent.ConsentType;
 import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
 import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,6 +57,9 @@ class ConsentControllerIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private ConsentLedgerRepository consentLedgerRepository;
 
     private UUID testUserId;
     private UUID testVerificationId;
@@ -2032,5 +2039,80 @@ class ConsentControllerIntegrationTest {
                     // The service logs show timestamps are being generated correctly
                     assertTrue(timestamp.getYear() >= 2025, "Timestamp should be from 2025 or later");
                 });
+    }
+
+    @Test
+    void withdrawConsent_TimestampSanity_ShouldBeWithinAcceptableDelta() throws Exception {
+        // Arrange - Grant consent first
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.DATA_PROCESSING,
+                "1.0.0",
+                "https://example.com/data",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+
+        // Act - Withdraw the consent
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.DATA_PROCESSING,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        String response = mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isOk())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        // Record the time after the withdrawal operation completes
+        LocalDateTime afterWithdrawal = LocalDateTime.now(ZoneOffset.UTC);
+
+        // Extract the withdrawal ID from the response
+        JsonNode responseNode = objectMapper.readTree(response);
+        UUID withdrawalId = UUID.fromString(responseNode.get("consentId").asText());
+
+        // Assert - Verify the consentTimestamp is within acceptable delta
+        var withdrawalRecord = consentLedgerRepository.findById(withdrawalId).orElseThrow();
+        LocalDateTime withdrawalTimestamp = withdrawalRecord.getConsentTimestamp();
+
+        // Verify the timestamp is not null
+        assertNotNull(withdrawalTimestamp, "Withdrawal consentTimestamp should not be null");
+
+        // Verify the timestamp is not significantly after the operation completed
+        // (allowing 2 seconds for processing time)
+        assertTrue(withdrawalTimestamp.isBefore(afterWithdrawal.plusSeconds(2)) || 
+                   withdrawalTimestamp.isEqual(afterWithdrawal),
+                   "Withdrawal timestamp should not be significantly after the operation completed");
+
+        // Verify the timestamp is within 5 seconds of the current system time (UTC)
+        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        long secondsDifference = Math.abs(ChronoUnit.SECONDS.between(withdrawalTimestamp, nowUtc));
+        assertTrue(secondsDifference <= 5, 
+                   "Withdrawal timestamp should be within 5 seconds of system time. " +
+                   "Difference: " + secondsDifference + " seconds, " +
+                   "Withdrawal timestamp: " + withdrawalTimestamp + ", " +
+                   "Current time (UTC): " + nowUtc);
     }
 } 
