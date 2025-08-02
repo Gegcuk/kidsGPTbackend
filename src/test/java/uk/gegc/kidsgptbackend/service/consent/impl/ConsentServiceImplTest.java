@@ -11,6 +11,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -33,6 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -2607,5 +2610,261 @@ class ConsentServiceImplTest {
 
         // Coverage repo should NOT be called for empty page
         verifyNoInteractions(consentChildCoverageRepository);
+    }
+
+    // ---------- 4) Batch coverage fetch (no N+1) ----------
+    @Test
+    @DisplayName("Batch coverage fetch (no N+1) - service calls findByConsentIds once with all relevant IDs")
+    void batchCoverageFetch_noN1_queries() {
+        // Given: N ledger rows with different consent IDs
+        String userId = UUID.randomUUID().toString();
+        UUID userUuid = UUID.fromString(userId);
+        int page = 0;
+        int size = 3;
+
+        // Create 3 consent ledgers with different IDs
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+
+        ConsentLedger ledger1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(userUuid)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy1")
+                .contentHash("hash1")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(3))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"ledger1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        ConsentLedger ledger2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(userUuid)
+                .consentType(ConsentType.TERMS_OF_SERVICE)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy2")
+                .contentHash("hash2")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONTRACT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(2))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(6))
+                .receiptJson("{\"test\":\"ledger2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        ConsentLedger ledger3 = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(userUuid)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("3.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/policy3")
+                .contentHash("hash3")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.LEGITIMATE_INTEREST)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(5))
+                .receiptJson("{\"test\":\"ledger3\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .withdrawnConsentId(consentId2)
+                .build();
+
+        List<ConsentLedger> ledgers = List.of(ledger1, ledger2, ledger3);
+
+        // Mock the ledger repository to return the 3 ledgers
+        when(consentLedgerRepository.findByUserId(eq(userUuid), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(ledgers, PageRequest.of(page, size), 3L));
+
+        // Create coverage data for the consents
+        UUID kid1 = UUID.randomUUID();
+        UUID kid2 = UUID.randomUUID();
+        UUID kid3 = UUID.randomUUID();
+
+        ConsentChildCoverage coverage1 = ConsentChildCoverage.builder()
+                .consentId(consentId1)
+                .kidId(kid1)
+                .build();
+
+        ConsentChildCoverage coverage2a = ConsentChildCoverage.builder()
+                .consentId(consentId2)
+                .kidId(kid2)
+                .build();
+
+        ConsentChildCoverage coverage2b = ConsentChildCoverage.builder()
+                .consentId(consentId2)
+                .kidId(kid3)
+                .build();
+
+        List<ConsentChildCoverage> coverages = List.of(coverage1, coverage2a, coverage2b);
+
+        // Mock the coverage repository to return coverage data
+        when(consentChildCoverageRepository.findByConsentIds(anyList()))
+                .thenReturn(coverages);
+
+        // When: service is called
+        ConsentHistoryResponse.PaginatedConsentHistoryResponse response =
+                consentService.getConsentHistory(userId, page, size);
+
+        // Then: verify the response structure
+        assertNotNull(response);
+        assertEquals(userId, response.userId());
+        assertEquals(3, response.entries().size());
+        assertEquals(3L, response.total());
+
+        // Verify ledger repository was called once with correct parameters
+        verify(consentLedgerRepository).findByUserId(eq(userUuid), any(Pageable.class));
+
+        // Verify coverage repository was called ONCE with ALL consent IDs
+        ArgumentCaptor<List<UUID>> consentIdsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(consentChildCoverageRepository).findByConsentIds(consentIdsCaptor.capture());
+        
+        List<UUID> capturedConsentIds = consentIdsCaptor.getValue();
+        assertEquals(3, capturedConsentIds.size());
+        assertTrue(capturedConsentIds.contains(consentId1));
+        assertTrue(capturedConsentIds.contains(consentId2));
+        assertTrue(capturedConsentIds.contains(consentId3));
+
+        // Verify no additional calls to coverage repository methods
+        verifyNoMoreInteractions(consentChildCoverageRepository);
+
+        // Verify the entries have correct coverage data
+        ConsentHistoryResponse.ConsentHistoryEntry entry1 = response.entries().get(0);
+        assertEquals(consentId1.toString(), entry1.consentId());
+        assertEquals(1, entry1.coveredKids().size());
+        assertTrue(entry1.coveredKids().contains(kid1.toString()));
+
+        ConsentHistoryResponse.ConsentHistoryEntry entry2 = response.entries().get(1);
+        assertEquals(consentId2.toString(), entry2.consentId());
+        assertEquals(2, entry2.coveredKids().size());
+        assertTrue(entry2.coveredKids().contains(kid2.toString()));
+        assertTrue(entry2.coveredKids().contains(kid3.toString()));
+
+        ConsentHistoryResponse.ConsentHistoryEntry entry3 = response.entries().get(2);
+        assertEquals(consentId3.toString(), entry3.consentId());
+        assertEquals(0, entry3.coveredKids().size()); // No coverage for this consent
+    }
+
+
+
+    @Test
+    @DisplayName("Batch coverage fetch (no N+1) - no coverage records for any consent IDs")
+    void batchCoverageFetch_noCoverageRecords_skipsCoverageQuery() {
+        // Given: ledger rows with valid consent IDs but no coverage records exist
+        String userId = UUID.randomUUID().toString();
+        UUID userUuid = UUID.fromString(userId);
+        int page = 0;
+        int size = 2;
+
+        // Create 2 consent ledgers with valid IDs
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+
+        ConsentLedger ledger1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(userUuid)
+                .consentType(ConsentType.TERMS_OF_SERVICE)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy1")
+                .contentHash("hash1")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONTRACT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(6))
+                .receiptJson("{\"test\":\"ledger1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        ConsentLedger ledger2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(userUuid)
+                .consentType(ConsentType.PRIVACY_POLICY)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy2")
+                .contentHash("hash2")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.LEGITIMATE_INTEREST)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now())
+                .retentionExpiresAt(LocalDateTime.now().plusYears(5))
+                .receiptJson("{\"test\":\"ledger2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        List<ConsentLedger> ledgers = List.of(ledger1, ledger2);
+
+        // Mock the ledger repository to return the ledgers
+        when(consentLedgerRepository.findByUserId(eq(userUuid), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(ledgers, PageRequest.of(page, size), 2L));
+
+        // Mock the coverage repository to return empty list (no coverage records exist)
+        when(consentChildCoverageRepository.findByConsentIds(anyList()))
+                .thenReturn(Collections.emptyList());
+
+        // When: service is called
+        ConsentHistoryResponse.PaginatedConsentHistoryResponse response =
+                consentService.getConsentHistory(userId, page, size);
+
+        // Then: verify the response structure
+        assertNotNull(response);
+        assertEquals(userId, response.userId());
+        assertEquals(2, response.entries().size());
+        assertEquals(2L, response.total());
+
+        // Verify ledger repository was called once
+        verify(consentLedgerRepository).findByUserId(eq(userUuid), any(Pageable.class));
+
+        // Verify coverage repository was called ONCE with both consent IDs
+        ArgumentCaptor<List<UUID>> consentIdsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(consentChildCoverageRepository).findByConsentIds(consentIdsCaptor.capture());
+        
+        List<UUID> capturedConsentIds = consentIdsCaptor.getValue();
+        assertEquals(2, capturedConsentIds.size());
+        assertTrue(capturedConsentIds.contains(consentId1));
+        assertTrue(capturedConsentIds.contains(consentId2));
+
+        // Verify no additional calls to coverage repository methods
+        verifyNoMoreInteractions(consentChildCoverageRepository);
+
+        // Verify both entries have empty coverage lists
+        ConsentHistoryResponse.ConsentHistoryEntry entry1 = response.entries().get(0);
+        assertEquals(consentId1.toString(), entry1.consentId());
+        assertEquals(0, entry1.coveredKids().size());
+
+        ConsentHistoryResponse.ConsentHistoryEntry entry2 = response.entries().get(1);
+        assertEquals(consentId2.toString(), entry2.consentId());
+        assertEquals(0, entry2.coveredKids().size());
     }
 }
