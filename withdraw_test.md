@@ -12,26 +12,6 @@ Comprehensive test plan for the **/api/v1/consent/withdraw** endpoint and the `C
 
 ---
 
-## E. Response shape & semantics
-
-25. **I — Response latestByType reflects WITHDRAWN**  
-    - After withdrawal, `latestByType` includes an entry for the target type with:  
-      - `status=WITHDRAWN`  
-      - `version` equals the withdrawn version  
-      - `policyUrl` from grant  
-      - `timestamp` close to “now”.
-
-26. **U — reconsentNeeded flag**  
-    - Assert `reconsentNeeded=true` for successful withdrawals.
-
-27. **U — Locale and region continuity**  
-    - Withdraw row and response reflect **same locale/region** as the grant (no mutation).
-
-28. **U — Parent verification continuity (where applicable)**  
-    - For `PARENTAL_CONSENT`, verify withdrawal row keeps the `parentVerificationId` from the grant.
-
----
-
 ## F. Repository-level behavior
 
 29. **R — findActiveGrantByUserTypeAndVersion**  
