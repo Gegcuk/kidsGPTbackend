@@ -14,6 +14,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
 import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
 import uk.gegc.kidsgptbackend.model.consent.ConsentType;
 import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
@@ -1277,5 +1278,99 @@ class ConsentControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.details[0]").value(containsString("Invalid policyUrl")));
+    }
+
+    @Test
+    void withdrawConsent_CurrentActiveVersion_ShouldSucceed() throws Exception {
+        // Arrange - Create a granted consent first using the authenticated user
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId, ConsentType.PARENTAL_CONSENT, "1.0.0", "https://example.com/parental", "hash",
+                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
+                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+        );
+        
+        // Grant consent first
+        mockMvc.perform(post("/api/v1/consent/grant")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+        
+        // Act - Withdraw the consent
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+        
+        // Assert
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Consent-Id", notNullValue()))
+                .andExpect(jsonPath("$.reconsentNeeded").value(true))
+                .andExpect(jsonPath("$.latestByType").isArray())
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].status").value("WITHDRAWN"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].version").value("1.0.0"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].policyUrl").value("https://example.com/parental"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].timestamp").exists());
+    }
+
+    @Test
+    void withdrawConsent_AllConsentTypes_ShouldSucceed() throws Exception {
+        // Test all consent types: TERMS_OF_SERVICE, PRIVACY_POLICY, PARENTAL_CONSENT, DATA_PROCESSING
+        ConsentType[] consentTypes = {
+                ConsentType.TERMS_OF_SERVICE,
+                ConsentType.PRIVACY_POLICY, 
+                ConsentType.PARENTAL_CONSENT,
+                ConsentType.DATA_PROCESSING
+        };
+
+        for (ConsentType consentType : consentTypes) {
+            // Arrange - Create a granted consent for this type
+            ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                    testUserId, consentType, "1.0.0", "https://example.com/" + consentType.name().toLowerCase(), "hash",
+                    consentType == ConsentType.PARENTAL_CONSENT ? testVerificationId : null, 
+                    "GB", "England", "en-GB", ConsentSource.WEB,
+                    (consentType == ConsentType.DATA_PROCESSING || consentType == ConsentType.PARENTAL_CONSENT) ? testKids : List.of(), 
+                    "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+            );
+            
+            // Grant consent first
+            mockMvc.perform(post("/api/v1/consent/grant")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(grantRequest)))
+                    .andExpect(status().isOk());
+            
+            // Act - Withdraw the consent
+            ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                    testUserId.toString(),
+                    consentType,
+                    "1.0.0",
+                    "User requested withdrawal for " + consentType,
+                    "192.168.1.1",
+                    "Mozilla/5.0"
+            );
+            
+            // Assert - Same outcomes as basic happy-path
+            mockMvc.perform(post("/api/v1/consent/withdraw")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(withdrawRequest)))
+                    .andExpect(status().isOk())
+                    .andExpect(header().string("X-Consent-Id", notNullValue()))
+                    .andExpect(jsonPath("$.reconsentNeeded").value(true))
+                    .andExpect(jsonPath("$.latestByType").isArray())
+                    .andExpect(jsonPath("$.latestByType[?(@.type == '" + consentType + "')].status").value("WITHDRAWN"))
+                    .andExpect(jsonPath("$.latestByType[?(@.type == '" + consentType + "')].version").value("1.0.0"))
+                    .andExpect(jsonPath("$.latestByType[?(@.type == '" + consentType + "')].policyUrl").value("https://example.com/" + consentType.name().toLowerCase()))
+                    .andExpect(jsonPath("$.latestByType[?(@.type == '" + consentType + "')].timestamp").exists());
+        }
     }
 } 

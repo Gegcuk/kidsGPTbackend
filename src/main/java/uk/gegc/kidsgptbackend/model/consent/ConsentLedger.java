@@ -8,7 +8,9 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Entity
@@ -82,6 +84,9 @@ public class ConsentLedger {
     @Column(name = "record_signature", nullable = false, columnDefinition = "VARBINARY(64)")
     private byte[] recordSignature;
     
+    @Column(name = "withdrawn_consent_id")
+    private UUID withdrawnConsentId;
+    
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
     
@@ -91,7 +96,7 @@ public class ConsentLedger {
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         }
     }
 } 
