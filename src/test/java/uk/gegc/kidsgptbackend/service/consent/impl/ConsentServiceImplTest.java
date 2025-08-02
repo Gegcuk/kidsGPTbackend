@@ -1767,4 +1767,273 @@ class ConsentServiceImplTest {
         assertEquals(500, exception.getStatusCode().value());
         assertEquals("Failed to process consent withdrawal", exception.getReason());
     }
+
+    @Test
+    void withdrawConsent_VersionSpecificIdempotency_ShouldReturnCorrectWithdrawalId() {
+        // Arrange
+        UUID testUserId = UUID.randomUUID();
+        UUID testVerificationId = UUID.randomUUID();
+        UUID v1GrantedConsentId = UUID.randomUUID();
+        UUID v1WithdrawalId = UUID.randomUUID();
+        UUID v2GrantedConsentId = UUID.randomUUID();
+        UUID v2WithdrawalId = UUID.randomUUID();
+
+        // V1 Grant
+        ConsentLedger v1GrantedConsent = ConsentLedger.builder()
+                .consentId(v1GrantedConsentId)
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental-v1")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now().minusDays(10))
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grant-v1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        // V1 Withdrawal (already exists)
+        ConsentLedger v1Withdrawal = ConsentLedger.builder()
+                .consentId(v1WithdrawalId)
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/parental-v1")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now().minusDays(5))
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withdrawal-v1\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .withdrawnConsentId(v1GrantedConsentId)
+                .build();
+
+        // V2 Grant
+        ConsentLedger v2GrantedConsent = ConsentLedger.builder()
+                .consentId(v2GrantedConsentId)
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental-v2")
+                .contentHash("def456hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now().minusDays(3))
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grant-v2\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .build();
+
+        // V2 Withdrawal (already exists)
+        ConsentLedger v2Withdrawal = ConsentLedger.builder()
+                .consentId(v2WithdrawalId)
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/parental-v2")
+                .contentHash("def456hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withdrawal-v2\"}")
+                .recordSignature(new byte[]{10, 11, 12})
+                .withdrawnConsentId(v2GrantedConsentId)
+                .build();
+
+        // Mock findActiveGrantByUserTypeAndVersion to return V1 grant (needed for initial validation)
+        when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(Optional.of(v1GrantedConsent));
+
+        // Mock existsWithdrawalByUserTypeAndVersion to return true for V1 (withdrawal exists)
+        when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(true);
+
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for GRANTED status
+        // This is called to check if the version is current (should return V1 grant)
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
+                .thenReturn(Optional.of(v1GrantedConsent));
+
+        // Mock findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc for WITHDRAWN status
+        // This should return the V1 withdrawal when looking for V1 withdrawal
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.WITHDRAWN)))
+                .thenReturn(Optional.of(v1Withdrawal));
+
+        // Mock findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc for all consent types
+        // This is called by buildEffectiveConsentStatus
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
+                .thenReturn(Optional.of(v2Withdrawal)); // Latest by consentTimestamp is V2 withdrawal
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
+                .thenReturn(Optional.empty());
+
+        ConsentWithdrawRequest withdrawV1Request = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal of V1",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Act
+        ConsentStatusResponse response = consentService.withdrawConsent(withdrawV1Request);
+
+        // Assert
+        // Should return V1's withdrawal ID, not V2's
+        assertEquals(v1WithdrawalId, response.consentId());
+        
+        // Verify that existsWithdrawalByUserTypeAndVersion was called with V1 version
+        verify(consentLedgerRepository).existsWithdrawalByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0"));
+        
+        // Verify that findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc was called
+        // to get the existing V1 withdrawal
+        verify(consentLedgerRepository).findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.WITHDRAWN));
+        
+        // Verify that saveAndFlush was NOT called (since withdrawal already exists)
+        verify(consentLedgerRepository, never()).saveAndFlush(any(ConsentLedger.class));
+    }
+
+    @Test
+    void withdrawConsent_EffectiveStatusUsesConsentTimestampOrdering() {
+        // Arrange
+        UUID testUserId = UUID.randomUUID();
+        UUID testVerificationId = UUID.randomUUID();
+        
+        // Create two records for the same type with out-of-order createdAt but increasing consentTimestamp
+        LocalDateTime olderCreatedAt = LocalDateTime.now().minusDays(10);
+        LocalDateTime newerCreatedAt = LocalDateTime.now().minusDays(5);
+        LocalDateTime olderConsentTimestamp = LocalDateTime.now().minusDays(3);
+        LocalDateTime newerConsentTimestamp = LocalDateTime.now().minusDays(1);
+        
+        // Record 1: older createdAt, older consentTimestamp
+        ConsentLedger olderRecord = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental-older")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(olderConsentTimestamp)
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"older\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+        
+        // Record 2: newer createdAt, newer consentTimestamp (this should be chosen)
+        ConsentLedger newerRecord = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/parental-newer")
+                .contentHash("def456hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(newerConsentTimestamp)
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"newer\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+        
+        // Mock the repository to return the newer record (with latest consentTimestamp)
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
+                .thenReturn(Optional.of(newerRecord));
+        
+        // Mock other consent types to return empty
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                .thenReturn(Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
+                .thenReturn(Optional.empty());
+        
+        // Act
+        List<ConsentStatusResponse.ConsentStatusByType> effectiveStatus = (List<ConsentStatusResponse.ConsentStatusByType>) ReflectionTestUtils.invokeMethod(
+                consentService, "buildEffectiveConsentStatus", testUserId);
+        
+        // Assert
+        assertNotNull(effectiveStatus);
+        assertEquals(1, effectiveStatus.size()); // Only PARENTAL_CONSENT should be present since we only mocked it
+        
+        // Find the PARENTAL_CONSENT entry
+        ConsentStatusResponse.ConsentStatusByType parentalConsentStatus = effectiveStatus.stream()
+                .filter(status -> status.type() == ConsentType.PARENTAL_CONSENT)
+                .findFirst()
+                .orElse(null);
+        
+        assertNotNull(parentalConsentStatus);
+        assertEquals(ConsentStatus.WITHDRAWN, parentalConsentStatus.status());
+        assertEquals("2.0.0", parentalConsentStatus.version());
+        assertEquals("https://example.com/parental-newer", parentalConsentStatus.policyUrl());
+        assertEquals(newerConsentTimestamp, parentalConsentStatus.timestamp());
+        
+        // Verify that the repository was called with the correct ordering method
+        verify(consentLedgerRepository).findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT));
+    }
 }
