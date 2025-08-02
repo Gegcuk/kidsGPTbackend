@@ -331,8 +331,13 @@ public class ConsentServiceImpl implements ConsentService {
         try {
             UUID userUuid = UUID.fromString(userId);
             
-            // Query consent_ledger table for user, ordered by consent timestamp (canonical event time) with deterministic tie-breaker
-            List<ConsentLedger> consentLedgers = consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(userUuid);
+            // Query consent_ledger table for user with explicit deterministic sorting
+            List<ConsentLedger> consentLedgers = consentLedgerRepository.findByUserId(userUuid);
+            // Sort by consent timestamp (canonical event time) with deterministic tie-breaker
+            consentLedgers.sort((a, b) -> {
+                int timestampCompare = b.getConsentTimestamp().compareTo(a.getConsentTimestamp());
+                return timestampCompare != 0 ? timestampCompare : b.getCreatedAt().compareTo(a.getCreatedAt());
+            });
             
             if (consentLedgers.isEmpty()) {
                 return new ConsentHistoryResponse(userId, Collections.emptyList());
@@ -343,7 +348,9 @@ public class ConsentServiceImpl implements ConsentService {
                 .map(ConsentLedger::getConsentId)
                 .collect(Collectors.toList());
             
-            List<ConsentChildCoverage> allCoverages = consentChildCoverageRepository.findByConsentIds(consentIds);
+            List<ConsentChildCoverage> allCoverages = consentIds.isEmpty() ? 
+                Collections.emptyList() : 
+                consentChildCoverageRepository.findByConsentIds(consentIds);
             
             // Group coverages by consent ID for efficient lookup
             Map<UUID, List<String>> coverageMap = allCoverages.stream()
@@ -372,7 +379,7 @@ public class ConsentServiceImpl implements ConsentService {
     
     @Override
     @Transactional(readOnly = true)
-    public ConsentHistoryResponse getConsentHistory(String userId, int page, int size) {
+    public ConsentHistoryResponse.PaginatedConsentHistoryResponse getConsentHistory(String userId, int page, int size) {
         log.info("Getting paginated consent history for user: {} (page: {}, size: {})", userId, page, size);
         
         try {
@@ -391,10 +398,13 @@ public class ConsentServiceImpl implements ConsentService {
                 Sort.Order.desc("consentTimestamp"),
                 Sort.Order.desc("createdAt")
             ));
-            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(userUuid, pageable);
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserId(userUuid, pageable);
             
             if (consentLedgerPage.isEmpty()) {
-                return new ConsentHistoryResponse(userId, Collections.emptyList());
+                return ConsentHistoryResponse.PaginatedConsentHistoryResponse.from(
+                    new ConsentHistoryResponse(userId, Collections.emptyList()), 
+                    page, size, 0
+                );
             }
             
             List<ConsentLedger> consentLedgers = consentLedgerPage.getContent();
@@ -404,7 +414,9 @@ public class ConsentServiceImpl implements ConsentService {
                 .map(ConsentLedger::getConsentId)
                 .collect(Collectors.toList());
             
-            List<ConsentChildCoverage> allCoverages = consentChildCoverageRepository.findByConsentIds(consentIds);
+            List<ConsentChildCoverage> allCoverages = consentIds.isEmpty() ? 
+                Collections.emptyList() : 
+                consentChildCoverageRepository.findByConsentIds(consentIds);
             
             // Group coverages by consent ID for efficient lookup
             Map<UUID, List<String>> coverageMap = allCoverages.stream()
@@ -420,7 +432,8 @@ public class ConsentServiceImpl implements ConsentService {
                 .map(consentLedger -> buildConsentHistoryEntry(consentLedger, coverageMap))
                 .collect(Collectors.toList());
             
-            return new ConsentHistoryResponse(userId, entries);
+            ConsentHistoryResponse response = new ConsentHistoryResponse(userId, entries);
+            return ConsentHistoryResponse.PaginatedConsentHistoryResponse.from(response, page, size, consentLedgerPage.getTotalElements());
             
         } catch (IllegalArgumentException e) {
             log.error("Invalid UUID format for userId: {}", userId, e);

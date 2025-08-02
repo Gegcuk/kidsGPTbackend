@@ -25,14 +25,14 @@ public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UU
     List<ConsentLedger> findByUserIdOrderByCreatedAtDesc(UUID userId);
     
     /**
-     * Find consent ledger entries for a user ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     * Find all consent ledger entries for a user (ordering handled by Pageable)
      */
-    List<ConsentLedger> findByUserIdOrderByConsentTimestampDescCreatedAtDesc(UUID userId);
-    
+    List<ConsentLedger> findByUserId(UUID userId);
+
     /**
-     * Find paginated consent ledger entries for a user ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     * Find all consent ledger entries for a user (ordering handled by Pageable)
      */
-    Page<ConsentLedger> findByUserIdOrderByConsentTimestampDescCreatedAtDesc(UUID userId, Pageable pageable);
+    Page<ConsentLedger> findByUserId(UUID userId, Pageable pageable);
     
     List<ConsentLedger> findByUserIdAndConsentTypeOrderByCreatedAtDesc(UUID userId, ConsentType consentType);
     

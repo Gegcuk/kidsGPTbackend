@@ -33,4 +33,32 @@ public record ConsentHistoryResponse(
         List<String> coveredKids,
         String withdrawnConsentId
     ) {}
+    
+    /**
+     * Paginated response wrapper that includes paging metadata
+     */
+    public record PaginatedConsentHistoryResponse(
+        String userId,
+        List<ConsentHistoryEntry> entries,
+        int page,
+        int size,
+        long total,
+        int totalPages,
+        boolean hasNext,
+        boolean hasPrevious
+    ) {
+        public static PaginatedConsentHistoryResponse from(ConsentHistoryResponse response, int page, int size, long total) {
+            int totalPages = (int) Math.ceil((double) total / size);
+            return new PaginatedConsentHistoryResponse(
+                response.userId(),
+                response.entries(),
+                page,
+                size,
+                total,
+                totalPages,
+                page < totalPages - 1,
+                page > 0
+            );
+        }
+    }
 } 

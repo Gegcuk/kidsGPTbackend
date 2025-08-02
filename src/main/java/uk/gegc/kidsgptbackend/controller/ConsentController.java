@@ -60,7 +60,7 @@ public class ConsentController {
      * GET /api/v1/consent/history/{userId}?page=0&size=20
      */
     @GetMapping("/history/{userId}")
-    public ResponseEntity<ConsentHistoryResponse> getConsentHistory(
+    public ResponseEntity<ConsentHistoryResponse.PaginatedConsentHistoryResponse> getConsentHistory(
             @PathVariable String userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
@@ -73,7 +73,7 @@ public class ConsentController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied: You can only view your own consent history");
         }
         
-        ConsentHistoryResponse response = consentService.getConsentHistory(userId, page, size);
+        ConsentHistoryResponse.PaginatedConsentHistoryResponse response = consentService.getConsentHistory(userId, page, size);
         return ResponseEntity.ok(response);
     }
     

@@ -28,7 +28,7 @@ public interface ConsentService {
      */
     ConsentHistoryResponse getConsentHistory(String userId);
     
-    ConsentHistoryResponse getConsentHistory(String userId, int page, int size);
+    ConsentHistoryResponse.PaginatedConsentHistoryResponse getConsentHistory(String userId, int page, int size);
     
     /**
      * Get consent status for a verification ID
