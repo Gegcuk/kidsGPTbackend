@@ -1373,4 +1373,66 @@ class ConsentControllerIntegrationTest {
                     .andExpect(jsonPath("$.latestByType[?(@.type == '" + consentType + "')].timestamp").exists());
         }
     }
+
+    @Test
+    void withdrawConsent_CrossTypeUnaffected_ShouldSucceed() throws Exception {
+        // Arrange - Create multiple GRANTED consents across different types
+        ConsentType[] consentTypes = {
+                ConsentType.TERMS_OF_SERVICE,
+                ConsentType.PRIVACY_POLICY,
+                ConsentType.PARENTAL_CONSENT,
+                ConsentType.DATA_PROCESSING
+        };
+
+        // Grant consents for all types
+        for (ConsentType consentType : consentTypes) {
+            ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                    testUserId, consentType, "1.0.0", "https://example.com/" + consentType.name().toLowerCase(), "hash",
+                    consentType == ConsentType.PARENTAL_CONSENT ? testVerificationId : null, 
+                    "GB", "England", "en-GB", ConsentSource.WEB,
+                    (consentType == ConsentType.DATA_PROCESSING || consentType == ConsentType.PARENTAL_CONSENT) ? testKids : List.of(), 
+                    "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+            );
+            
+            mockMvc.perform(post("/api/v1/consent/grant")
+                    .header("Authorization", "Bearer " + accessToken)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(grantRequest)))
+                    .andExpect(status().isOk());
+        }
+
+        // Act - Withdraw only PARENTAL_CONSENT
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+        
+        // Assert
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Consent-Id", notNullValue()))
+                .andExpect(jsonPath("$.reconsentNeeded").value(true))
+                .andExpect(jsonPath("$.latestByType").isArray())
+                // PARENTAL_CONSENT should be WITHDRAWN
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].status").value("WITHDRAWN"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].version").value("1.0.0"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PARENTAL_CONSENT')].policyUrl").value("https://example.com/parental_consent"))
+                // All other types should remain GRANTED
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'TERMS_OF_SERVICE')].status").value("GRANTED"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'TERMS_OF_SERVICE')].version").value("1.0.0"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'TERMS_OF_SERVICE')].policyUrl").value("https://example.com/terms_of_service"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PRIVACY_POLICY')].status").value("GRANTED"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PRIVACY_POLICY')].version").value("1.0.0"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'PRIVACY_POLICY')].policyUrl").value("https://example.com/privacy_policy"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'DATA_PROCESSING')].status").value("GRANTED"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'DATA_PROCESSING')].version").value("1.0.0"))
+                .andExpect(jsonPath("$.latestByType[?(@.type == 'DATA_PROCESSING')].policyUrl").value("https://example.com/data_processing"));
+    }
 } 

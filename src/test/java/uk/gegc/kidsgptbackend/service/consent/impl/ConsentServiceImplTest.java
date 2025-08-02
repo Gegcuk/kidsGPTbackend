@@ -14,6 +14,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
 import uk.gegc.kidsgptbackend.model.consent.*;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
@@ -898,7 +899,7 @@ class ConsentServiceImplTest {
         verify(consentChildCoverageRepository).saveAll(argThat(l -> {
             List<ConsentChildCoverage> list = (List<ConsentChildCoverage>) l;
             return list.size() == 2 &&
-                    list.stream().map(ConsentChildCoverage::getKidId).collect(Collectors.toList()).containsAll(List.of(kidA, kidB));
+                    list.stream().map(ConsentChildCoverage::getKidId).toList().containsAll(List.of(kidA, kidB));
         }));
     }
 
@@ -1031,12 +1032,12 @@ class ConsentServiceImplTest {
                 LawfulBasis.CONSENT
         );
         // Use ReflectionTestUtils to call the private method
-        String json1 = (String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+        String json1 = ReflectionTestUtils.invokeMethod(
                 consentService, "buildCanonicalReceiptJson",
                 consentId, req1, "GB", "ENGLAND", "en-GB", "192.168.1.1", "Mozilla/5.0",
                 java.time.Instant.parse("2025-08-01T23:49:37.472530200Z"), List.of(kidB, kidA), "unknown"
         );
-        String json2 = (String) org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+        String json2 = ReflectionTestUtils.invokeMethod(
                 consentService, "buildCanonicalReceiptJson",
                 consentId, req2, "GB", "ENGLAND", "en-GB", "192.168.1.1", "Mozilla/5.0",
                 java.time.Instant.parse("2025-08-01T23:49:37.472530200Z"), List.of(kidA, kidB), "unknown"
@@ -1148,4 +1149,250 @@ class ConsentServiceImplTest {
         verify(consentLedgerRepository).saveAndFlush(argThat(consent -> 
             "ru".equals(consent.getLocale())));
     }
-}
+
+    @Test
+    void withdrawConsent_ShouldPersistCorrectLedgerFields() {
+        // Arrange - Create a granted consent first
+        ConsentLedger grantedConsent = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
+                .userId(testUserId)
+                .consentType(ConsentType.PARENTAL_CONSENT)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now())
+                .parentVerificationId(testVerificationId)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grant\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                .thenReturn(Optional.of(grantedConsent));
+
+                                    when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                                    eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                                    .thenReturn(false);
+
+                            ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                                    testUserId.toString(),
+                                    ConsentType.PARENTAL_CONSENT,
+                                    "1.0.0",
+                                    "User requested withdrawal",
+                                    "192.168.1.1",
+                                    "Mozilla/5.0"
+                            );
+
+                            // Mock saveAndFlush to return the withdrawal object
+                            when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                                    .thenAnswer(invocation -> invocation.getArgument(0));
+
+                            // Act
+                            consentService.withdrawConsent(withdrawRequest);
+
+        // Assert - Verify the persisted withdrawal ledger has correct fields
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
+            // Verify consentStatus=WITHDRAWN
+            assertEquals(ConsentStatus.WITHDRAWN, ledger.getConsentStatus());
+            
+            // Verify withdrawnConsentId references the grant
+            assertEquals(grantedConsent.getConsentId(), ledger.getWithdrawnConsentId());
+            
+            // Verify consentVersion = grant's version
+            assertEquals(grantedConsent.getConsentVersion(), ledger.getConsentVersion());
+            
+            // Verify fields copied from grant
+            assertEquals(grantedConsent.getPolicyUrl(), ledger.getPolicyUrl());
+            assertEquals(grantedConsent.getContentHash(), ledger.getContentHash());
+            assertEquals(grantedConsent.getJurisdiction(), ledger.getJurisdiction());
+            assertEquals(grantedConsent.getRegion(), ledger.getRegion());
+            assertEquals(grantedConsent.getLocale(), ledger.getLocale());
+            assertEquals(grantedConsent.getLawfulBasis(), ledger.getLawfulBasis());
+            assertEquals(grantedConsent.getSource(), ledger.getSource());
+            
+            // Verify retentionExpiresAt unchanged
+            assertEquals(grantedConsent.getRetentionExpiresAt(), ledger.getRetentionExpiresAt());
+            
+            // Verify other fields are set correctly
+            assertEquals(testUserId, ledger.getUserId());
+            assertEquals(ConsentType.PARENTAL_CONSENT, ledger.getConsentType());
+            assertEquals(testVerificationId, ledger.getParentVerificationId());
+            assertEquals(serverIp, ledger.getIpAddress());
+            assertEquals(serverUa, ledger.getUserAgent());
+            
+            // Verify receipt and signature are generated
+            assertNotNull(ledger.getReceiptJson());
+            assertNotNull(ledger.getRecordSignature());
+            assertTrue(ledger.getRecordSignature().length > 0);
+            
+                         return true;
+         }));
+     }
+
+     @Test
+     void withdrawConsent_ShouldGenerateCorrectReceiptJson() {
+         // Arrange - Create a granted consent first
+         UUID grantedConsentId = UUID.randomUUID();
+         ConsentLedger grantedConsent = ConsentLedger.builder()
+                 .consentId(grantedConsentId)
+                 .userId(testUserId)
+                 .consentType(ConsentType.PARENTAL_CONSENT)
+                 .consentVersion("1.0.0")
+                 .consentStatus(ConsentStatus.GRANTED)
+                 .policyUrl("https://example.com/parental")
+                 .contentHash("abc123hash")
+                 .jurisdiction("GB")
+                 .region("England")
+                 .locale("en-GB")
+                 .lawfulBasis(LawfulBasis.CONSENT)
+                 .source(ConsentSource.WEB)
+                 .ipAddress(serverIp)
+                 .userAgent(serverUa)
+                 .consentTimestamp(LocalDateTime.now())
+                 .parentVerificationId(testVerificationId)
+                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                 .receiptJson("{\"test\":\"grant\"}")
+                 .recordSignature(new byte[]{1, 2, 3})
+                 .build();
+
+         when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                 .thenReturn(Optional.of(grantedConsent));
+
+         when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq("1.0.0")))
+                 .thenReturn(false);
+
+         ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                 testUserId.toString(),
+                 ConsentType.PARENTAL_CONSENT,
+                 "1.0.0",
+                 "User requested withdrawal",
+                 "192.168.1.1",
+                 "Mozilla/5.0"
+         );
+
+         // Mock saveAndFlush to return the withdrawal object
+         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                 .thenAnswer(invocation -> invocation.getArgument(0));
+
+         // Act
+         consentService.withdrawConsent(withdrawRequest);
+
+         // Assert - Verify the receipt JSON contains all required fields
+         verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
+             String receiptJson = ledger.getReceiptJson();
+             assertNotNull(receiptJson);
+             
+             // Verify all required fields are present
+             assertTrue(receiptJson.contains("\"consent_id\""));
+             assertTrue(receiptJson.contains("\"parent_uuid\":\"" + testUserId + "\""));
+             assertTrue(receiptJson.contains("\"withdrawn_consent_id\":\"" + grantedConsentId + "\""));
+             assertTrue(receiptJson.contains("\"consent_type\":\"PARENTAL_CONSENT\""));
+             assertTrue(receiptJson.contains("\"consent_version\":\"1.0.0\""));
+             assertTrue(receiptJson.contains("\"policy_url\":\"https://example.com/parental\""));
+             assertTrue(receiptJson.contains("\"content_hash\":\"abc123hash\""));
+             assertTrue(receiptJson.contains("\"jurisdiction\":\"GB\""));
+             assertTrue(receiptJson.contains("\"region\":\"England\""));
+             assertTrue(receiptJson.contains("\"locale\":\"en-GB\""));
+             assertTrue(receiptJson.contains("\"lawful_basis\":\"CONSENT\""));
+             assertTrue(receiptJson.contains("\"source\":\"WEB\""));
+             assertTrue(receiptJson.contains("\"timestamp\""));
+             assertTrue(receiptJson.contains("\"ip\":\"" + serverIp + "\""));
+             assertTrue(receiptJson.contains("\"ua\":\"" + serverUa + "\""));
+             assertTrue(receiptJson.contains("\"action\":\"WITHDRAWN\""));
+             assertTrue(receiptJson.contains("\"reason\":\"User requested withdrawal\""));
+             
+             return true;
+         }));
+     }
+
+     @Test
+     void withdrawConsent_ShouldOmitReasonWhenNotProvided() {
+         // Arrange - Create a granted consent first
+         UUID grantedConsentId = UUID.randomUUID();
+         ConsentLedger grantedConsent = ConsentLedger.builder()
+                 .consentId(grantedConsentId)
+                 .userId(testUserId)
+                 .consentType(ConsentType.PRIVACY_POLICY)
+                 .consentVersion("2.0.0")
+                 .consentStatus(ConsentStatus.GRANTED)
+                 .policyUrl("https://example.com/privacy")
+                 .contentHash("def456hash")
+                 .jurisdiction("US")
+                 .region("CA")
+                 .locale("en-US")
+                 .lawfulBasis(LawfulBasis.LEGITIMATE_INTEREST)
+                 .source(ConsentSource.IOS)
+                 .ipAddress(serverIp)
+                 .userAgent(serverUa)
+                 .consentTimestamp(LocalDateTime.now())
+                 .parentVerificationId(null)
+                 .retentionExpiresAt(LocalDateTime.now().plusYears(5))
+                 .receiptJson("{\"test\":\"grant\"}")
+                 .recordSignature(new byte[]{1, 2, 3})
+                 .build();
+
+         when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                 eq(testUserId), eq(ConsentType.PRIVACY_POLICY), eq("2.0.0")))
+                 .thenReturn(Optional.of(grantedConsent));
+
+         when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                 eq(testUserId), eq(ConsentType.PRIVACY_POLICY), eq("2.0.0")))
+                 .thenReturn(false);
+
+         ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                 testUserId.toString(),
+                 ConsentType.PRIVACY_POLICY,
+                 "2.0.0",
+                 null, // No reason provided
+                 "192.168.1.1",
+                 "Mozilla/5.0"
+         );
+
+         // Mock saveAndFlush to return the withdrawal object
+         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                 .thenAnswer(invocation -> invocation.getArgument(0));
+
+         // Act
+         consentService.withdrawConsent(withdrawRequest);
+
+         // Assert - Verify the receipt JSON omits reason when not provided
+         verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
+             String receiptJson = ledger.getReceiptJson();
+             assertNotNull(receiptJson);
+             
+             // Verify all required fields are present
+             assertTrue(receiptJson.contains("\"consent_id\""));
+             assertTrue(receiptJson.contains("\"parent_uuid\":\"" + testUserId + "\""));
+             assertTrue(receiptJson.contains("\"withdrawn_consent_id\":\"" + grantedConsentId + "\""));
+             assertTrue(receiptJson.contains("\"consent_type\":\"PRIVACY_POLICY\""));
+             assertTrue(receiptJson.contains("\"consent_version\":\"2.0.0\""));
+             assertTrue(receiptJson.contains("\"policy_url\":\"https://example.com/privacy\""));
+             assertTrue(receiptJson.contains("\"content_hash\":\"def456hash\""));
+             assertTrue(receiptJson.contains("\"jurisdiction\":\"US\""));
+             assertTrue(receiptJson.contains("\"region\":\"CA\""));
+             assertTrue(receiptJson.contains("\"locale\":\"en-US\""));
+             assertTrue(receiptJson.contains("\"lawful_basis\":\"LEGITIMATE_INTEREST\""));
+             assertTrue(receiptJson.contains("\"source\":\"IOS\""));
+             assertTrue(receiptJson.contains("\"timestamp\""));
+             assertTrue(receiptJson.contains("\"ip\":\"" + serverIp + "\""));
+             assertTrue(receiptJson.contains("\"ua\":\"" + serverUa + "\""));
+             assertTrue(receiptJson.contains("\"action\":\"WITHDRAWN\""));
+             
+             // Verify reason is NOT present when not provided
+             assertFalse(receiptJson.contains("\"reason\""));
+             
+             return true;
+         }));
+     }
+ }
