@@ -397,7 +397,7 @@ class ConsentLedgerRepositoryTest {
     }
 
     @Test
-    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc_ShouldReturnLatestByConsentTimestamp() {
+    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnLatestByConsentTimestamp() {
         // Arrange - Create multiple records with varying timestamps
         UUID consentId1 = UUID.randomUUID();
         UUID consentId2 = UUID.randomUUID();
@@ -479,7 +479,7 @@ class ConsentLedgerRepositoryTest {
         entityManager.clear();
 
         // Act
-        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                 testUserId, testConsentType);
 
         // Assert
@@ -493,9 +493,9 @@ class ConsentLedgerRepositoryTest {
     }
 
     @Test
-    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc_ShouldReturnEmptyWhenNoRecordsExist() {
+    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyWhenNoRecordsExist() {
         // Act
-        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                 testUserId, testConsentType);
 
         // Assert
@@ -503,7 +503,7 @@ class ConsentLedgerRepositoryTest {
     }
 
     @Test
-    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc_ShouldReturnEmptyForDifferentUser() {
+    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentUser() {
         // Arrange - Create a record for a different user
         UUID differentUserId = UUID.randomUUID();
         UUID consentId = UUID.randomUUID();
@@ -533,7 +533,7 @@ class ConsentLedgerRepositoryTest {
         entityManager.clear();
 
         // Act
-        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                 testUserId, testConsentType); // Looking for testUserId
 
         // Assert
@@ -541,7 +541,7 @@ class ConsentLedgerRepositoryTest {
     }
 
     @Test
-    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc_ShouldReturnEmptyForDifferentConsentType() {
+    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentConsentType() {
         // Arrange - Create a record for a different consent type
         UUID consentId = UUID.randomUUID();
 
@@ -570,7 +570,7 @@ class ConsentLedgerRepositoryTest {
         entityManager.clear();
 
         // Act
-        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                 testUserId, testConsentType); // Looking for PARENTAL_CONSENT
 
         // Assert
@@ -578,7 +578,7 @@ class ConsentLedgerRepositoryTest {
     }
 
     @Test
-    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc_ShouldReturnLatestRegardlessOfStatus() {
+    void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnLatestRegardlessOfStatus() {
         // Arrange - Create records with different statuses but varying timestamps
         UUID consentId1 = UUID.randomUUID();
         UUID consentId2 = UUID.randomUUID();
@@ -636,7 +636,7 @@ class ConsentLedgerRepositoryTest {
         entityManager.clear();
 
         // Act
-        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(
+        Optional<ConsentLedger> result = consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                 testUserId, testConsentType);
 
         // Assert

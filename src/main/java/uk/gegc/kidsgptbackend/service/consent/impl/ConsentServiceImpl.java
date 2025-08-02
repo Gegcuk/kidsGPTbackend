@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -330,8 +331,8 @@ public class ConsentServiceImpl implements ConsentService {
         try {
             UUID userUuid = UUID.fromString(userId);
             
-            // Query consent_ledger table for user, ordered by consent timestamp (canonical event time)
-            List<ConsentLedger> consentLedgers = consentLedgerRepository.findByUserIdOrderByConsentTimestampDesc(userUuid);
+            // Query consent_ledger table for user, ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+            List<ConsentLedger> consentLedgers = consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(userUuid);
             
             if (consentLedgers.isEmpty()) {
                 return new ConsentHistoryResponse(userId, Collections.emptyList());
@@ -385,8 +386,12 @@ public class ConsentServiceImpl implements ConsentService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page size must be between 1 and 100");
             }
             
-            Pageable pageable = PageRequest.of(page, size);
-            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserIdOrderByConsentTimestampDesc(userUuid, pageable);
+            // Use explicit Sort to ensure deterministic ordering with tie-breaker
+            Pageable pageable = PageRequest.of(page, size, Sort.by(
+                Sort.Order.desc("consentTimestamp"),
+                Sort.Order.desc("createdAt")
+            ));
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(userUuid, pageable);
             
             if (consentLedgerPage.isEmpty()) {
                 return new ConsentHistoryResponse(userId, Collections.emptyList());
@@ -430,9 +435,10 @@ public class ConsentServiceImpl implements ConsentService {
             ConsentLedger consentLedger, 
             Map<UUID, List<String>> coverageMap) {
         
-        // Get covered kids for this consent (sorted for deterministic output)
+        // Get covered kids for this consent (sorted for deterministic output with duplicates removed)
         List<String> coveredKids = coverageMap.getOrDefault(consentLedger.getConsentId(), Collections.emptyList())
             .stream()
+            .distinct() // Remove duplicates as defensive guard
             .sorted()
             .collect(Collectors.toList());
         
@@ -630,9 +636,9 @@ public class ConsentServiceImpl implements ConsentService {
         List<ConsentLedger> latestConsents = new ArrayList<>();
         
         for (ConsentType type : ConsentType.values()) {
-            // Use consentTimestamp for ordering to be consistent with canonical event time
+            // Use consentTimestamp for ordering to be consistent with canonical event time (with deterministic tie-breaker)
             Optional<ConsentLedger> latestConsent = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(userId, type);
+                .findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(userId, type);
             latestConsent.ifPresent(latestConsents::add);
         }
         

@@ -18,15 +18,28 @@ import java.util.UUID;
 @Repository
 public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UUID> {
     
+    /**
+     * @deprecated Use findByUserIdOrderByConsentTimestampDescCreatedAtDesc instead for consistent event-time ordering
+     */
+    @Deprecated
     List<ConsentLedger> findByUserIdOrderByCreatedAtDesc(UUID userId);
     
-    List<ConsentLedger> findByUserIdOrderByConsentTimestampDesc(UUID userId);
+    /**
+     * Find consent ledger entries for a user ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     */
+    List<ConsentLedger> findByUserIdOrderByConsentTimestampDescCreatedAtDesc(UUID userId);
     
-    Page<ConsentLedger> findByUserIdOrderByConsentTimestampDesc(UUID userId, Pageable pageable);
+    /**
+     * Find paginated consent ledger entries for a user ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     */
+    Page<ConsentLedger> findByUserIdOrderByConsentTimestampDescCreatedAtDesc(UUID userId, Pageable pageable);
     
     List<ConsentLedger> findByUserIdAndConsentTypeOrderByCreatedAtDesc(UUID userId, ConsentType consentType);
     
-    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(UUID userId, ConsentType consentType);
+    /**
+     * Find the most recent consent ledger entry for a user and consent type ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     */
+    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(UUID userId, ConsentType consentType);
     
     Optional<ConsentLedger> findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
             UUID userId, ConsentType consentType, ConsentStatus consentStatus);
