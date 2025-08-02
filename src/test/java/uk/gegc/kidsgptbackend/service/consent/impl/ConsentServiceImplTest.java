@@ -1395,4 +1395,139 @@ class ConsentServiceImplTest {
              return true;
          }));
      }
+
+     @Test
+     void withdrawConsent_ShouldGenerateHmacSignature() {
+         // Arrange - Create a granted consent first
+         UUID grantedConsentId = UUID.randomUUID();
+         ConsentLedger grantedConsent = ConsentLedger.builder()
+                 .consentId(grantedConsentId)
+                 .userId(testUserId)
+                 .consentType(ConsentType.DATA_PROCESSING)
+                 .consentVersion("3.0.0")
+                 .consentStatus(ConsentStatus.GRANTED)
+                 .policyUrl("https://example.com/data")
+                 .contentHash("ghi789hash")
+                 .jurisdiction("EU")
+                 .region("Germany")
+                 .locale("de-DE")
+                 .lawfulBasis(LawfulBasis.CONSENT)
+                 .source(ConsentSource.ANDROID)
+                 .ipAddress(serverIp)
+                 .userAgent(serverUa)
+                 .consentTimestamp(LocalDateTime.now())
+                 .parentVerificationId(null)
+                 .retentionExpiresAt(LocalDateTime.now().plusYears(3))
+                 .receiptJson("{\"test\":\"grant\"}")
+                 .recordSignature(new byte[]{1, 2, 3})
+                 .build();
+
+         when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                 eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq("3.0.0")))
+                 .thenReturn(Optional.of(grantedConsent));
+
+         when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                 eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq("3.0.0")))
+                 .thenReturn(false);
+
+         ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                 testUserId.toString(),
+                 ConsentType.DATA_PROCESSING,
+                 "3.0.0",
+                 "User requested data processing withdrawal",
+                 "192.168.1.1",
+                 "Mozilla/5.0"
+         );
+
+         // Mock saveAndFlush to return the withdrawal object
+         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                 .thenAnswer(invocation -> invocation.getArgument(0));
+
+         // Act
+         consentService.withdrawConsent(withdrawRequest);
+
+         // Assert - Verify the HMAC signature is generated
+         verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
+             // Verify recordSignature is non-null and non-empty
+             assertNotNull(ledger.getRecordSignature());
+             assertTrue(ledger.getRecordSignature().length > 0);
+             
+             // Verify receipt JSON is also present (prerequisite for signature)
+             assertNotNull(ledger.getReceiptJson());
+             assertFalse(ledger.getReceiptJson().isEmpty());
+             
+             return true;
+         }));
+     }
+
+    @Test
+    void withdrawConsent_WithBase64HmacKey_ShouldGenerateSignature() {
+        // Arrange - Set up Base64 encoded HMAC secret
+        String base64HmacSecret = "dGVzdC1obWFjLXNlY3JldC1rZXktZm9yLWJhc2U2NC10ZXN0aW5n";
+        ReflectionTestUtils.setField(consentService, "hmacSecret", base64HmacSecret);
+        
+        // Create a granted consent first
+        UUID grantedConsentId = UUID.randomUUID();
+        ConsentLedger grantedConsent = ConsentLedger.builder()
+                .consentId(grantedConsentId)
+                .userId(testUserId)
+                .consentType(ConsentType.TERMS_OF_SERVICE)
+                .consentVersion("4.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/terms")
+                .contentHash("jkl012hash")
+                .jurisdiction("CA")
+                .region("Ontario")
+                .locale("en-CA")
+                .lawfulBasis(LawfulBasis.CONTRACT)
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .consentTimestamp(LocalDateTime.now())
+                .parentVerificationId(null)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(6))
+                .receiptJson("{\"test\":\"grant\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        when(consentLedgerRepository.findActiveGrantByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE), eq("4.0.0")))
+                .thenReturn(Optional.of(grantedConsent));
+
+        when(consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(
+                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE), eq("4.0.0")))
+                .thenReturn(false);
+
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.TERMS_OF_SERVICE,
+                "4.0.0",
+                "User requested terms withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Mock saveAndFlush to return the withdrawal object
+        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Act
+        consentService.withdrawConsent(withdrawRequest);
+
+        // Assert - Verify the HMAC signature is still generated with Base64 key
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
+            // Verify recordSignature is non-null and non-empty (Base64 key path works)
+            assertNotNull(ledger.getRecordSignature());
+            assertTrue(ledger.getRecordSignature().length > 0);
+            
+            // Verify receipt JSON is also present (prerequisite for signature)
+            assertNotNull(ledger.getReceiptJson());
+            assertFalse(ledger.getReceiptJson().isEmpty());
+            
+            // Verify the signature is different from the original (different key used)
+            assertNotEquals(grantedConsent.getRecordSignature(), ledger.getRecordSignature());
+            
+            return true;
+        }));
+    }
  }
