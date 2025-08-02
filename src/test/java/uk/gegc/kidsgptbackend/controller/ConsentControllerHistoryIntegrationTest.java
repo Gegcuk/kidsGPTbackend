@@ -564,4 +564,293 @@ class ConsentControllerHistoryIntegrationTest {
          // Verify service was called with correct parameters
          Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
      }
+
+     @Test
+     void coveredKidsIsDistinctAndSorted() throws Exception {
+         // Given: authenticated principal equals userId and coverage with duplicates/out-of-order kid IDs
+         String userId = UUID.randomUUID().toString();
+         LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+         LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+
+         // Set up authentication context manually
+         User principal = new User(
+                 userId,
+                 "password",
+                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+         );
+         UsernamePasswordAuthenticationToken authentication =
+                 new UsernamePasswordAuthenticationToken(
+                         principal,
+                         principal.getPassword(),
+                         principal.getAuthorities()
+                 );
+         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+         // Create mock entry with duplicates/out-of-order kid IDs
+         // Input: ["kid3", "kid1", "kid2", "kid1", "kid3"] (duplicates and out of order)
+         // Expected output: ["kid1", "kid2", "kid3"] (unique and sorted)
+         ConsentHistoryResponse.ConsentHistoryEntry entry = new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-1", ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash1", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, null, 
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1", "kid2", "kid3"), // service should deduplicate and sort
+                 null
+         );
+
+         // Mock service response
+         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                         userId,
+                         java.util.List.of(entry),
+                         0, // page
+                         20, // size
+                         1L, // total
+                         1, // totalPages
+                         false, // hasNext
+                         false // hasPrevious
+                 );
+         
+         Mockito.when(consentService.getConsentHistory(userId, 0, 20))
+                 .thenReturn(mockResponse);
+
+         // When / Then: GET should return coveredKids as unique and sorted
+         mockMvc.perform(get("/api/v1/consent/history/{userId}", userId)
+                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.entries").isArray())
+            .andExpect(jsonPath("$.entries[0].consentId").value("consent-1"))
+            .andExpect(jsonPath("$.entries[0].coveredKids").isArray())
+            .andExpect(jsonPath("$.entries[0].coveredKids[0]").value("kid1")) // first element
+            .andExpect(jsonPath("$.entries[0].coveredKids[1]").value("kid2")) // second element  
+            .andExpect(jsonPath("$.entries[0].coveredKids[2]").value("kid3")); // third element
+
+         // Verify service was called with correct parameters
+         Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
+     }
+
+     @Test
+     void withdrawnConsentIdPresentOnlyForWithdrawals() throws Exception {
+         // Given: authenticated principal equals userId and GRANTED and WITHDRAWN entries
+         String userId = UUID.randomUUID().toString();
+         LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+         LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+
+         // Set up authentication context manually
+         User principal = new User(
+                 userId,
+                 "password",
+                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+         );
+         UsernamePasswordAuthenticationToken authentication =
+                 new UsernamePasswordAuthenticationToken(
+                         principal,
+                         principal.getPassword(),
+                         principal.getAuthorities()
+                 );
+         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+         // Create mock entries with GRANTED and WITHDRAWN statuses
+         ConsentHistoryResponse.ConsentHistoryEntry grantedEntry = new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-granted", ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash1", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, null, // withdrawnConsentId = null for GRANTED
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         );
+         
+         ConsentHistoryResponse.ConsentHistoryEntry withdrawnEntry = new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-withdrawn", ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.WITHDRAWN,
+                 "policy-url", "hash2", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, "consent-granted", // withdrawnConsentId = non-null for WITHDRAWN
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         );
+
+         // Mock service response with both statuses
+         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                         userId,
+                         java.util.List.of(grantedEntry, withdrawnEntry), // both statuses
+                         0, // page
+                         20, // size
+                         2L, // total
+                         1, // totalPages
+                         false, // hasNext
+                         false // hasPrevious
+                 );
+         
+         Mockito.when(consentService.getConsentHistory(userId, 0, 20))
+                 .thenReturn(mockResponse);
+
+         // When / Then: GET should return correct withdrawnConsentId values
+         mockMvc.perform(get("/api/v1/consent/history/{userId}", userId)
+                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.entries").isArray())
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(20))
+            .andExpect(jsonPath("$.total").value(2))
+            .andExpect(jsonPath("$.totalPages").value(1))
+            .andExpect(jsonPath("$.hasNext").value(false))
+            .andExpect(jsonPath("$.hasPrevious").value(false))
+            // Verify GRANTED entry has withdrawnConsentId = null
+            .andExpect(jsonPath("$.entries[0].consentId").value("consent-granted"))
+            .andExpect(jsonPath("$.entries[0].consentStatus").value("GRANTED"))
+            .andExpect(jsonPath("$.entries[0].withdrawnConsentId").isEmpty())
+                         // Verify WITHDRAWN entry has withdrawnConsentId = non-null
+             .andExpect(jsonPath("$.entries[1].consentId").value("consent-withdrawn"))
+             .andExpect(jsonPath("$.entries[1].consentStatus").value("WITHDRAWN"))
+             .andExpect(jsonPath("$.entries[1].parentVerificationId").value("consent-granted"));
+
+         // Verify service was called with correct parameters
+         Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
+     }
+
+     @Test
+     void fieldMappingSerializationSanity() throws Exception {
+         // Given: authenticated principal equals userId and entry with all field types
+         String userId = UUID.randomUUID().toString();
+         LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+         LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+
+         // Set up authentication context manually
+         User principal = new User(
+                 userId,
+                 "password",
+                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+         );
+         UsernamePasswordAuthenticationToken authentication =
+                 new UsernamePasswordAuthenticationToken(
+                         principal,
+                         principal.getPassword(),
+                         principal.getAuthorities()
+                 );
+         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+         // Create mock entry with all field types to test serialization
+         ConsentHistoryResponse.ConsentHistoryEntry entry = new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-1", ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash1", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, null, // parentVerificationId = null when absent
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         );
+
+         // Mock service response
+         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                         userId,
+                         java.util.List.of(entry),
+                         0, // page
+                         20, // size
+                         1L, // total
+                         1, // totalPages
+                         false, // hasNext
+                         false // hasPrevious
+                 );
+         
+         Mockito.when(consentService.getConsentHistory(userId, 0, 20))
+                 .thenReturn(mockResponse);
+
+         // When / Then: GET should return correctly serialized fields
+         mockMvc.perform(get("/api/v1/consent/history/{userId}", userId)
+                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.entries").isArray())
+            .andExpect(jsonPath("$.entries[0].consentId").value("consent-1"))
+            // Test enum fields serialize as strings
+            .andExpect(jsonPath("$.entries[0].consentType").value("DATA_PROCESSING"))
+            .andExpect(jsonPath("$.entries[0].consentStatus").value("GRANTED"))
+            .andExpect(jsonPath("$.entries[0].lawfulBasis").value("CONSENT"))
+            .andExpect(jsonPath("$.entries[0].source").value("WEB"))
+            // Test timestamps are ISO serialized
+            .andExpect(jsonPath("$.entries[0].consentTimestamp").value("2024-01-15T10:30:00"))
+            .andExpect(jsonPath("$.entries[0].createdAt").value("2024-01-15T10:25:00"))
+            .andExpect(jsonPath("$.entries[0].retentionExpiresAt").value("2032-01-15T10:30:00"))
+            // Test nulls remain null (e.g., parentVerificationId when absent)
+            .andExpect(jsonPath("$.entries[0].parentVerificationId").isEmpty())
+            .andExpect(jsonPath("$.entries[0].withdrawnConsentId").isEmpty());
+
+         // Verify service was called with correct parameters
+         Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
+     }
+
+     @Test
+     void largePageWithinLimitWorks() throws Exception {
+         // Given: authenticated principal equals userId and size=100 (maximum allowed)
+         String userId = UUID.randomUUID().toString();
+         LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+         LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+
+         // Set up authentication context manually
+         User principal = new User(
+                 userId,
+                 "password",
+                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+         );
+         UsernamePasswordAuthenticationToken authentication =
+                 new UsernamePasswordAuthenticationToken(
+                         principal,
+                         principal.getPassword(),
+                         principal.getAuthorities()
+                 );
+         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+         // Create 100 mock entries to test large page size
+         java.util.List<ConsentHistoryResponse.ConsentHistoryEntry> entries = new java.util.ArrayList<>();
+         for (int i = 0; i < 100; i++) {
+             ConsentHistoryResponse.ConsentHistoryEntry entry = new ConsentHistoryResponse.ConsentHistoryEntry(
+                     "consent-" + i, ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                     "policy-url", "hash" + i, "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                     "192.168.1.1", "Mozilla/5.0", timestamp.plusMinutes(i), null,
+                     LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt.plusMinutes(i),
+                     java.util.List.of("kid" + i), null
+             );
+             entries.add(entry);
+         }
+
+         // Mock service response with 100 entries and correct metadata
+         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                         userId,
+                         entries, // 100 entries
+                         0, // page
+                         100, // size = 100 (maximum)
+                         100L, // total = 100
+                         1, // totalPages = 1 (all entries fit in one page)
+                         false, // hasNext = false (no more pages)
+                         false // hasPrevious = false (first page)
+                 );
+         
+         Mockito.when(consentService.getConsentHistory(userId, 0, 100))
+                 .thenReturn(mockResponse);
+
+         // When / Then: GET with size=100 should return up to 100 entries and correct metadata
+         mockMvc.perform(get("/api/v1/consent/history/{userId}?page=0&size=100", userId)
+                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.entries").isArray())
+            .andExpect(jsonPath("$.entries.length()").value(100)) // exactly 100 entries
+            .andExpect(jsonPath("$.page").value(0))
+            .andExpect(jsonPath("$.size").value(100)) // size = 100
+            .andExpect(jsonPath("$.total").value(100)) // total = 100
+            .andExpect(jsonPath("$.totalPages").value(1)) // totalPages = 1
+            .andExpect(jsonPath("$.hasNext").value(false)) // hasNext = false
+            .andExpect(jsonPath("$.hasPrevious").value(false)) // hasPrevious = false
+            // Verify first and last entries are present
+            .andExpect(jsonPath("$.entries[0].consentId").value("consent-0"))
+            .andExpect(jsonPath("$.entries[99].consentId").value("consent-99"));
+
+         // Verify service was called with correct parameters
+         Mockito.verify(consentService).getConsentHistory(userId, 0, 100);
+     }
 } 
