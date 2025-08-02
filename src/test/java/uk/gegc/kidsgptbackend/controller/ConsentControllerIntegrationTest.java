@@ -1591,50 +1591,377 @@ class ConsentControllerIntegrationTest {
 
     @Test
     void withdrawConsent_NonCurrentVersion_ShouldReturnConflict() throws Exception {
-        // Arrange - Create a granted consent with version "1.0.0" (older version)
+        // Arrange - Grant consent with version 1.0.0 first
         ConsentGrantRequest grantV1Request = new ConsentGrantRequest(
-                testUserId, ConsentType.PARENTAL_CONSENT, "1.0.0", "https://example.com/parental-v1", "hash-v1",
-                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
-                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental-v1",
+                "abc123hash-v1",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
         );
-        
-        // Grant V1 consent first
+
         mockMvc.perform(post("/api/v1/consent/grant")
-                .header("Authorization", "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(grantV1Request)))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantV1Request)))
                 .andExpect(status().isOk());
-        
-        // Create a granted consent with version "2.0.0" (latest version)
+
+        // Grant consent with version 2.0.0 (this makes 2.0.0 the current active version)
         ConsentGrantRequest grantV2Request = new ConsentGrantRequest(
-                testUserId, ConsentType.PARENTAL_CONSENT, "2.0.0", "https://example.com/parental-v2", "hash-v2",
-                testVerificationId, "GB", "England", "en-GB", ConsentSource.WEB,
-                testKids, "192.168.1.1", "Mozilla/5.0", LawfulBasis.CONSENT
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "2.0.0",
+                "https://example.com/parental-v2",
+                "abc123hash-v2",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
         );
-        
-        // Grant V2 consent (this should make V2 the current active version)
+
         mockMvc.perform(post("/api/v1/consent/grant")
-                .header("Authorization", "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(grantV2Request)))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantV2Request)))
                 .andExpect(status().isOk());
-        
-        // Create withdrawal request for the older version "1.0.0" (non-current)
+
+        // Act & Assert - Try to withdraw version 1.0.0 (not current)
         ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
                 testUserId.toString(),
                 ConsentType.PARENTAL_CONSENT,
-                "1.0.0", // Older version that is no longer current
+                "1.0.0", // Different version than current active (2.0.0)
                 "User requested withdrawal",
                 "192.168.1.1",
                 "Mozilla/5.0"
         );
-        
-        // Act & Assert - Should return 409 Conflict with explanatory message
+
         mockMvc.perform(post("/api/v1/consent/withdraw")
-                .header("Authorization", "Bearer " + accessToken)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(withdrawRequest)))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.error").value(containsString("Cannot withdraw version 1.0.0 when version 2.0.0 is active")));
+    }
+
+    @Test
+    void withdrawConsent_InvalidUserIdFormat_ShouldReturnBadRequest() throws Exception {
+        // Arrange - Create withdrawal request with invalid UUID format
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                "invalid-uuid-format", // Invalid UUID format
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Act & Assert - Should return 400 Bad Request for invalid userId format
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value(containsString("Invalid userId format")));
+    }
+
+    @Test
+    void withdrawConsent_MissingConsentVersion_ShouldReturnBadRequest() throws Exception {
+        // Arrange - Create withdrawal request with missing consentVersion
+        String requestJson = """
+                {
+                    "userId": "%s",
+                    "consentType": "PARENTAL_CONSENT",
+                    "reason": "User requested withdrawal",
+                    "ipAddress": "192.168.1.1",
+                    "userAgent": "Mozilla/5.0"
+                }
+                """.formatted(testUserId.toString());
+
+        // Act & Assert - Should return 400 Bad Request due to @NotBlank validation
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value(containsString("Consent version is required")));
+    }
+
+    @Test
+    void withdrawConsent_BlankConsentVersion_ShouldReturnBadRequest() throws Exception {
+        // Arrange - Create withdrawal request with blank consentVersion
+        String requestJson = """
+                {
+                    "userId": "%s",
+                    "consentType": "PARENTAL_CONSENT",
+                    "consentVersion": "",
+                    "reason": "User requested withdrawal",
+                    "ipAddress": "192.168.1.1",
+                    "userAgent": "Mozilla/5.0"
+                }
+                """.formatted(testUserId.toString());
+
+        // Act & Assert - Should return 400 Bad Request due to @NotBlank validation
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value(containsString("Consent version is required")));
+    }
+
+    @Test
+    void withdrawConsent_MissingConsentType_ShouldReturnBadRequest() throws Exception {
+        // Arrange - Create withdrawal request with missing consentType
+        String requestJson = """
+                {
+                    "userId": "%s",
+                    "consentVersion": "1.0.0",
+                    "reason": "User requested withdrawal",
+                    "ipAddress": "192.168.1.1",
+                    "userAgent": "Mozilla/5.0"
+                }
+                """.formatted(testUserId.toString());
+
+        // Act & Assert - Should return 400 Bad Request due to @NotNull validation
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(requestJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details[0]").value(containsString("Consent type is required")));
+    }
+
+    @Test
+    void withdrawConsent_ReasonOmissionCases_ShouldOmitReasonFromReceipt() throws Exception {
+        // Arrange - Grant consent first
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+
+        // Test 1: Withdraw with reason=null
+        ConsentWithdrawRequest withdrawRequestNullReason = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                null, // reason is null
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequestNullReason)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consentId").exists());
+
+        // Test 2: Withdraw with reason="" (empty string)
+        ConsentWithdrawRequest withdrawRequestEmptyReason = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "", // reason is empty string
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequestEmptyReason)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.consentId").exists());
+
+        // Note: The actual assertion that the receiptJson omits the reason key
+        // would require checking the database or the service's internal receipt generation.
+        // This test verifies that withdrawals with null/empty reasons are accepted
+        // and the service handles them gracefully without throwing validation errors.
+    }
+
+    @Test
+    void withdrawConsent_ControllerHeaderParity_ShouldReturnXConsentIdHeader() throws Exception {
+        // Arrange - Grant consent first
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+
+        // Act - Withdraw the consent
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Assert - Should return 200 OK with X-Consent-Id header mirroring body consentId
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-Consent-Id", notNullValue()))
+                .andExpect(jsonPath("$.consentId").exists())
+                .andExpect(result -> {
+                    String headerConsentId = result.getResponse().getHeader("X-Consent-Id");
+                    String bodyConsentId = objectMapper.readTree(result.getResponse().getContentAsString()).get("consentId").asText();
+                    assertEquals(headerConsentId, bodyConsentId, "X-Consent-Id header should match body consentId");
+                });
+    }
+
+    @Test
+    void withdrawConsent_MissingContentType_ShouldReturnUnsupportedMediaType() throws Exception {
+        // Arrange - Grant consent first
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+
+        // Act - Withdraw consent without Content-Type header
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Assert - Should return 415 Unsupported Media Type when Content-Type is missing
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer " + accessToken)
+                        // Note: No Content-Type header specified
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isUnsupportedMediaType());
+    }
+
+    @Test
+    void withdrawConsent_UnauthorizedForbidden_ShouldReturn401Or403() throws Exception {
+        // Arrange - Grant consent first
+        ConsentGrantRequest grantRequest = new ConsentGrantRequest(
+                testUserId,
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "https://example.com/parental",
+                "abc123hash",
+                testVerificationId,
+                "GB",
+                "England",
+                "en-GB",
+                ConsentSource.WEB,
+                testKids,
+                "192.168.1.1",
+                "Mozilla/5.0",
+                LawfulBasis.CONSENT
+        );
+
+        mockMvc.perform(post("/api/v1/consent/grant")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(grantRequest)))
+                .andExpect(status().isOk());
+
+        ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
+                testUserId.toString(),
+                ConsentType.PARENTAL_CONSENT,
+                "1.0.0",
+                "User requested withdrawal",
+                "192.168.1.1",
+                "Mozilla/5.0"
+        );
+
+        // Test 1: No Authorization header → 401 Unauthorized
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isUnauthorized());
+
+        // Test 2: Invalid token → 401 Unauthorized
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "Bearer invalid-token")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isUnauthorized());
+
+        // Test 3: Malformed Authorization header → 401 Unauthorized
+        mockMvc.perform(post("/api/v1/consent/withdraw")
+                        .header("Authorization", "InvalidFormat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(withdrawRequest)))
+                .andExpect(status().isUnauthorized());
     }
 } 

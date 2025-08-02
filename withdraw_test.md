@@ -12,46 +12,6 @@ Comprehensive test plan for the **/api/v1/consent/withdraw** endpoint and the `C
 
 ---
 
-## B. Idempotency & ordering
-
-10. **I — Idempotent retry same version**  
-    - Two sequential `/withdraw` calls for same user/type/version `V1`.  
-    - First creates withdrawal; second returns `200` with **existing** withdrawal ID (not a new row).
-
-11. **U — Duplicate-key race handling**  
-    - Mock `saveAndFlush` to throw duplicate-key `DataIntegrityViolationException`.  
-    - Service should return existing withdrawal ID from repository instead of failing.
-
-12. **U — Non-duplicate DataIntegrityViolation → 500**  
-    - Mock `saveAndFlush` to throw a **non-duplicate** `DataIntegrityViolationException`.  
-    - Expect `ResponseStatusException(500)`.
-
-13. **U — Version-specific idempotency correctness (multi-version)**  
-    - Grant `V1`, withdraw `V1` (WITHDRAWN exists). Grant `V2`, withdraw `V2`.  
-    - A subsequent withdraw for `V1` returns **V1**’s existing withdrawal (does not accidentally return the latest withdrawal for `V2`).  
-    - _Note_: Prefer a version-scoped WITHDRAWN finder; if not present, verify logic still returns the correct ID.
-
-14. **U — Effective status uses consentTimestamp ordering**  
-    - Create two records for the same type with out-of-order `createdAt` but increasing `consentTimestamp`.  
-    - Assert `buildEffectiveConsentStatus` chooses the entry with the **latest consentTimestamp**.
-
----
-
-## C. Version selection / conflict semantics
-
-15. **I — Not found when no active grant for version**  
-    - No `GRANTED` record for the provided version.  
-    - Expect `404` with meaningful error message.
-
-16. **I — Conflict when attempting to withdraw non-current version**  
-    - Have `GRANTED` rows for `V1` (older) and `V2` (latest).  
-    - Withdraw `V1` → expect `409 Conflict` with explanatory message.
-
-17. **U — Grant vs request version source of truth**  
-    - For a valid withdraw, assert persisted row’s version equals the **grant’s** version (even if request attempted to pass a different string—defensive check).
-
----
-
 ## D. Validation & error handling
 
 18. **I — Invalid userId format**  
