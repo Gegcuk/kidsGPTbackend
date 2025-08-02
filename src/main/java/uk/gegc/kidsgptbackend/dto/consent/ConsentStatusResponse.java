@@ -5,10 +5,12 @@ import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public record ConsentStatusResponse(
     List<ConsentStatusByType> latestByType,
-    boolean reconsentNeeded
+    boolean reconsentNeeded,
+    UUID consentId
 ) {
     public record ConsentStatusByType(
         ConsentType type,

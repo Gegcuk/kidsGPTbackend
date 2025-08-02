@@ -38,7 +38,6 @@ public record ConsentGrantRequest(
     @NotNull(message = "Source is required")
     ConsentSource source,
     
-    @NotEmpty(message = "Kids list cannot be empty")
     List<UUID> kids,
     
     String ipAddress,
