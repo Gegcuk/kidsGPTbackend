@@ -1,5 +1,7 @@
 package uk.gegc.kidsgptbackend.repository.consent;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -15,14 +17,26 @@ import java.util.UUID;
 
 @Repository
 public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UUID> {
+
+    /**
+     * Find all consent ledger entries for a user (ordering handled by Pageable)
+     */
+    Page<ConsentLedger> findByUserId(UUID userId, Pageable pageable);
     
-    List<ConsentLedger> findByUserIdOrderByCreatedAtDesc(UUID userId);
+    /**
+     * Find consent ledger entries for a user and consent type ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     */
+    List<ConsentLedger> findByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(UUID userId, ConsentType consentType);
     
-    List<ConsentLedger> findByUserIdAndConsentTypeOrderByCreatedAtDesc(UUID userId, ConsentType consentType);
+    /**
+     * Find the most recent consent ledger entry for a user and consent type ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     */
+    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(UUID userId, ConsentType consentType);
     
-    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(UUID userId, ConsentType consentType);
-    
-    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+    /**
+     * Find the most recent consent ledger entry for a user, consent type, and status ordered by consent timestamp (canonical event time) with deterministic tie-breaker
+     */
+    Optional<ConsentLedger> findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
             UUID userId, ConsentType consentType, ConsentStatus consentStatus);
     
     List<ConsentLedger> findByParentVerificationId(UUID parentVerificationId);

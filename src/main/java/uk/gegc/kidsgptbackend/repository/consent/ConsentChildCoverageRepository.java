@@ -24,4 +24,7 @@ public interface ConsentChildCoverageRepository extends JpaRepository<ConsentChi
     
     @Query("SELECT ccc.consentId FROM ConsentChildCoverage ccc WHERE ccc.kidId = :kidId")
     List<UUID> findConsentIdsByKidId(@Param("kidId") UUID kidId);
+    
+    @Query("SELECT ccc FROM ConsentChildCoverage ccc WHERE ccc.consentId IN :consentIds")
+    List<ConsentChildCoverage> findByConsentIds(@Param("consentIds") List<UUID> consentIds);
 } 

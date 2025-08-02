@@ -8,6 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,7 +65,7 @@ public class ConsentServiceImpl implements ConsentService {
         
         // ---- Idempotency: short-circuit if already granted for this (user,type,version)
         Optional<ConsentLedger> existing = consentLedgerRepository
-            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 request.userId(), request.consentType(), ConsentStatus.GRANTED);
         if (existing.isPresent() && existing.get().getConsentVersion().equals(request.consentVersion())) {
             log.info("Consent already granted for user {} type {} v{}", request.userId(), request.consentType(), request.consentVersion());
@@ -236,7 +240,7 @@ public class ConsentServiceImpl implements ConsentService {
         
         // ---- Check if this is the current active version (prevent withdrawing old versions)
         Optional<ConsentLedger> latestGranted = consentLedgerRepository
-            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 userId, request.consentType(), ConsentStatus.GRANTED);
         
         if (latestGranted.isPresent() && !latestGranted.get().getConsentVersion().equals(request.consentVersion())) {
@@ -249,7 +253,7 @@ public class ConsentServiceImpl implements ConsentService {
         if (consentLedgerRepository.existsWithdrawalByUserTypeAndVersion(userId, request.consentType(), granted.getConsentVersion())) {
             // Fetch the existing withdrawal
             Optional<ConsentLedger> existingWithdrawal = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                     userId, request.consentType(), ConsentStatus.WITHDRAWN);
             if (existingWithdrawal.isPresent()) {
                 UUID existingId = existingWithdrawal.get().getConsentId();
@@ -301,7 +305,7 @@ public class ConsentServiceImpl implements ConsentService {
                          request.userId(), request.consentType(), granted.getConsentVersion());
                 // Fetch existing withdrawal
                 UUID existingWithdrawalId = consentLedgerRepository
-                    .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                    .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         userId, request.consentType(), ConsentStatus.WITHDRAWN)
                     .map(ConsentLedger::getConsentId)
                     .orElse(null);
@@ -320,16 +324,161 @@ public class ConsentServiceImpl implements ConsentService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public ConsentHistoryResponse getConsentHistory(String userId) {
-        log.info("Stub implementation: Getting consent history for user: {}", userId);
-        // TODO: Implement actual consent history retrieval
-        // - Query consent_ledger table for user
-        // - Include consent_child_coverage information
-        // - Format response with proper pagination
+        log.info("Getting consent history for user: {}", userId);
         
-        return new ConsentHistoryResponse(
-            userId,
-            null // entries - to be implemented
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // Use paginated query with large page size to avoid deprecated unpaged method
+            // This ensures consistent ordering and prevents large in-memory loads
+            Pageable pageable = PageRequest.of(0, 1000, Sort.by(
+                Sort.Order.desc("consentTimestamp"),
+                Sort.Order.desc("createdAt")
+            ));
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserId(userUuid, pageable);
+            List<ConsentLedger> consentLedgers = consentLedgerPage.getContent();
+            
+            if (consentLedgers.isEmpty()) {
+                return new ConsentHistoryResponse(userId, Collections.emptyList());
+            }
+            
+            // Batch fetch all child coverage data to avoid N+1 queries
+            List<UUID> consentIds = consentLedgers.stream()
+                .map(ConsentLedger::getConsentId)
+                .collect(Collectors.toList());
+            
+            List<ConsentChildCoverage> allCoverages = consentIds.isEmpty() ? 
+                Collections.emptyList() : 
+                consentChildCoverageRepository.findByConsentIds(consentIds);
+            
+            // Group coverages by consent ID for efficient lookup
+            Map<UUID, List<String>> coverageMap = allCoverages.stream()
+                .collect(Collectors.groupingBy(
+                    ConsentChildCoverage::getConsentId,
+                    Collectors.mapping(
+                        coverage -> coverage.getKidId().toString(),
+                        Collectors.toList()
+                    )
+                ));
+            
+            List<ConsentHistoryResponse.ConsentHistoryEntry> entries = consentLedgers.stream()
+                .map(consentLedger -> buildConsentHistoryEntry(consentLedger, coverageMap))
+                .collect(Collectors.toList());
+            
+            return new ConsentHistoryResponse(userId, entries);
+            
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID format for userId: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user ID format");
+        } catch (Exception e) {
+            log.error("Error retrieving consent history for user: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve consent history");
+        }
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public ConsentHistoryResponse.PaginatedConsentHistoryResponse getConsentHistory(String userId, int page, int size) {
+        log.info("Getting paginated consent history for user: {} (page: {}, size: {})", userId, page, size);
+        
+        try {
+            UUID userUuid = UUID.fromString(userId);
+            
+            // Validate pagination parameters
+            if (page < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page number must be non-negative");
+            }
+            if (size <= 0 || size > 100) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Page size must be between 1 and 100");
+            }
+            
+            // Use explicit Sort to ensure deterministic ordering with tie-breaker
+            Pageable pageable = PageRequest.of(page, size, Sort.by(
+                Sort.Order.desc("consentTimestamp"),
+                Sort.Order.desc("createdAt")
+            ));
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserId(userUuid, pageable);
+            
+            if (consentLedgerPage.isEmpty()) {
+                return ConsentHistoryResponse.PaginatedConsentHistoryResponse.from(
+                    new ConsentHistoryResponse(userId, Collections.emptyList()), 
+                    page, size, 0
+                );
+            }
+            
+            List<ConsentLedger> consentLedgers = consentLedgerPage.getContent();
+            
+            // Batch fetch all child coverage data to avoid N+1 queries
+            List<UUID> consentIds = consentLedgers.stream()
+                .map(ConsentLedger::getConsentId)
+                .collect(Collectors.toList());
+            
+            List<ConsentChildCoverage> allCoverages = consentIds.isEmpty() ? 
+                Collections.emptyList() : 
+                consentChildCoverageRepository.findByConsentIds(consentIds);
+            
+            // Group coverages by consent ID for efficient lookup
+            Map<UUID, List<String>> coverageMap = allCoverages.stream()
+                .collect(Collectors.groupingBy(
+                    ConsentChildCoverage::getConsentId,
+                    Collectors.mapping(
+                        coverage -> coverage.getKidId().toString(),
+                        Collectors.toList()
+                    )
+                ));
+            
+            List<ConsentHistoryResponse.ConsentHistoryEntry> entries = consentLedgers.stream()
+                .map(consentLedger -> buildConsentHistoryEntry(consentLedger, coverageMap))
+                .collect(Collectors.toList());
+            
+            ConsentHistoryResponse response = new ConsentHistoryResponse(userId, entries);
+            return ConsentHistoryResponse.PaginatedConsentHistoryResponse.from(response, page, size, consentLedgerPage.getTotalElements());
+            
+        } catch (ResponseStatusException e) {
+            // Re-throw ResponseStatusException as-is (for validation errors)
+            throw e;
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid UUID format for userId: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid user ID format");
+        } catch (Exception e) {
+            log.error("Error retrieving paginated consent history for user: {}", userId, e);
+            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to retrieve consent history");
+        }
+    }
+    
+    private ConsentHistoryResponse.ConsentHistoryEntry buildConsentHistoryEntry(
+            ConsentLedger consentLedger, 
+            Map<UUID, List<String>> coverageMap) {
+        
+        // Get covered kids for this consent (sorted for deterministic output with duplicates removed)
+        List<String> coveredKids = coverageMap.getOrDefault(consentLedger.getConsentId(), Collections.emptyList())
+            .stream()
+            .distinct() // Remove duplicates as defensive guard
+            .sorted()
+            .collect(Collectors.toList());
+        
+        return new ConsentHistoryResponse.ConsentHistoryEntry(
+            consentLedger.getConsentId().toString(),
+            consentLedger.getConsentType(),
+            consentLedger.getConsentVersion(),
+            consentLedger.getConsentStatus(),
+            consentLedger.getPolicyUrl(),
+            consentLedger.getContentHash(),
+            consentLedger.getJurisdiction(),
+            consentLedger.getRegion(),
+            consentLedger.getLocale(),
+            consentLedger.getLawfulBasis(),
+            consentLedger.getSource(),
+            consentLedger.getIpAddress(),
+            consentLedger.getUserAgent(),
+            consentLedger.getConsentTimestamp(),
+            consentLedger.getParentVerificationId() != null ? consentLedger.getParentVerificationId().toString() : null,
+            consentLedger.getRetentionExpiresAt(),
+            consentLedger.getCreatedAt(),
+            coveredKids,
+            consentLedger.getWithdrawnConsentId() != null ? consentLedger.getWithdrawnConsentId().toString() : null
         );
     }
     
@@ -479,7 +628,7 @@ public class ConsentServiceImpl implements ConsentService {
         List<ConsentLedger> latestConsents = new ArrayList<>();
         
         for (ConsentType type : ConsentType.values()) {
-            consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+            consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                     userId, type, ConsentStatus.GRANTED)
                     .ifPresent(latestConsents::add);
         }
@@ -504,9 +653,9 @@ public class ConsentServiceImpl implements ConsentService {
         List<ConsentLedger> latestConsents = new ArrayList<>();
         
         for (ConsentType type : ConsentType.values()) {
-            // Use consentTimestamp for ordering to be consistent with canonical event time
+            // Use consentTimestamp for ordering to be consistent with canonical event time (with deterministic tie-breaker)
             Optional<ConsentLedger> latestConsent = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeOrderByConsentTimestampDesc(userId, type);
+                .findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(userId, type);
             latestConsent.ifPresent(latestConsents::add);
         }
         
@@ -524,7 +673,7 @@ public class ConsentServiceImpl implements ConsentService {
         // Check if there's a newer version of the policy that requires reconsent
         // This is a simplified implementation - in practice, you'd check against active policies
         Optional<ConsentLedger> latestGrant = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByCreatedAtDesc(
+                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         userId, consentType, ConsentStatus.GRANTED);
         
         if (latestGrant.isPresent()) {
