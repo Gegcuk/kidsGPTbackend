@@ -12,37 +12,6 @@ Comprehensive test plan for the **/api/v1/consent/withdraw** endpoint and the `C
 
 ---
 
-## D. Validation & error handling
-
-18. **I — Invalid userId format**  
-    - `userId` not a UUID.  
-    - Expect `400 Bad Request` (from service) with helpful message.
-
-19. **I — Missing/blank version → Bean Validation**  
-    - Omit or send blank `consentVersion`.  
-    - Expect `400 Bad Request` due to `@NotBlank` on DTO (controller-level validation).
-
-20. **I — Missing consentType → Bean Validation**  
-    - `consentType=null`.  
-    - Expect `400 Bad Request` due to `@NotNull` on DTO.
-
-21. **I — Reason omission cases**  
-    - `reason=null` and `reason=""`.  
-    - Assert withdrawal `receiptJson` **omits** `reason` key.
-
-22. **I — Controller header parity**  
-    - Ensure `/withdraw` returns `X-Consent-Id` header mirroring body `consentId` (parity with `/grant`).
-
-23. **I — Content type enforced**  
-    - POST without `Content-Type: application/json` → expect `415 Unsupported Media Type` (depending on global MVC config).
-
-24. **I — Unauthorized / Forbidden (if security enabled)**  
-    - No/invalid token → `401`.  
-    - Authenticated as different user (if applicable) → `403`.  
-    - (If security is not implemented yet, mark these as **pending**.)
-
----
-
 ## E. Response shape & semantics
 
 25. **I — Response latestByType reflects WITHDRAWN**  
