@@ -28,8 +28,8 @@ import java.util.UUID;
 
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 
 @WebMvcTest(controllers = ConsentController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -834,7 +834,8 @@ class ConsentControllerHistoryIntegrationTest {
 
         // When / Then: GET with size=100 should return up to 100 entries and correct metadata
         mockMvc.perform(get("/api/v1/consent/history/{userId}?page=0&size=100", userId)
-                .accept(MediaType.APPLICATION_JSON))
+                        .with(authentication(authentication))
+                        .accept(MediaType.APPLICATION_JSON))
            .andExpect(status().isOk())
            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
            .andExpect(jsonPath("$.userId").value(userId))
