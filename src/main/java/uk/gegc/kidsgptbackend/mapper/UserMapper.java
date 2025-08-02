@@ -2,19 +2,13 @@ package uk.gegc.kidsgptbackend.mapper;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.dto.user.KidDto;
-import uk.gegc.kidsgptbackend.dto.user.UserDto;
-import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
+import uk.gegc.kidsgptbackend.dto.user.*;
+import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
-import uk.gegc.kidsgptbackend.model.family.Kid;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
-import java.time.LocalDate;
-import java.time.Period;
 
 import java.util.stream.Collectors;
 

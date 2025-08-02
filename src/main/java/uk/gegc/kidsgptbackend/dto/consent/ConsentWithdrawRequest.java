@@ -1,9 +1,8 @@
 package uk.gegc.kidsgptbackend.dto.consent;
 
-import uk.gegc.kidsgptbackend.model.consent.ConsentType;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
 
 public record ConsentWithdrawRequest(
     @NotBlank(message = "User ID is required")

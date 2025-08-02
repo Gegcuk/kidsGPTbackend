@@ -12,11 +12,14 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-
-import java.sql.SQLIntegrityConstraintViolationException;
-import uk.gegc.kidsgptbackend.dto.consent.*;
-import uk.gegc.kidsgptbackend.model.consent.*;
-import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
+import uk.gegc.kidsgptbackend.model.consent.ConsentChildCoverage;
+import uk.gegc.kidsgptbackend.model.consent.ConsentLedger;
+import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
@@ -28,12 +31,12 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 @Service

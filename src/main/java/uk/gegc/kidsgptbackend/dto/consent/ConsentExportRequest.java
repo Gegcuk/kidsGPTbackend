@@ -1,9 +1,9 @@
 package uk.gegc.kidsgptbackend.dto.consent;
 
-import uk.gegc.kidsgptbackend.model.consent.ConsentType;
-import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
-
 import jakarta.validation.constraints.NotBlank;
+import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
+
 import java.time.LocalDateTime;
 import java.util.List;
 

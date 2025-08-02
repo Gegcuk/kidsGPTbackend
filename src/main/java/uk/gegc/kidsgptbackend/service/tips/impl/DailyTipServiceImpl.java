@@ -3,27 +3,22 @@ package uk.gegc.kidsgptbackend.service.tips.impl;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AbstractMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
-import org.springframework.ai.chat.messages.AbstractMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
-import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
-import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
 import org.springframework.util.StreamUtils;
+import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
 import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor

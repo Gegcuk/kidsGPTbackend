@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import uk.gegc.kidsgptbackend.dto.jokes.DailyJokeDto;
-import uk.gegc.kidsgptbackend.service.jokes.DailyJokeService;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.service.jokes.DailyJokeService;
 
 @RestController
 @RequestMapping("/api/v1/jokes")

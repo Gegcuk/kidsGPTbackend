@@ -14,7 +14,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
-import uk.gegc.kidsgptbackend.model.consent.*;
+import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
+import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
@@ -22,10 +24,10 @@ import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import java.util.List;
 import java.util.UUID;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @ActiveProfiles("test")

@@ -1,13 +1,15 @@
 package uk.gegc.kidsgptbackend.controller;
 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import uk.gegc.kidsgptbackend.dto.consent.*;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentGrantRequest;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
+import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
 import uk.gegc.kidsgptbackend.service.consent.ConsentService;
-
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/v1/consent")

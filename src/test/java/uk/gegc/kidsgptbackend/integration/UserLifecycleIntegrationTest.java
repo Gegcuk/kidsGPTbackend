@@ -18,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
-import uk.gegc.kidsgptbackend.model.family.Parent;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
@@ -29,9 +28,9 @@ import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
 import java.util.Set;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
 @ActiveProfiles("test")

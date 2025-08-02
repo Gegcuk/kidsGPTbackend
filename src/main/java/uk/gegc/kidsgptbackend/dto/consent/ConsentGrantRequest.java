@@ -1,12 +1,11 @@
 package uk.gegc.kidsgptbackend.dto.consent;
 
-import uk.gegc.kidsgptbackend.model.consent.ConsentType;
-import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
-import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.NotEmpty;
+import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
+import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
+
 import java.util.List;
 import java.util.UUID;
 

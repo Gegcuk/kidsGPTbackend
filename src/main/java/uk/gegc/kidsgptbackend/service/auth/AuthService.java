@@ -4,12 +4,7 @@ import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
 import uk.gegc.kidsgptbackend.dto.auth.UpdateEmailRequest;
 import uk.gegc.kidsgptbackend.dto.auth.UpdatePasswordRequest;
-import uk.gegc.kidsgptbackend.dto.user.KidDto;
-import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
-import uk.gegc.kidsgptbackend.dto.user.ParentDto;
-import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
-import uk.gegc.kidsgptbackend.dto.user.UserDto;
-import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
+import uk.gegc.kidsgptbackend.dto.user.*;
 
 import java.util.List;
 import java.util.UUID;

@@ -1,9 +1,9 @@
 package uk.gegc.kidsgptbackend.dto.consent;
 
-import uk.gegc.kidsgptbackend.model.consent.ConsentType;
-import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
-import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
 import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
+import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
+import uk.gegc.kidsgptbackend.model.consent.ConsentType;
+import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
 
 import java.time.LocalDateTime;
 import java.util.List;

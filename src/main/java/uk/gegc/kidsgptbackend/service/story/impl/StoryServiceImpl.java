@@ -19,8 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import uk.gegc.kidsgptbackend.dto.story.*;
-import uk.gegc.kidsgptbackend.exception.ConversationFormatException;
-import uk.gegc.kidsgptbackend.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.mapper.StoryMapper;
 import uk.gegc.kidsgptbackend.model.story.Story;
@@ -38,12 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor

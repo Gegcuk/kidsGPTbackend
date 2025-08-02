@@ -1,7 +1,8 @@
 package uk.gegc.kidsgptbackend.dto.user;
 
-import java.util.UUID;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+
+import java.util.UUID;
 
 public record ChildProfileDto(
     UUID id,

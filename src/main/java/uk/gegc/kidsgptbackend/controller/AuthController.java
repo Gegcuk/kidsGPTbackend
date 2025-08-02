@@ -9,17 +9,12 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.auth.*;
-import uk.gegc.kidsgptbackend.dto.user.KidDto;
-import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
-import uk.gegc.kidsgptbackend.dto.user.ParentDto;
-import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
-import uk.gegc.kidsgptbackend.dto.user.UserDto;
-import uk.gegc.kidsgptbackend.dto.user.UserProfileDto;
+import uk.gegc.kidsgptbackend.dto.user.*;
+import uk.gegc.kidsgptbackend.service.auth.AuthService;
+import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 
 import java.util.List;
 import java.util.UUID;
-import uk.gegc.kidsgptbackend.service.auth.AuthService;
-import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 
 @RestController
 @RequestMapping("/api/v1/auth")
