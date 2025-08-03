@@ -292,4 +292,311 @@ class ConsentPoliciesRepositoryTest {
             assertTrue(policy.getIsActive(), "All policies should be active");
         });
     }
+
+    @Test
+    void findActivePoliciesByTypeLocaleAndDate_GivenPoliciesWithEffectiveDateBeforeAfterTodayAndIsActiveTrueFalse_ReturnsOnlyActiveWithEffectiveDateLessThanOrEqualToTodayAndMatchingLocale() {
+        // Given: policies with effectiveDate before/after today and isActive=true/false
+        LocalDate today = LocalDate.of(2024, 1, 15);
+        LocalDate beforeToday = LocalDate.of(2024, 1, 10);
+        LocalDate afterToday = LocalDate.of(2024, 1, 20);
+        String targetLocale = "en-GB";
+        String otherLocale = "fr-FR";
+
+        // Create policies with different combinations of effectiveDate, isActive, and locale
+        ConsentPolicies activeBeforeTodayMatchingLocale1 = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.0.0")
+                .effectiveDate(beforeToday)
+                .contentHash("hash1")
+                .policyUrl("https://example.com/policy1")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies activeBeforeTodayMatchingLocale2 = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.1.0")
+                .effectiveDate(beforeToday.minusDays(2)) // Earlier than beforeToday
+                .contentHash("hash2")
+                .policyUrl("https://example.com/policy2")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies activeOnTodayMatchingLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("2.0.0")
+                .effectiveDate(today)
+                .contentHash("hash3")
+                .policyUrl("https://example.com/policy3")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies inactiveBeforeTodayMatchingLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("0.9.0")
+                .effectiveDate(beforeToday)
+                .contentHash("hash4")
+                .policyUrl("https://example.com/policy4")
+                .locale(targetLocale)
+                .isActive(false)
+                .build();
+
+        ConsentPolicies activeAfterTodayMatchingLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("3.0.0")
+                .effectiveDate(afterToday)
+                .contentHash("hash5")
+                .policyUrl("https://example.com/policy5")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies activeBeforeTodayOtherLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.5.0")
+                .effectiveDate(beforeToday)
+                .contentHash("hash6")
+                .policyUrl("https://example.com/policy6")
+                .locale(otherLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies activeOnTodayOtherLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("2.5.0")
+                .effectiveDate(today)
+                .contentHash("hash7")
+                .policyUrl("https://example.com/policy7")
+                .locale(otherLocale)
+                .isActive(true)
+                .build();
+
+        // Persist all policies
+        entityManager.persistAndFlush(activeBeforeTodayMatchingLocale1);
+        entityManager.persistAndFlush(activeBeforeTodayMatchingLocale2);
+        entityManager.persistAndFlush(activeOnTodayMatchingLocale);
+        entityManager.persistAndFlush(inactiveBeforeTodayMatchingLocale);
+        entityManager.persistAndFlush(activeAfterTodayMatchingLocale);
+        entityManager.persistAndFlush(activeBeforeTodayOtherLocale);
+        entityManager.persistAndFlush(activeOnTodayOtherLocale);
+        entityManager.clear();
+
+        // When: Call the repository method with target locale
+        List<ConsentPolicies> result = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(testPolicyType, targetLocale, today);
+
+        // Then: only active with effectiveDate <= today and matching locale returned, ordered by effectiveDate DESC
+        assertEquals(3, result.size(), "Should return exactly 3 active policies with effectiveDate <= today and matching locale");
+
+        // Verify order: effectiveDate DESC
+        assertEquals("2.0.0", result.get(0).getVersion(), 
+                "First policy should be the one with latest effectiveDate (today)");
+        assertEquals("1.0.0", result.get(1).getVersion(), 
+                "Second policy should be the one with second latest effectiveDate");
+        assertEquals("1.1.0", result.get(2).getVersion(), 
+                "Third policy should be the one with earliest effectiveDate");
+
+        // Verify all returned policies are active, have correct locale, and effectiveDate <= today
+        result.forEach(policy -> {
+            assertTrue(policy.getIsActive(), "All returned policies should be active");
+            assertTrue(policy.getEffectiveDate().compareTo(today) <= 0, 
+                    "All returned policies should have effectiveDate <= today");
+            assertEquals(testPolicyType, policy.getPolicyType(), 
+                    "All returned policies should be of the correct type");
+            assertEquals(targetLocale, policy.getLocale(), 
+                    "All returned policies should have the matching locale");
+        });
+
+        // Verify effectiveDate values are in descending order
+        assertTrue(result.get(0).getEffectiveDate().compareTo(result.get(1).getEffectiveDate()) >= 0, 
+                "First policy should have later or equal effectiveDate than second");
+        assertTrue(result.get(1).getEffectiveDate().compareTo(result.get(2).getEffectiveDate()) >= 0, 
+                "Second policy should have later or equal effectiveDate than third");
+
+        // Verify that policies with other locale are not returned
+        result.forEach(policy -> {
+            assertNotEquals(otherLocale, policy.getLocale(), 
+                    "No policies with other locale should be returned");
+        });
+    }
+
+    @Test
+    void findActivePoliciesByTypeLocaleAndDate_NoActivePoliciesBeforeTodayForLocale_ReturnsEmptyList() {
+        // Given: only inactive policies or policies with effectiveDate after today for the target locale
+        LocalDate today = LocalDate.of(2024, 1, 15);
+        LocalDate afterToday = LocalDate.of(2024, 1, 20);
+        String targetLocale = "en-GB";
+        String otherLocale = "fr-FR";
+
+        ConsentPolicies inactiveBeforeTodayMatchingLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.0.0")
+                .effectiveDate(LocalDate.of(2024, 1, 10))
+                .contentHash("hash1")
+                .policyUrl("https://example.com/policy1")
+                .locale(targetLocale)
+                .isActive(false)
+                .build();
+
+        ConsentPolicies activeAfterTodayMatchingLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("2.0.0")
+                .effectiveDate(afterToday)
+                .contentHash("hash2")
+                .policyUrl("https://example.com/policy2")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies activeBeforeTodayOtherLocale = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.5.0")
+                .effectiveDate(LocalDate.of(2024, 1, 10))
+                .contentHash("hash3")
+                .policyUrl("https://example.com/policy3")
+                .locale(otherLocale)
+                .isActive(true)
+                .build();
+
+        // Persist policies
+        entityManager.persistAndFlush(inactiveBeforeTodayMatchingLocale);
+        entityManager.persistAndFlush(activeAfterTodayMatchingLocale);
+        entityManager.persistAndFlush(activeBeforeTodayOtherLocale);
+        entityManager.clear();
+
+        // When: Call the repository method with target locale
+        List<ConsentPolicies> result = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(testPolicyType, targetLocale, today);
+
+        // Then: should return empty list
+        assertTrue(result.isEmpty(), "Should return empty list when no active policies with effectiveDate <= today for the target locale");
+    }
+
+    @Test
+    void findActivePoliciesByTypeLocaleAndDate_DifferentLocales_OnlyReturnsMatchingLocale() {
+        // Given: policies with different locales
+        LocalDate today = LocalDate.of(2024, 1, 15);
+        LocalDate beforeToday = LocalDate.of(2024, 1, 10);
+
+        ConsentPolicies enGBPolicy = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.0.0")
+                .effectiveDate(beforeToday)
+                .contentHash("hash1")
+                .policyUrl("https://example.com/policy1")
+                .locale("en-GB")
+                .isActive(true)
+                .build();
+
+        ConsentPolicies frFRPolicy = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.0.0")
+                .effectiveDate(beforeToday)
+                .contentHash("hash2")
+                .policyUrl("https://example.com/policy2")
+                .locale("fr-FR")
+                .isActive(true)
+                .build();
+
+        ConsentPolicies deDEPolicy = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.0.0")
+                .effectiveDate(beforeToday)
+                .contentHash("hash3")
+                .policyUrl("https://example.com/policy3")
+                .locale("de-DE")
+                .isActive(true)
+                .build();
+
+        // Persist policies
+        entityManager.persistAndFlush(enGBPolicy);
+        entityManager.persistAndFlush(frFRPolicy);
+        entityManager.persistAndFlush(deDEPolicy);
+        entityManager.clear();
+
+        // When: Call the repository method for en-GB locale
+        List<ConsentPolicies> enGBResult = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(testPolicyType, "en-GB", today);
+
+        // Then: should return only en-GB policies
+        assertEquals(1, enGBResult.size(), "Should return only one policy for en-GB locale");
+        assertEquals("en-GB", enGBResult.get(0).getLocale(), 
+                "Should return only en-GB locale");
+        assertEquals("1.0.0", enGBResult.get(0).getVersion(), 
+                "Should return the correct version");
+
+        // When: Call the repository method for fr-FR locale
+        List<ConsentPolicies> frFRResult = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(testPolicyType, "fr-FR", today);
+
+        // Then: should return only fr-FR policies
+        assertEquals(1, frFRResult.size(), "Should return only one policy for fr-FR locale");
+        assertEquals("fr-FR", frFRResult.get(0).getLocale(), 
+                "Should return only fr-FR locale");
+
+        // When: Call the repository method for de-DE locale
+        List<ConsentPolicies> deDEResult = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(testPolicyType, "de-DE", today);
+
+        // Then: should return only de-DE policies
+        assertEquals(1, deDEResult.size(), "Should return only one policy for de-DE locale");
+        assertEquals("de-DE", deDEResult.get(0).getLocale(), 
+                "Should return only de-DE locale");
+    }
+
+    @Test
+    void findActivePoliciesByTypeLocaleAndDate_SameEffectiveDateAndLocale_ReturnsAllInCorrectOrder() {
+        // Given: multiple policies with the same effectiveDate and locale
+        LocalDate today = LocalDate.of(2024, 1, 15);
+        LocalDate sameDate = LocalDate.of(2024, 1, 10);
+        String targetLocale = "en-GB";
+
+        ConsentPolicies policy1 = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.0.0")
+                .effectiveDate(sameDate)
+                .contentHash("hash1")
+                .policyUrl("https://example.com/policy1")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies policy2 = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.1.0")
+                .effectiveDate(sameDate)
+                .contentHash("hash2")
+                .policyUrl("https://example.com/policy2")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        ConsentPolicies policy3 = ConsentPolicies.builder()
+                .policyType(testPolicyType)
+                .version("1.2.0")
+                .effectiveDate(sameDate)
+                .contentHash("hash3")
+                .policyUrl("https://example.com/policy3")
+                .locale(targetLocale)
+                .isActive(true)
+                .build();
+
+        // Persist policies in non-chronological order
+        entityManager.persistAndFlush(policy2);
+        entityManager.persistAndFlush(policy1);
+        entityManager.persistAndFlush(policy3);
+        entityManager.clear();
+
+        // When: Call the repository method
+        List<ConsentPolicies> result = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(testPolicyType, targetLocale, today);
+
+        // Then: should return all 3 policies with same effectiveDate and locale
+        assertEquals(3, result.size(), "Should return all 3 policies with same effectiveDate and locale");
+
+        // Verify all have the same effectiveDate and locale
+        result.forEach(policy -> {
+            assertEquals(sameDate, policy.getEffectiveDate(), 
+                    "All policies should have the same effectiveDate");
+            assertEquals(targetLocale, policy.getLocale(), 
+                    "All policies should have the same locale");
+            assertTrue(policy.getIsActive(), "All policies should be active");
+        });
+    }
 } 
