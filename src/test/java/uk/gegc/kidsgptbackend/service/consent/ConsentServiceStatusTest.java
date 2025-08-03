@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
@@ -249,8 +250,8 @@ class ConsentServiceStatusTest {
         }
         
         // Mock getMostRecentConsentId to return null (no consents)
-        org.springframework.data.domain.Page<uk.gegc.kidsgptbackend.model.consent.ConsentLedger> emptyPage = 
-            org.mockito.Mockito.mock(org.springframework.data.domain.Page.class);
+        Page emptyPage =
+            mock(Page.class);
         when(emptyPage.getContent()).thenReturn(java.util.List.of());
         when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(
                 eq(parentId), 
@@ -393,8 +394,8 @@ class ConsentServiceStatusTest {
                 .thenReturn(java.util.Optional.empty());
         
         // Mock getMostRecentConsentId to return the WITHDRAWN consent ID
-        org.springframework.data.domain.Page<uk.gegc.kidsgptbackend.model.consent.ConsentLedger> page = 
-            org.mockito.Mockito.mock(org.springframework.data.domain.Page.class);
+        Page page =
+            mock(Page.class);
         when(page.getContent()).thenReturn(java.util.List.of(withdrawnConsent, grantedConsent));
         when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(
                 eq(parentId), 
@@ -563,8 +564,8 @@ class ConsentServiceStatusTest {
                 .thenReturn(java.util.List.of(activePolicy));
         
         // Mock getMostRecentConsentId to return the null version consent ID
-        org.springframework.data.domain.Page<uk.gegc.kidsgptbackend.model.consent.ConsentLedger> page = 
-            org.mockito.Mockito.mock(org.springframework.data.domain.Page.class);
+        Page page =
+            mock(Page.class);
         when(page.getContent()).thenReturn(java.util.List.of(nullVersionConsent, normalConsent));
         when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(
                 eq(parentId), 
@@ -805,6 +806,212 @@ class ConsentServiceStatusTest {
         // And: non-locale policy repository called for the TERMS_OF_SERVICE consent type
         verify(consentPoliciesRepository).findActivePoliciesByTypeAndDate(
                 eq(uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE),
+                any(java.time.LocalDate.class));
+        
+        // And: no child coverage repository calls
+        verifyNoInteractions(consentChildCoverageRepository);
+    }
+    
+    @Test
+    void latestPolicyWithoutLocaleNoLocaleDerivable_returnsReconsentNeededTrue() {
+        // Given: policyUrl=null or has no locale segment
+        String validUuid = "550e8400-e29b-41d4-a716-446655440000"; // Valid UUID format
+        java.util.UUID verificationUuid = java.util.UUID.fromString(validUuid);
+        java.util.UUID parentId = java.util.UUID.randomUUID();
+        
+        // Use fixed times to avoid timing issues
+        java.time.Instant fixedCurrentTime = java.time.Instant.parse("2024-01-15T12:00:00Z");
+        java.time.LocalDateTime futureTime = java.time.LocalDateTime.parse("2024-01-15T14:00:00"); // 2 hours in future
+        
+        uk.gegc.kidsgptbackend.model.consent.ParentVerification verifiedVerification = 
+            uk.gegc.kidsgptbackend.model.consent.ParentVerification.builder()
+                .verificationId(verificationUuid)
+                .parentId(parentId)
+                .verificationMethod(uk.gegc.kidsgptbackend.model.consent.VerificationMethod.EMAIL)
+                .verificationStatus(uk.gegc.kidsgptbackend.model.consent.VerificationStatus.VERIFIED) // VERIFIED
+                .contactInfoHash(new byte[64])
+                .verificationCodeHash(new byte[64])
+                .attemptCount(1)
+                .expiresAt(futureTime) // Not expired (2 hours in future)
+                .verifiedAt(java.time.LocalDateTime.parse("2024-01-15T11:00:00")) // Verified
+                .ipAddress("127.0.0.1")
+                .userAgent("test-agent")
+                .createdAt(java.time.LocalDateTime.parse("2024-01-15T10:00:00"))
+                .build();
+        
+        when(parentVerificationRepository.findById(verificationUuid))
+                .thenReturn(java.util.Optional.of(verifiedVerification));
+        
+        // Mock clock to return fixed current time (which is before expiresAt)
+        when(clock.instant()).thenReturn(fixedCurrentTime);
+        when(clock.getZone()).thenReturn(java.time.ZoneOffset.UTC);
+        
+        // Create a consent with no locale URL and outdated version for PRIVACY_POLICY
+        uk.gegc.kidsgptbackend.model.consent.ConsentLedger noLocaleConsent = 
+            uk.gegc.kidsgptbackend.model.consent.ConsentLedger.builder()
+                .consentId(java.util.UUID.randomUUID())
+                .userId(parentId)
+                .consentType(uk.gegc.kidsgptbackend.model.consent.ConsentType.PRIVACY_POLICY)
+                .consentVersion("1.9.9") // Outdated version - this is the key test condition
+                .consentStatus(uk.gegc.kidsgptbackend.model.consent.ConsentStatus.GRANTED)
+                .policyUrl("https://kidsgpt.club/policies/privacy") // URL has no locale segment
+                .contentHash("abc123")
+                .jurisdiction("GB")
+                .region("UK")
+                .locale("en-GB")
+                .lawfulBasis(uk.gegc.kidsgptbackend.model.consent.LawfulBasis.CONSENT)
+                .source(uk.gegc.kidsgptbackend.model.consent.ConsentSource.WEB)
+                .ipAddress("127.0.0.1")
+                .userAgent("test-agent")
+                .consentTimestamp(java.time.LocalDateTime.parse("2024-01-15T10:00:00"))
+                .parentVerificationId(verificationUuid)
+                .retentionExpiresAt(java.time.LocalDateTime.parse("2031-01-15T10:00:00"))
+                .receiptJson("{}")
+                .recordSignature(new byte[64])
+                .withdrawnConsentId(null)
+                .createdAt(java.time.LocalDateTime.parse("2024-01-15T10:00:00"))
+                .build();
+        
+        // Create a consent with null policyUrl for TERMS_OF_SERVICE (to show null handling)
+        uk.gegc.kidsgptbackend.model.consent.ConsentLedger nullUrlConsent = 
+            uk.gegc.kidsgptbackend.model.consent.ConsentLedger.builder()
+                .consentId(java.util.UUID.randomUUID())
+                .userId(parentId)
+                .consentType(uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE)
+                .consentVersion("1.0.0") // Outdated version
+                .consentStatus(uk.gegc.kidsgptbackend.model.consent.ConsentStatus.GRANTED)
+                .policyUrl(null) // null policyUrl
+                .contentHash("def456")
+                .jurisdiction("GB")
+                .region("UK")
+                .locale("en-GB")
+                .lawfulBasis(uk.gegc.kidsgptbackend.model.consent.LawfulBasis.CONTRACT)
+                .source(uk.gegc.kidsgptbackend.model.consent.ConsentSource.WEB)
+                .ipAddress("127.0.0.1")
+                .userAgent("test-agent")
+                .consentTimestamp(java.time.LocalDateTime.parse("2024-01-15T11:00:00"))
+                .parentVerificationId(verificationUuid)
+                .retentionExpiresAt(java.time.LocalDateTime.parse("2030-01-15T11:00:00"))
+                .receiptJson("{}")
+                .recordSignature(new byte[64])
+                .withdrawnConsentId(null)
+                .createdAt(java.time.LocalDateTime.parse("2024-01-15T11:00:00"))
+                .build();
+        
+        // Mock repository to return the no-locale consent for PRIVACY_POLICY
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                parentId, uk.gegc.kidsgptbackend.model.consent.ConsentType.PRIVACY_POLICY))
+                .thenReturn(java.util.Optional.of(noLocaleConsent));
+        
+        // Mock repository to return the null-url consent for TERMS_OF_SERVICE
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                parentId, uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE))
+                .thenReturn(java.util.Optional.of(nullUrlConsent));
+        
+        // Mock repository to return empty for other consent types
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                parentId, uk.gegc.kidsgptbackend.model.consent.ConsentType.PARENTAL_CONSENT))
+                .thenReturn(java.util.Optional.empty());
+        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                parentId, uk.gegc.kidsgptbackend.model.consent.ConsentType.DATA_PROCESSING))
+                .thenReturn(java.util.Optional.empty());
+        
+        // And: findActivePoliciesByTypeAndDate(type, today) returns "2.0.0" for PRIVACY_POLICY
+        // Create an active policy for PRIVACY_POLICY without locale
+        uk.gegc.kidsgptbackend.model.consent.ConsentPolicies privacyPolicy = 
+            uk.gegc.kidsgptbackend.model.consent.ConsentPolicies.builder()
+                .policyId(java.util.UUID.randomUUID())
+                .policyType(uk.gegc.kidsgptbackend.model.consent.ConsentType.PRIVACY_POLICY)
+                .version("2.0.0") // Newer version (consent is 1.9.9)
+                .effectiveDate(java.time.LocalDate.parse("2024-01-01"))
+                .contentHash("policy123")
+                .policyUrl("https://kidsgpt.club/policies/privacy")
+                .locale(null) // No locale
+                .isActive(true) // Active policy
+                .createdAt(java.time.LocalDateTime.parse("2024-01-01T00:00:00"))
+                .build();
+        
+        // Mock non-locale policy repository to return the newer version for PRIVACY_POLICY
+        when(consentPoliciesRepository.findActivePoliciesByTypeAndDate(
+                eq(uk.gegc.kidsgptbackend.model.consent.ConsentType.PRIVACY_POLICY),
+                any(java.time.LocalDate.class)))
+                .thenReturn(java.util.List.of(privacyPolicy));
+        
+        // Mock non-locale policy repository to return a different version for TERMS_OF_SERVICE
+        uk.gegc.kidsgptbackend.model.consent.ConsentPolicies termsPolicy = 
+            uk.gegc.kidsgptbackend.model.consent.ConsentPolicies.builder()
+                .policyId(java.util.UUID.randomUUID())
+                .policyType(uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE)
+                .version("2.0.0") // Newer version (outdated consent is 1.0.0)
+                .effectiveDate(java.time.LocalDate.parse("2024-01-01"))
+                .contentHash("policy456")
+                .policyUrl("https://kidsgpt.club/policies/terms")
+                .locale(null) // No locale
+                .isActive(true) // Active policy
+                .createdAt(java.time.LocalDateTime.parse("2024-01-01T00:00:00"))
+                .build();
+        
+        when(consentPoliciesRepository.findActivePoliciesByTypeAndDate(
+                eq(uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE),
+                any(java.time.LocalDate.class)))
+                .thenReturn(java.util.List.of(termsPolicy));
+        
+        // Mock getMostRecentConsentId to return the no-locale consent ID
+        org.springframework.data.domain.Page<uk.gegc.kidsgptbackend.model.consent.ConsentLedger> page = 
+            org.mockito.Mockito.mock(org.springframework.data.domain.Page.class);
+        when(page.getContent()).thenReturn(java.util.List.of(noLocaleConsent, nullUrlConsent));
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(
+                eq(parentId), 
+                any(org.springframework.data.domain.Pageable.class)))
+                .thenReturn(page);
+
+        // When: service is called
+        uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse result = consentService.getConsentStatus(validUuid);
+
+        // Then: reconsentNeeded=true because both consents are outdated
+        assertNotNull(result);
+        assertTrue(result.reconsentNeeded(), "reconsentNeeded should be true because both consents are outdated");
+        assertEquals(2, result.latestByType().size(), "Should have 2 consent types");
+        assertEquals(noLocaleConsent.getConsentId(), result.consentId(), "consentId should be the most recent consent ID");
+
+        // Verify both consents are in the response
+        boolean hasPrivacyConsent = result.latestByType().stream()
+                .anyMatch(consent -> consent.type() == uk.gegc.kidsgptbackend.model.consent.ConsentType.PRIVACY_POLICY);
+        assertTrue(hasPrivacyConsent, "Response should contain the PRIVACY_POLICY consent");
+        
+        boolean hasTermsConsent = result.latestByType().stream()
+                .anyMatch(consent -> consent.type() == uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE);
+        assertTrue(hasTermsConsent, "Response should contain the TERMS_OF_SERVICE consent");
+
+        // And: parentVerificationRepository.findById() called exactly once
+        verify(parentVerificationRepository).findById(verificationUuid);
+        verifyNoMoreInteractions(parentVerificationRepository);
+        
+        // And: clock.instant() called (for the time comparison and policy date check)
+        verify(clock, times(2)).instant();
+        
+        // And: consentLedgerRepository methods called for each consent type
+        for (uk.gegc.kidsgptbackend.model.consent.ConsentType type : uk.gegc.kidsgptbackend.model.consent.ConsentType.values()) {
+            verify(consentLedgerRepository).findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(parentId, type);
+        }
+        
+        // And: getMostRecentConsentId repository method called
+        verify(consentLedgerRepository).findByUserIdOrderByConsentTimestampDescCreatedAtDesc(
+                eq(parentId), 
+                any(org.springframework.data.domain.Pageable.class));
+        
+        // And: non-locale policy repository called for the first consent type only (early return after first outdated consent)
+        verify(consentPoliciesRepository).findActivePoliciesByTypeAndDate(
+                eq(uk.gegc.kidsgptbackend.model.consent.ConsentType.PRIVACY_POLICY),
+                any(java.time.LocalDate.class));
+        verify(consentPoliciesRepository, never()).findActivePoliciesByTypeAndDate(
+                eq(uk.gegc.kidsgptbackend.model.consent.ConsentType.TERMS_OF_SERVICE),
+                any(java.time.LocalDate.class));
+        
+        // And: no locale-aware policy repository calls (since no locale derivable)
+        verify(consentPoliciesRepository, never()).findActivePoliciesByTypeLocaleAndDate(
+                any(uk.gegc.kidsgptbackend.model.consent.ConsentType.class),
+                any(String.class),
                 any(java.time.LocalDate.class));
         
         // And: no child coverage repository calls
