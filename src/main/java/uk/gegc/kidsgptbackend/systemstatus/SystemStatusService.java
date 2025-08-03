@@ -7,10 +7,12 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import jakarta.annotation.PostConstruct;
 
 @Service
 @RequiredArgsConstructor
@@ -18,14 +20,20 @@ public class SystemStatusService {
 
     private final HealthContributorRegistry healthRegistry;   // Actuator SPI
     private final Environment env;              // resolved properties
+    private final Clock clock;
 
-    private final long startTime = System.currentTimeMillis();
+    private long startTime;
 
     @Value("${git.commit.id.abbrev:unknown}")
     private String commit;
 
     @Value("${git.build.version:unknown}")
     private String buildTag;
+
+    @PostConstruct
+    public void init() {
+        startTime = clock.millis();
+    }
 
     public SystemStatusDto getStatus() {
 
@@ -51,9 +59,9 @@ public class SystemStatusService {
         SystemStatusDto dto = new SystemStatusDto();
         dto.setOverall(dbUp && keyLooksGood ? "UP" : "DOWN");
         dto.setApp("UP");
-        dto.setUptimeSeconds((System.currentTimeMillis() - startTime) / 1000);
+        dto.setUptimeSeconds((clock.millis() - startTime) / 1000);
         dto.setVersion(version);
-        dto.setTimestamp(Instant.now());
+        dto.setTimestamp(Instant.now(clock));
         dto.setComponents(components);
 
         return dto;

@@ -11,6 +11,7 @@ import org.springframework.boot.actuate.health.*;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Iterator;
 import java.util.Map;
@@ -27,6 +28,9 @@ class SystemStatusServiceTest {
 
     @Mock
     private Environment env;
+    
+    @Mock
+    private Clock clock;
 
     @InjectMocks
     private SystemStatusService systemStatusService;
@@ -35,6 +39,10 @@ class SystemStatusServiceTest {
     void setUp() {
         ReflectionTestUtils.setField(systemStatusService, "commit", "abc123");
         ReflectionTestUtils.setField(systemStatusService, "buildTag", "v1.0.0");
+        
+        // Set up clock mock to return consistent values
+        when(clock.millis()).thenReturn(1000L);
+        when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000L));
     }
 
     @Test
