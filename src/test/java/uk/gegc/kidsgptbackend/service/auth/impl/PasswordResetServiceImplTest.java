@@ -20,6 +20,8 @@ import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,6 +45,9 @@ class PasswordResetServiceImplTest {
 
     @Mock
     EmailService emailService;
+    
+    @Mock
+    Clock clock;
 
     @InjectMocks
     PasswordResetServiceImpl passwordResetService;
@@ -53,6 +58,11 @@ class PasswordResetServiceImplTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+
+        // Set up clock mock
+        when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000L));
+        when(clock.millis()).thenReturn(1000L);
+        when(clock.getZone()).thenReturn(java.time.ZoneOffset.UTC);
 
         testUser = new User();
         testUser.setId(UUID.randomUUID());
@@ -81,7 +91,7 @@ class PasswordResetServiceImplTest {
         PasswordResetResponse response = passwordResetService.initiatePasswordReset(request);
 
         assertThat(response.message()).contains("If an account with this email exists");
-        assertThat(response.expiresAt()).isAfter(LocalDateTime.now());
+        assertThat(response.expiresAt()).isAfter(LocalDateTime.now(clock));
 
         verify(tokenRepository).invalidateAllTokensForUser(eq(testUser.getId()), any(LocalDateTime.class));
         verify(tokenRepository).save(any(PasswordResetToken.class));
@@ -98,7 +108,7 @@ class PasswordResetServiceImplTest {
         PasswordResetResponse response = passwordResetService.initiatePasswordReset(request);
 
         assertThat(response.message()).contains("If an account with this email exists");
-        assertThat(response.expiresAt()).isAfter(LocalDateTime.now());
+        assertThat(response.expiresAt()).isAfter(LocalDateTime.now(clock));
 
         verify(tokenRepository, never()).save(any());
         verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString(), anyString());
@@ -115,7 +125,7 @@ class PasswordResetServiceImplTest {
         PasswordResetResponse response = passwordResetService.initiatePasswordReset(request);
 
         assertThat(response.message()).contains("If an account with this email exists");
-        assertThat(response.expiresAt()).isAfter(LocalDateTime.now());
+        assertThat(response.expiresAt()).isAfter(LocalDateTime.now(clock));
 
         verify(tokenRepository, never()).save(any());
         verify(emailService, never()).sendPasswordResetEmail(anyString(), anyString(), anyString());

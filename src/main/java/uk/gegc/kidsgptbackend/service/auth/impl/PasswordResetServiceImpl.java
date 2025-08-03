@@ -18,7 +18,9 @@ import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 import uk.gegc.kidsgptbackend.util.TokenGenerator;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 @Slf4j
@@ -30,6 +32,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final PasswordResetTokenRepository tokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final Clock clock;
 
     @Override
     @Transactional
@@ -42,7 +45,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             log.info("Password reset requested for non-existent email: {}", request.email());
             return new PasswordResetResponse(
                     "If an account with this email exists, a password reset link has been sent.",
-                    LocalDateTime.now().plusHours(1)
+                    LocalDateTime.now(clock).plusHours(1)
             );
         }
 
@@ -53,12 +56,12 @@ public class PasswordResetServiceImpl implements PasswordResetService {
             log.warn("Password reset requested for inactive user: {}", request.email());
             return new PasswordResetResponse(
                     "If an account with this email exists, a password reset link has been sent.",
-                    LocalDateTime.now().plusHours(1)
+                    LocalDateTime.now(clock).plusHours(1)
             );
         }
 
         // Invalidate any existing tokens for this user
-        tokenRepository.invalidateAllTokensForUser(user.getId(), LocalDateTime.now());
+        tokenRepository.invalidateAllTokensForUser(user.getId(), LocalDateTime.now(clock));
 
         // Generate new token
         String resetToken = TokenGenerator.generateSecureToken();
@@ -68,7 +71,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         token.setToken(resetToken);
         token.setUserId(user.getId());
         token.setEmail(user.getEmail());
-        token.setExpiresAt(LocalDateTime.now().plusHours(1));
+        token.setExpiresAt(LocalDateTime.now(clock).plusHours(1));
 
         tokenRepository.save(token);
 
@@ -95,7 +98,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     public void resetPassword(ResetPasswordRequest request) {
         // Find valid token
         Optional<PasswordResetToken> tokenOpt = tokenRepository.findValidTokenByTokenAndExpiresAtAfter(
-                request.token(), LocalDateTime.now()
+                request.token(), LocalDateTime.now(clock)
         );
 
         if (tokenOpt.isEmpty()) {
@@ -123,11 +126,11 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         // Mark token as used
         token.setUsed(true);
-        token.setUsedAt(LocalDateTime.now());
+        token.setUsedAt(LocalDateTime.now(clock));
         tokenRepository.save(token);
 
         // Invalidate all other tokens for this user
-        tokenRepository.invalidateAllTokensForUser(user.getId(), LocalDateTime.now());
+        tokenRepository.invalidateAllTokensForUser(user.getId(), LocalDateTime.now(clock));
 
         // Send confirmation email
         try {
@@ -143,6 +146,6 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     @Override
     @Transactional(readOnly = true)
     public boolean validateResetToken(String token) {
-        return tokenRepository.findValidTokenByTokenAndExpiresAtAfter(token, LocalDateTime.now()).isPresent();
+        return tokenRepository.findValidTokenByTokenAndExpiresAtAfter(token, LocalDateTime.now(clock)).isPresent();
     }
 } 

@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Slf4j
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 public class ScheduledTasksConfig {
 
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final Clock clock;
 
     /**
      * Clean up expired and used password reset tokens every hour
@@ -25,7 +27,7 @@ public class ScheduledTasksConfig {
     @Transactional
     public void cleanupExpiredTokens() {
         try {
-            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime now = LocalDateTime.now(clock);
             passwordResetTokenRepository.deleteExpiredAndUsedTokens(now);
             log.debug("Cleaned up expired/used password reset tokens");
         } catch (Exception e) {

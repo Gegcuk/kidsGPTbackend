@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 import uk.gegc.kidsgptbackend.dto.image.ImageGenerationRequest;
 import uk.gegc.kidsgptbackend.dto.image.ImageGenerationResponse;
 import uk.gegc.kidsgptbackend.service.image.ImageGenerationService;
@@ -26,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(ImageGenerationController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(uk.gegc.kidsgptbackend.config.ClockConfig.class)
 class ImageGenerationControllerTest {
 
     @Autowired
