@@ -30,6 +30,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.anyOf;
+import static org.hamcrest.Matchers.isA;
+import static org.hamcrest.Matchers.matchesPattern;
 
 @WebMvcTest(controllers = ConsentController.class)
 @AutoConfigureMockMvc(addFilters = false)
@@ -783,6 +787,272 @@ class ConsentControllerHistoryIntegrationTest {
             // Test nulls remain null (e.g., parentVerificationId when absent)
             .andExpect(jsonPath("$.entries[0].parentVerificationId").isEmpty())
             .andExpect(jsonPath("$.entries[0].withdrawnConsentId").isEmpty());
+
+         // Verify service was called with correct parameters
+         Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
+     }
+
+     @Test
+     void enumSerializationIsTextual() throws Exception {
+         // Given: authenticated principal equals userId and entries with all enum values
+         String userId = UUID.randomUUID().toString();
+         LocalDateTime timestamp = LocalDateTime.of(2024, 1, 15, 10, 30, 0);
+         LocalDateTime createdAt = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+
+         // Set up authentication context manually
+         User principal = new User(
+                 userId,
+                 "password",
+                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+         );
+         UsernamePasswordAuthenticationToken authentication =
+                 new UsernamePasswordAuthenticationToken(
+                         principal,
+                         principal.getPassword(),
+                         principal.getAuthorities()
+                 );
+         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+         // Create mock entries with all enum values to test serialization
+         java.util.List<ConsentHistoryResponse.ConsentHistoryEntry> entries = new java.util.ArrayList<>();
+         
+         // Test all ConsentType values
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-1", ConsentType.PRIVACY_POLICY, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash1", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, null,
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         ));
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-2", ConsentType.TERMS_OF_SERVICE, "1.0.0", ConsentStatus.WITHDRAWN,
+                 "policy-url", "hash2", "GB", "UK", "en", LawfulBasis.CONTRACT, ConsentSource.IOS,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, "consent-1",
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         ));
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-3", ConsentType.PARENTAL_CONSENT, "1.0.0", ConsentStatus.EXPIRED,
+                 "policy-url", "hash3", "GB", "UK", "en", LawfulBasis.LEGITIMATE_INTEREST, ConsentSource.ANDROID,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, null,
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         ));
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-4", ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash4", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp, null,
+                 LocalDateTime.of(2032, 1, 15, 10, 30, 0), createdAt,
+                 java.util.List.of("kid1"), null
+         ));
+
+         // Mock service response
+         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                         userId,
+                         entries,
+                         0, // page
+                         20, // size
+                         4L, // total
+                         1, // totalPages
+                         false, // hasNext
+                         false // hasPrevious
+                 );
+         
+         Mockito.when(consentService.getConsentHistory(userId, 0, 20))
+                 .thenReturn(mockResponse);
+
+         // When / Then: GET should return enums serialized as strings (not ordinals)
+         mockMvc.perform(get("/api/v1/consent/history/{userId}", userId)
+                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.entries").isArray())
+            .andExpect(jsonPath("$.entries.length()").value(4))
+            
+            // Test ConsentType enum serialization (all values as strings)
+            .andExpect(jsonPath("$.entries[0].consentType").value("PRIVACY_POLICY"))
+            .andExpect(jsonPath("$.entries[1].consentType").value("TERMS_OF_SERVICE"))
+            .andExpect(jsonPath("$.entries[2].consentType").value("PARENTAL_CONSENT"))
+            .andExpect(jsonPath("$.entries[3].consentType").value("DATA_PROCESSING"))
+            
+            // Test ConsentStatus enum serialization (all values as strings)
+            .andExpect(jsonPath("$.entries[0].consentStatus").value("GRANTED"))
+            .andExpect(jsonPath("$.entries[1].consentStatus").value("WITHDRAWN"))
+            .andExpect(jsonPath("$.entries[2].consentStatus").value("EXPIRED"))
+            .andExpect(jsonPath("$.entries[3].consentStatus").value("GRANTED"))
+            
+            // Test LawfulBasis enum serialization (all values as strings)
+            .andExpect(jsonPath("$.entries[0].lawfulBasis").value("CONSENT"))
+            .andExpect(jsonPath("$.entries[1].lawfulBasis").value("CONTRACT"))
+            .andExpect(jsonPath("$.entries[2].lawfulBasis").value("LEGITIMATE_INTEREST"))
+            .andExpect(jsonPath("$.entries[3].lawfulBasis").value("CONSENT"))
+            
+            // Test ConsentSource enum serialization (all values as strings)
+            .andExpect(jsonPath("$.entries[0].source").value("WEB"))
+            .andExpect(jsonPath("$.entries[1].source").value("IOS"))
+            .andExpect(jsonPath("$.entries[2].source").value("ANDROID"))
+            .andExpect(jsonPath("$.entries[3].source").value("WEB"))
+            
+            // Verify that enum values are NOT serialized as numbers (ordinals)
+            // This ensures no ordinal leakage - enums should be strings, not 0, 1, 2, etc.
+            .andExpect(jsonPath("$.entries[0].consentType").value(not(0)))
+            .andExpect(jsonPath("$.entries[0].consentType").value(not(1)))
+            .andExpect(jsonPath("$.entries[0].consentType").value(not(2)))
+            .andExpect(jsonPath("$.entries[0].consentType").value(not(3)))
+            .andExpect(jsonPath("$.entries[0].consentStatus").value(not(0)))
+            .andExpect(jsonPath("$.entries[0].consentStatus").value(not(1)))
+            .andExpect(jsonPath("$.entries[0].consentStatus").value(not(2)))
+            .andExpect(jsonPath("$.entries[0].lawfulBasis").value(not(0)))
+            .andExpect(jsonPath("$.entries[0].lawfulBasis").value(not(1)))
+            .andExpect(jsonPath("$.entries[0].lawfulBasis").value(not(2)))
+            .andExpect(jsonPath("$.entries[0].source").value(not(0)))
+            .andExpect(jsonPath("$.entries[0].source").value(not(1)))
+            .andExpect(jsonPath("$.entries[0].source").value(not(2)));
+
+         // Verify service was called with correct parameters
+         Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
+     }
+
+     @Test
+     void timestampFormatIsIso() throws Exception {
+         // Given: authenticated principal equals userId and entries with various timestamp formats
+         String userId = UUID.randomUUID().toString();
+         
+         // Test various timestamp scenarios to ensure ISO format consistency
+         LocalDateTime timestamp1 = LocalDateTime.of(2024, 1, 15, 10, 30, 0); // No seconds
+         LocalDateTime timestamp2 = LocalDateTime.of(2024, 12, 31, 23, 59, 59); // With seconds
+         LocalDateTime timestamp3 = LocalDateTime.of(2023, 6, 1, 0, 0, 0); // Midnight
+         LocalDateTime timestamp4 = LocalDateTime.of(2025, 2, 28, 15, 45, 30); // Leap year consideration
+         
+         LocalDateTime createdAt1 = LocalDateTime.of(2024, 1, 15, 10, 25, 0);
+         LocalDateTime createdAt2 = LocalDateTime.of(2024, 12, 31, 23, 55, 0);
+         LocalDateTime createdAt3 = LocalDateTime.of(2023, 6, 1, 0, 0, 0);
+         LocalDateTime createdAt4 = LocalDateTime.of(2025, 2, 28, 15, 40, 0);
+         
+         LocalDateTime retention1 = LocalDateTime.of(2032, 1, 15, 10, 30, 0);
+         LocalDateTime retention2 = LocalDateTime.of(2032, 12, 31, 23, 59, 59);
+         LocalDateTime retention3 = LocalDateTime.of(2031, 6, 1, 0, 0, 0);
+         LocalDateTime retention4 = LocalDateTime.of(2033, 2, 28, 15, 45, 30);
+
+         // Set up authentication context manually
+         User principal = new User(
+                 userId,
+                 "password",
+                 java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+         );
+         UsernamePasswordAuthenticationToken authentication =
+                 new UsernamePasswordAuthenticationToken(
+                         principal,
+                         principal.getPassword(),
+                         principal.getAuthorities()
+                 );
+         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+         // Create mock entries with various timestamp formats to test serialization
+         java.util.List<ConsentHistoryResponse.ConsentHistoryEntry> entries = new java.util.ArrayList<>();
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-1", ConsentType.PRIVACY_POLICY, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash1", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp1, null,
+                 retention1, createdAt1,
+                 java.util.List.of("kid1"), null
+         ));
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-2", ConsentType.TERMS_OF_SERVICE, "1.0.0", ConsentStatus.WITHDRAWN,
+                 "policy-url", "hash2", "GB", "UK", "en", LawfulBasis.CONTRACT, ConsentSource.IOS,
+                 "192.168.1.1", "Mozilla/5.0", timestamp2, "consent-1",
+                 retention2, createdAt2,
+                 java.util.List.of("kid1"), null
+         ));
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-3", ConsentType.PARENTAL_CONSENT, "1.0.0", ConsentStatus.EXPIRED,
+                 "policy-url", "hash3", "GB", "UK", "en", LawfulBasis.LEGITIMATE_INTEREST, ConsentSource.ANDROID,
+                 "192.168.1.1", "Mozilla/5.0", timestamp3, null,
+                 retention3, createdAt3,
+                 java.util.List.of("kid1"), null
+         ));
+         
+         entries.add(new ConsentHistoryResponse.ConsentHistoryEntry(
+                 "consent-4", ConsentType.DATA_PROCESSING, "1.0.0", ConsentStatus.GRANTED,
+                 "policy-url", "hash4", "GB", "UK", "en", LawfulBasis.CONSENT, ConsentSource.WEB,
+                 "192.168.1.1", "Mozilla/5.0", timestamp4, null,
+                 retention4, createdAt4,
+                 java.util.List.of("kid1"), null
+         ));
+
+         // Mock service response
+         ConsentHistoryResponse.PaginatedConsentHistoryResponse mockResponse = 
+                 new ConsentHistoryResponse.PaginatedConsentHistoryResponse(
+                         userId,
+                         entries,
+                         0, // page
+                         20, // size
+                         4L, // total
+                         1, // totalPages
+                         false, // hasNext
+                         false // hasPrevious
+                 );
+         
+         Mockito.when(consentService.getConsentHistory(userId, 0, 20))
+                 .thenReturn(mockResponse);
+
+         // When / Then: GET should return timestamps in ISO format (YYYY-MM-DDTHH:mm:ss)
+         mockMvc.perform(get("/api/v1/consent/history/{userId}", userId)
+                 .accept(MediaType.APPLICATION_JSON))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.userId").value(userId))
+            .andExpect(jsonPath("$.entries").isArray())
+            .andExpect(jsonPath("$.entries.length()").value(4))
+            
+            // Test consentTimestamp serialization in ISO format
+            .andExpect(jsonPath("$.entries[0].consentTimestamp").value("2024-01-15T10:30:00"))
+            .andExpect(jsonPath("$.entries[1].consentTimestamp").value("2024-12-31T23:59:59"))
+            .andExpect(jsonPath("$.entries[2].consentTimestamp").value("2023-06-01T00:00:00"))
+            .andExpect(jsonPath("$.entries[3].consentTimestamp").value("2025-02-28T15:45:30"))
+            
+            // Test createdAt serialization in ISO format
+            .andExpect(jsonPath("$.entries[0].createdAt").value("2024-01-15T10:25:00"))
+            .andExpect(jsonPath("$.entries[1].createdAt").value("2024-12-31T23:55:00"))
+            .andExpect(jsonPath("$.entries[2].createdAt").value("2023-06-01T00:00:00"))
+            .andExpect(jsonPath("$.entries[3].createdAt").value("2025-02-28T15:40:00"))
+            
+            // Test retentionExpiresAt serialization in ISO format
+            .andExpect(jsonPath("$.entries[0].retentionExpiresAt").value("2032-01-15T10:30:00"))
+            .andExpect(jsonPath("$.entries[1].retentionExpiresAt").value("2032-12-31T23:59:59"))
+            .andExpect(jsonPath("$.entries[2].retentionExpiresAt").value("2031-06-01T00:00:00"))
+            .andExpect(jsonPath("$.entries[3].retentionExpiresAt").value("2033-02-28T15:45:30"))
+            
+            // Verify that timestamps are NOT serialized as numbers (epoch milliseconds)
+            // This ensures no timestamp leakage - should be ISO strings, not numbers
+            .andExpect(jsonPath("$.entries[0].consentTimestamp").value(not(anyOf(
+                isA(Number.class), 
+                matchesPattern("\\d{13,}"), // epoch milliseconds
+                matchesPattern("\\d{10,}")  // epoch seconds
+            ))))
+            .andExpect(jsonPath("$.entries[0].createdAt").value(not(anyOf(
+                isA(Number.class), 
+                matchesPattern("\\d{13,}"), // epoch milliseconds
+                matchesPattern("\\d{10,}")  // epoch seconds
+            ))))
+            .andExpect(jsonPath("$.entries[0].retentionExpiresAt").value(not(anyOf(
+                isA(Number.class), 
+                matchesPattern("\\d{13,}"), // epoch milliseconds
+                matchesPattern("\\d{10,}")  // epoch seconds
+            ))))
+            
+            // Verify ISO format pattern: YYYY-MM-DDTHH:mm:ss (no milliseconds, no timezone)
+            .andExpect(jsonPath("$.entries[0].consentTimestamp").value(matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")))
+            .andExpect(jsonPath("$.entries[0].createdAt").value(matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")))
+            .andExpect(jsonPath("$.entries[0].retentionExpiresAt").value(matchesPattern("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}")));
 
          // Verify service was called with correct parameters
          Mockito.verify(consentService).getConsentHistory(userId, 0, 20);
