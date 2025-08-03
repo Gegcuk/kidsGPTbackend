@@ -76,7 +76,19 @@ public class ConsentController {
         ConsentHistoryResponse.PaginatedConsentHistoryResponse response = consentService.getConsentHistory(userId.toString(), page, size);
         return ResponseEntity.ok(response);
     }
-    
+
+    /**
+     * Get consent status for a verification ID
+     * GET /api/v1/consent/status/{verificationId}
+     */
+    @GetMapping("/status/{verificationId}")
+    public ResponseEntity<ConsentStatusResponse> getConsentStatus(@PathVariable String verificationId) {
+        log.info("Retrieving consent status for verification: {}", verificationId);
+        ConsentStatusResponse response = consentService.getConsentStatus(verificationId);
+        return ResponseEntity.ok(response);
+    }
+
+        
     /**
      * Get the current authenticated user ID
      * @return The current user ID as a string
@@ -103,14 +115,4 @@ public class ConsentController {
         }
     }
 
-    /**
-     * Get consent status for a verification ID
-     * GET /api/v1/consent/status/{verificationId}
-     */
-    @GetMapping("/status/{verificationId}")
-    public ResponseEntity<ConsentStatusResponse> getConsentStatus(@PathVariable String verificationId) {
-        log.info("Retrieving consent status for verification: {}", verificationId);
-        ConsentStatusResponse response = consentService.getConsentStatus(verificationId);
-        return ResponseEntity.ok(response);
-    }
 } 
