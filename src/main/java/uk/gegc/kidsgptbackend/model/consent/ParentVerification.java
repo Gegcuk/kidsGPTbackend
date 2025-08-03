@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Entity
@@ -54,16 +56,16 @@ public class ParentVerification {
     @Column(name = "user_agent", length = 512)
     private String userAgent;
     
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
     @PrePersist
     protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
         if (attemptCount == null) {
             attemptCount = 0;
+        }
+        if (createdAt == null) {
+            createdAt = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         }
     }
 } 

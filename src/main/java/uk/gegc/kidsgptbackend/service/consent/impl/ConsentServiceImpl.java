@@ -337,7 +337,7 @@ public class ConsentServiceImpl implements ConsentService {
                 Sort.Order.desc("consentTimestamp"),
                 Sort.Order.desc("createdAt")
             ));
-            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserId(userUuid, pageable);
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(userUuid, pageable);
             List<ConsentLedger> consentLedgers = consentLedgerPage.getContent();
             
             if (consentLedgers.isEmpty()) {
@@ -399,7 +399,7 @@ public class ConsentServiceImpl implements ConsentService {
                 Sort.Order.desc("consentTimestamp"),
                 Sort.Order.desc("createdAt")
             ));
-            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserId(userUuid, pageable);
+            Page<ConsentLedger> consentLedgerPage = consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(userUuid, pageable);
             
             if (consentLedgerPage.isEmpty()) {
                 return ConsentHistoryResponse.PaginatedConsentHistoryResponse.from(

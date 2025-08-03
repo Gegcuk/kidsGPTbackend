@@ -19,9 +19,9 @@ import java.util.UUID;
 public interface ConsentLedgerRepository extends JpaRepository<ConsentLedger, UUID> {
 
     /**
-     * Find all consent ledger entries for a user (ordering handled by Pageable)
+     * Find all consent ledger entries for a user ordered by consent timestamp (canonical event time) with deterministic tie-breaker
      */
-    Page<ConsentLedger> findByUserId(UUID userId, Pageable pageable);
+    Page<ConsentLedger> findByUserIdOrderByConsentTimestampDescCreatedAtDesc(UUID userId, Pageable pageable);
     
     /**
      * Find consent ledger entries for a user and consent type ordered by consent timestamp (canonical event time) with deterministic tie-breaker
