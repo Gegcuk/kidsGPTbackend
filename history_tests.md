@@ -4,62 +4,21 @@ This document lists **all necessary tests** for the `/api/v1/consent/history/{us
 
 ---
 
-## 2) Service Unit Tests (`ConsentServiceImpl#getConsentHistory(userId, page, size)`)
-
-> Mock repositories; verify logic, mapping, error handling.
-
-1. **Validates page and size bounds** ✅ IMPLEMENTED
-   - `page < 0` ⇒ throws `ResponseStatusException(400)`
-   - `size <= 0` or `size > 100` ⇒ throws `ResponseStatusException(400)`.
-
-2. **Invalid `userId` UUID** ✅ IMPLEMENTED
-   - Non‑UUID string ⇒ `ResponseStatusException(400)`.
-
-3. **Empty page result handling** ✅ IMPLEMENTED
-   - Repository returns empty `Page` ⇒ service returns `entries=[]`, `total=0`, correct metadata via wrapper.
-
-4. **Batch coverage fetch (no N+1)** ✅ IMPLEMENTED
-   - With N ledger rows, service calls `findByConsentIds` **once** with all relevant IDs; never calls per‑row coverage fetch methods.
-
-5. **Mapping: all fields copied correctly** ✅ IMPLEMENTED
-   - Verify each `ConsentHistoryEntry` field mirrors `ConsentLedger` values; `parentVerificationId` and `withdrawnConsentId` stringified or null; timestamps preserved.
-
-6. **`coveredKids` distinct + sorted** ✅ IMPLEMENTED
-   - Input coverage includes duplicates/unordered ⇒ output is unique and sorted.
-
-7. **Ordering not overridden in service** ✅ IMPLEMENTED
-   - Service honors repository/page ordering (no resorting).
-
-8. **Repository exception surfaces as 500** ✅ IMPLEMENTED
-   - If `consentLedgerRepository.findByUserId(..)` throws, service wraps with `ResponseStatusException(500)`; similarly for `consentChildCoverageRepository.findByConsentIds(..)`.
-
-9. **Pagination metadata computation (wrapper)** ✅ IMPLEMENTED
-   - Using total elements from `Page`, `PaginatedConsentHistoryResponse.from` produces correct `totalPages`, `hasNext`, `hasPrevious` for:
-     - total=0, size=20
-     - total=1, size=20
-     - total=20, size=20
-     - total=21, size=20 (2 pages), testing pages 0 and 1.
-
-10. **Coverage absent for some consents** ✅ IMPLEMENTED
-    - Some consent IDs missing in `coverageMap` ⇒ their `coveredKids=[]`.
-
----
-
 ## 3) Repository Tests (`ConsentLedgerRepository`)
 
 > Use @DataJpaTest with real DB (H2/MySQL) and entity mappings.
 
-1. **`findByUserId(Pageable)` honors composite sort** ❌ NOT IMPLEMENTED
+1. **`findByUserId(Pageable)` honors composite sort** ✅ IMPLEMENTED
    - With data where multiple rows share `consentTimestamp` but differ in `createdAt`
    - Verify order: `consentTimestamp DESC`, then `createdAt DESC`.
 
 2. **`findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc`** ✅ IMPLEMENTED
    - Returns the most recent entry per composite ordering.
 
-3. **`findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc`** ❌ NOT IMPLEMENTED
+3. **`findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc`** ✅ IMPLEMENTED
    - Filters by status and returns correct latest entry.
 
-4. **`findExpiredConsents(now)`** ❌ NOT IMPLEMENTED
+4. **`findExpiredConsents(now)`** ✅ IMPLEMENTED
    - Returns only rows with `retentionExpiresAt <= now`.
 
 5. **`findActiveGrantByUserTypeAndVersion`** ✅ IMPLEMENTED

@@ -60,7 +60,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
                 .build();
 
         Page<ConsentLedger> consentLedgerPage = new PageImpl<>(List.of(consentLedger));
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(consentLedgerPage);
 
         // No child coverage for this test
@@ -136,7 +136,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
                 .build();
 
         Page<ConsentLedger> consentLedgerPage = new PageImpl<>(List.of(consentLedger));
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(consentLedgerPage);
 
         // No child coverage for this test
@@ -208,7 +208,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
                 .build();
 
         Page<ConsentLedger> consentLedgerPage = new PageImpl<>(List.of(consentLedger));
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(consentLedgerPage);
 
         // Create coverage data with duplicates and unordered kid IDs
@@ -353,7 +353,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         List<ConsentLedger> ledgersInOrder = List.of(ledger3, ledger1, ledger2);
         Page<ConsentLedger> consentLedgerPage = new PageImpl<>(ledgersInOrder, PageRequest.of(0, 20), 3L);
         
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(consentLedgerPage);
 
         // No child coverage for this test
@@ -390,7 +390,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         
         // Verify that the service called the repository with the correct Pageable
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-        verify(consentLedgerRepository).findByUserId(eq(userId), pageableCaptor.capture());
+        verify(consentLedgerRepository).findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), pageableCaptor.capture());
         
         Pageable capturedPageable = pageableCaptor.getValue();
         assertEquals(0, capturedPageable.getPageNumber());
@@ -415,7 +415,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         String userIdString = userId.toString();
         
         // Mock consentLedgerRepository to throw a runtime exception
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenThrow(new RuntimeException("Database connection failed"));
 
         // When & Then
@@ -428,7 +428,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         assertEquals("Failed to retrieve consent history", exception.getReason());
         
         // Verify the repository was called
-        verify(consentLedgerRepository).findByUserId(eq(userId), any(Pageable.class));
+        verify(consentLedgerRepository).findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class));
         
         // Verify coverage repository was not called (since ledger repository failed first)
         verifyNoInteractions(consentChildCoverageRepository);
@@ -466,7 +466,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         Page<ConsentLedger> consentLedgerPage = new PageImpl<>(List.of(consentLedger));
         
         // Mock consentLedgerRepository to return valid data
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(consentLedgerPage);
 
         // Mock consentChildCoverageRepository to throw a runtime exception
@@ -483,7 +483,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         assertEquals("Failed to retrieve consent history", exception.getReason());
         
         // Verify both repositories were called
-        verify(consentLedgerRepository).findByUserId(eq(userId), any(Pageable.class));
+        verify(consentLedgerRepository).findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class));
         verify(consentChildCoverageRepository).findByConsentIds(List.of(consentId));
     }
 
@@ -495,7 +495,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         String userIdString = userId.toString();
         
         // Mock consentLedgerRepository to throw DataIntegrityViolationException
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenThrow(new DataIntegrityViolationException("Database constraint violation"));
 
         // When & Then
@@ -508,7 +508,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         assertEquals("Failed to retrieve consent history", exception.getReason());
         
         // Verify the repository was called
-        verify(consentLedgerRepository).findByUserId(eq(userId), any(Pageable.class));
+        verify(consentLedgerRepository).findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class));
         
         // Verify coverage repository was not called
         verifyNoInteractions(consentChildCoverageRepository);
@@ -523,7 +523,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         
         // Mock empty page result
         Page<ConsentLedger> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 20), 0L);
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(emptyPage);
 
         // When
@@ -571,7 +571,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
                 .build();
 
         Page<ConsentLedger> page = new PageImpl<>(List.of(consentLedger), PageRequest.of(0, 20), 1L);
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(page);
 
         // No child coverage for this test
@@ -626,7 +626,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         }
 
         Page<ConsentLedger> page = new PageImpl<>(ledgers, PageRequest.of(0, 20), 20L);
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(page);
 
         // No child coverage for this test
@@ -681,7 +681,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         }
 
         Page<ConsentLedger> page = new PageImpl<>(ledgers, PageRequest.of(0, 20), 21L);
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(page);
 
         // No child coverage for this test
@@ -732,7 +732,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
                 .build();
 
         Page<ConsentLedger> page = new PageImpl<>(List.of(ledger), PageRequest.of(1, 20), 21L);
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(page);
 
         // No child coverage for this test
@@ -830,7 +830,7 @@ class ConsentHistoryServiceTest extends ConsentServiceBaseTest {
         List<ConsentLedger> ledgers = List.of(ledger1, ledger2, ledger3);
         Page<ConsentLedger> consentLedgerPage = new PageImpl<>(ledgers, PageRequest.of(0, 20), 3L);
         
-        when(consentLedgerRepository.findByUserId(eq(userId), any(Pageable.class)))
+        when(consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(eq(userId), any(Pageable.class)))
                 .thenReturn(consentLedgerPage);
 
         // Create coverage data where consentId2 is missing from coverage
