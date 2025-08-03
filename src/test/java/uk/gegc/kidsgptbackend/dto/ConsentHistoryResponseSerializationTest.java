@@ -16,6 +16,7 @@ import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
 import uk.gegc.kidsgptbackend.model.consent.*;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
+import uk.gegc.kidsgptbackend.repository.consent.ConsentPoliciesRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 import uk.gegc.kidsgptbackend.service.consent.impl.ConsentServiceImpl;
 
@@ -41,6 +42,9 @@ class ConsentHistoryResponseSerializationTest {
     @Mock
     private ParentVerificationRepository parentVerificationRepository;
     
+    @Mock
+    private ConsentPoliciesRepository consentPoliciesRepository;
+    
     private ConsentServiceImpl consentService;
 
     @BeforeEach
@@ -53,7 +57,9 @@ class ConsentHistoryResponseSerializationTest {
         consentService = new ConsentServiceImpl(
             consentLedgerRepository,
             consentChildCoverageRepository,
-            parentVerificationRepository
+            parentVerificationRepository,
+            consentPoliciesRepository,
+            java.time.Clock.systemUTC()
         );
     }
 

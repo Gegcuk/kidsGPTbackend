@@ -15,6 +15,7 @@ import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
 import uk.gegc.kidsgptbackend.model.consent.*;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
+import uk.gegc.kidsgptbackend.repository.consent.ConsentPoliciesRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 
 import java.time.LocalDateTime;
@@ -38,6 +39,9 @@ class ConsentHistoryNPlusOneQueryTest {
 
     @Mock
     private ParentVerificationRepository parentVerificationRepository;
+    
+    @Mock
+    private ConsentPoliciesRepository consentPoliciesRepository;
 
     private ConsentServiceImpl consentService;
 
@@ -46,7 +50,9 @@ class ConsentHistoryNPlusOneQueryTest {
         consentService = new ConsentServiceImpl(
             consentLedgerRepository,
             consentChildCoverageRepository,
-            parentVerificationRepository
+            parentVerificationRepository,
+            consentPoliciesRepository,
+            java.time.Clock.systemUTC()
         );
     }
 
