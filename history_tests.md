@@ -4,46 +4,6 @@ This document lists **all necessary tests** for the `/api/v1/consent/history/{us
 
 ---
 
-## 3) Repository Tests (`ConsentLedgerRepository`)
-
-> Use @DataJpaTest with real DB (H2/MySQL) and entity mappings.
-
-1. **`findByUserId(Pageable)` honors composite sort** ✅ IMPLEMENTED
-   - With data where multiple rows share `consentTimestamp` but differ in `createdAt`
-   - Verify order: `consentTimestamp DESC`, then `createdAt DESC`.
-
-2. **`findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc`** ✅ IMPLEMENTED
-   - Returns the most recent entry per composite ordering.
-
-3. **`findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc`** ✅ IMPLEMENTED
-   - Filters by status and returns correct latest entry.
-
-4. **`findExpiredConsents(now)`** ✅ IMPLEMENTED
-   - Returns only rows with `retentionExpiresAt <= now`.
-
-5. **`findActiveGrantByUserTypeAndVersion`** ✅ IMPLEMENTED
-   - Returns the GRANTED row matching user/type/version; returns empty when not found or last action is WITHDRAWN.
-
-6. **`countActiveGrantsByUserAndType`** ✅ IMPLEMENTED
-   - Counts only rows with `consentStatus = GRANTED` for the type/user.
-
-7. **`existsWithdrawalByUserTypeAndVersion`** ✅ IMPLEMENTED
-   - True when a WITHDRAWN row exists for user/type/version; false otherwise.
-
-8. **`findByJurisdictionAndRegion`** ✅ IMPLEMENTED
-   - Filters by exact jurisdiction and region (case preserved per stored data).
-
-9. **`findByConsentTimestampBetween(from, to)`** ❌ NOT IMPLEMENTED
-   - Includes boundaries and excludes out‑of‑range rows.
-
-10. **`findByParentVerificationId`** ❌ NOT IMPLEMENTED
-    - Returns rows matching the verification id.
-
-11. **Entity persistence defaults (`@PrePersist`)** ✅ IMPLEMENTED
-    - `createdAt` auto‑populates in UTC when null on insert; verify precision/zone expectations.
-
----
-
 ## 4) DTO & Serialization Tests
 
 1. **`PaginatedConsentHistoryResponse.from` metadata math** ❌ NOT IMPLEMENTED
