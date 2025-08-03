@@ -4,24 +4,6 @@ This document lists **all necessary tests** for the `/api/v1/consent/history/{us
 
 ---
 
-## 4) DTO & Serialization Tests
-
-1. **`PaginatedConsentHistoryResponse.from` metadata math** ❌ NOT IMPLEMENTED
-   - Validate `totalPages`, `hasNext`, `hasPrevious` for combinations:
-     - total=0,size=20 ⇒ totalPages=0, hasNext=false, hasPrevious=false
-     - total=1,size=20 ⇒ totalPages=1, hasNext=false (page=0), hasPrevious=false
-     - total=20,size=20 ⇒ totalPages=1
-     - total=21,size=20 ⇒ totalPages=2 (page=0: hasNext=true; page=1: hasPrevious=true).
-
-2. **JSON serialization shape** ❌ NOT IMPLEMENTED
-   - Serialize `PaginatedConsentHistoryResponse` with one entry using Jackson `ObjectMapper`
-   - Ensure property names and enum string values match API contract; nulls included where expected (e.g., `parentVerificationId`, `withdrawnConsentId`).
-
-3. **Deterministic `coveredKids` representation** ❌ NOT IMPLEMENTED
-   - Given unsorted input, serialized JSON shows sorted order.
-
----
-
 ## 5) Performance / N+1 Guard (Integration or Slice)
 
 1. **Coverage retrieved in a single query** ❌ NOT IMPLEMENTED

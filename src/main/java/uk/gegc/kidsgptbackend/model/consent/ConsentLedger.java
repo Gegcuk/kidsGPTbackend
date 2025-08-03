@@ -87,7 +87,7 @@ public class ConsentLedger {
     @Column(name = "withdrawn_consent_id")
     private UUID withdrawnConsentId;
     
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
     
     @Column(name = "is_active_grant", insertable = false, updatable = false)
