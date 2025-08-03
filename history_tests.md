@@ -24,13 +24,13 @@ This document lists **all necessary tests** for the `/api/v1/consent/history/{us
 5. **`findActiveGrantByUserTypeAndVersion`** ✅ IMPLEMENTED
    - Returns the GRANTED row matching user/type/version; returns empty when not found or last action is WITHDRAWN.
 
-6. **`countActiveGrantsByUserAndType`** ❌ NOT IMPLEMENTED
+6. **`countActiveGrantsByUserAndType`** ✅ IMPLEMENTED
    - Counts only rows with `consentStatus = GRANTED` for the type/user.
 
 7. **`existsWithdrawalByUserTypeAndVersion`** ✅ IMPLEMENTED
    - True when a WITHDRAWN row exists for user/type/version; false otherwise.
 
-8. **`findByJurisdictionAndRegion`** ❌ NOT IMPLEMENTED
+8. **`findByJurisdictionAndRegion`** ✅ IMPLEMENTED
    - Filters by exact jurisdiction and region (case preserved per stored data).
 
 9. **`findByConsentTimestampBetween(from, to)`** ❌ NOT IMPLEMENTED
