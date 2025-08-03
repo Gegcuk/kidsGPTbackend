@@ -32,6 +32,8 @@ import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
 import java.security.Principal;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -59,6 +61,8 @@ class AiChatServiceImplTest {
     ModerationUtil moderationUtil;
     @Mock
     UserRepository userRepository;
+    @Mock
+    Clock clock;
 
     @InjectMocks
     AiChatServiceImpl service;
@@ -74,6 +78,10 @@ class AiChatServiceImplTest {
         ReflectionTestUtils.setField(service, "systemPromptAge11_12", new ByteArrayResource("sys".getBytes()));
         ReflectionTestUtils.setField(service, "systemPromptAge13_14", new ByteArrayResource("sys".getBytes()));
         ReflectionTestUtils.setField(service, "systemPromptAge15_16", new ByteArrayResource("sys".getBytes()));
+        
+        // Set up clock mock to return consistent values
+        when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000L));
+        
         when(chatClient.prompt()).thenReturn(requestSpec);
         when(requestSpec.system(anyString())).thenReturn(requestSpec);
         when(requestSpec.user(anyString())).thenReturn(requestSpec);

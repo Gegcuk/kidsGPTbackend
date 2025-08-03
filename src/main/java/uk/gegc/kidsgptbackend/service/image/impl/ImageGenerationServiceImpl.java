@@ -18,6 +18,7 @@ import uk.gegc.kidsgptbackend.service.image.ImageGenerationService;
 import uk.gegc.kidsgptbackend.util.ModerationUtil;
 
 import java.security.Principal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -31,6 +32,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     private final ImageModel imageModel;
     private final ModerationUtil moderationUtil;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     // Age-appropriate prompt modifiers
     private static final Map<AgeGroup, String> AGE_PROMPT_MODIFIERS = Map.of(
@@ -52,7 +54,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
 
     @Override
     public ImageGenerationResponse generateImage(ImageGenerationRequest request, Principal principal) {
-        Instant start = Instant.now();
+        Instant start = Instant.now(clock);
         
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -98,7 +100,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
             );
 
             Image image = response.getResult().getOutput();
-            long latencyMs = Duration.between(start, Instant.now()).toMillis();
+            long latencyMs = Duration.between(start, Instant.now(clock)).toMillis();
             
             AgeGroup ageGroup = user.getAge() != null ? AgeGroup.fromAge(user.getAge()) : AgeGroup.AGE_9_10;
 

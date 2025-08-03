@@ -34,6 +34,7 @@ import uk.gegc.kidsgptbackend.util.ModerationUtil;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -48,6 +49,7 @@ public class StoryServiceImpl implements StoryService {
     private final ChatClient chatClient;
     private final ModerationUtil moderationUtil;
     private final StoryMapper storyMapper;
+    private final Clock clock;
 
     @Value("classpath:prompts/stories/age-6-8.txt")
     private Resource storyPrompt6_8;
@@ -90,7 +92,7 @@ public class StoryServiceImpl implements StoryService {
 
     @Override
     public StartStoryResponse startStory(StartStoryRequest request, Principal principal) {
-        Instant start = Instant.now();
+        Instant start = Instant.now(clock);
         
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -128,7 +130,7 @@ public class StoryServiceImpl implements StoryService {
         story.setStatus(StoryStatus.IN_PROGRESS);
         storyRepository.save(story);
 
-        long latency = Duration.between(start, Instant.now()).toMillis();
+        long latency = Duration.between(start, Instant.now(clock)).toMillis();
         
         return new StartStoryResponse(
                 story.getId(),
@@ -144,7 +146,7 @@ public class StoryServiceImpl implements StoryService {
     @Override
     public ContinueStoryResponse continueStory(ContinueStoryRequest request, Principal principal) {
         UUID storyId = request.storyId();
-        Instant start = Instant.now();
+        Instant start = Instant.now(clock);
         
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
@@ -184,7 +186,7 @@ public class StoryServiceImpl implements StoryService {
 
         storyRepository.save(story);
 
-        long latency = Duration.between(start, Instant.now()).toMillis();
+        long latency = Duration.between(start, Instant.now(clock)).toMillis();
         
         return new ContinueStoryResponse(
                 story.getId(),
