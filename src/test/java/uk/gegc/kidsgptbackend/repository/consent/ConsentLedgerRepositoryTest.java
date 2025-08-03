@@ -9,6 +9,7 @@ import org.springframework.test.context.ActiveProfiles;
 import uk.gegc.kidsgptbackend.model.consent.*;
 
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.List;
@@ -1358,7 +1359,7 @@ class ConsentLedgerRepositoryTest {
         UUID consentId3 = UUID.randomUUID();
         UUID consentId4 = UUID.randomUUID();
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expired1 = now.minusDays(1); // Expired yesterday
         LocalDateTime expired2 = now.minusHours(1); // Expired 1 hour ago
         LocalDateTime expiresNow = now; // Expires now (should be included)
@@ -1488,7 +1489,7 @@ class ConsentLedgerRepositoryTest {
         UUID consentId1 = UUID.randomUUID();
         UUID consentId2 = UUID.randomUUID();
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expiresLater1 = now.plusDays(1);
         LocalDateTime expiresLater2 = now.plusDays(30);
 
@@ -1559,7 +1560,7 @@ class ConsentLedgerRepositoryTest {
     void findExpiredConsents_ShouldIncludeRecordsWithExactExpirationTime() {
         // Arrange - Create a record that expires exactly at the specified time
         UUID consentId = UUID.randomUUID();
-        LocalDateTime exactExpirationTime = LocalDateTime.now().plusMinutes(5); // Set to a specific time
+        LocalDateTime exactExpirationTime = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusMinutes(5); // Set to a specific time
 
         ConsentLedger exactExpirationRecord = ConsentLedger.builder()
                 .consentId(consentId)
@@ -1607,7 +1608,7 @@ class ConsentLedgerRepositoryTest {
         UUID grantedConsentId = UUID.randomUUID();
         UUID withdrawnConsentId = UUID.randomUUID();
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expiredTime = now.minusDays(1);
 
         // Create an expired GRANTED record
@@ -1671,5 +1672,389 @@ class ConsentLedgerRepositoryTest {
         
         assertTrue(returnedConsentIds.contains(grantedConsentId), "Should include expired GRANTED record");
         assertTrue(returnedConsentIds.contains(withdrawnConsentId), "Should include expired WITHDRAWN record");
+    }
+
+    @Test
+    void countActiveGrantsByUserAndType_ShouldCountOnlyGrantedRecordsForUserAndType() {
+        // Arrange - Create multiple records with different statuses and users
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+        UUID consentId4 = UUID.randomUUID();
+        UUID consentId5 = UUID.randomUUID();
+        UUID differentUserId = UUID.randomUUID();
+
+        // Create a GRANTED record for the test user and type
+        ConsentLedger grantedRecord1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(5))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        // Create another GRANTED record for the same user and type (different version)
+        ConsentLedger grantedRecord2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(3))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        // Create a WITHDRAWN record for the same user and type (should not be counted)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withdrawn\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .withdrawnConsentId(consentId1)
+                .build();
+
+        // Create a GRANTED record for a different consent type (should not be counted)
+        ConsentLedger grantedDifferentType = ConsentLedger.builder()
+                .consentId(consentId4)
+                .userId(testUserId)
+                .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(2))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grantedDifferentType\"}")
+                .recordSignature(new byte[]{10, 11, 12})
+                .build();
+
+        // Create a GRANTED record for a different user (should not be counted)
+        ConsentLedger grantedDifferentUser = ConsentLedger.builder()
+                .consentId(consentId5)
+                .userId(differentUserId) // Different user
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash101112")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(4))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"grantedDifferentUser\"}")
+                .recordSignature(new byte[]{13, 14, 15})
+                .build();
+
+        // Persist all records
+        entityManager.persistAndFlush(grantedRecord1);
+        entityManager.persistAndFlush(grantedRecord2);
+        entityManager.persistAndFlush(withdrawnRecord);
+        entityManager.persistAndFlush(grantedDifferentType);
+        entityManager.persistAndFlush(grantedDifferentUser);
+        entityManager.clear();
+
+        // Act
+        long result = consentLedgerRepository.countActiveGrantsByUserAndType(testUserId, testConsentType);
+
+        // Assert
+        assertEquals(2, result, "Should count only 2 GRANTED records for the specific user and consent type");
+    }
+
+    @Test
+    void countActiveGrantsByUserAndType_ShouldReturnZeroWhenNoGrantedRecordsExist() {
+        // Arrange - Create only WITHDRAWN records for the user and type
+        UUID consentId = UUID.randomUUID();
+
+        ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(consentId)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withdrawn\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        entityManager.persistAndFlush(withdrawnRecord);
+        entityManager.clear();
+
+        // Act
+        long result = consentLedgerRepository.countActiveGrantsByUserAndType(testUserId, testConsentType);
+
+        // Assert
+        assertEquals(0, result, "Should return 0 when no GRANTED records exist for the user and type");
+    }
+
+    @Test
+    void countActiveGrantsByUserAndType_ShouldReturnZeroWhenNoRecordsExist() {
+        // Act
+        long result = consentLedgerRepository.countActiveGrantsByUserAndType(testUserId, testConsentType);
+
+        // Assert
+        assertEquals(0, result, "Should return 0 when no records exist for the user and type");
+    }
+
+    @Test
+    void countActiveGrantsByUserAndType_ShouldReturnZeroForDifferentUser() {
+        // Arrange - Create a GRANTED record for a different user
+        UUID differentUserId = UUID.randomUUID();
+        UUID consentId = UUID.randomUUID();
+
+        ConsentLedger grantedRecord = ConsentLedger.builder()
+                .consentId(consentId)
+                .userId(differentUserId) // Different user
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        entityManager.persistAndFlush(grantedRecord);
+        entityManager.clear();
+
+        // Act
+        long result = consentLedgerRepository.countActiveGrantsByUserAndType(testUserId, testConsentType);
+
+        // Assert
+        assertEquals(0, result, "Should return 0 when no GRANTED records exist for the target user");
+    }
+
+    @Test
+    void countActiveGrantsByUserAndType_ShouldReturnZeroForDifferentConsentType() {
+        // Arrange - Create a GRANTED record for a different consent type
+        UUID consentId = UUID.randomUUID();
+
+        ConsentLedger grantedRecord = ConsentLedger.builder()
+                .consentId(consentId)
+                .userId(testUserId)
+                .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        entityManager.persistAndFlush(grantedRecord);
+        entityManager.clear();
+
+        // Act
+        long result = consentLedgerRepository.countActiveGrantsByUserAndType(testUserId, testConsentType);
+
+        // Assert
+        assertEquals(0, result, "Should return 0 when no GRANTED records exist for the target consent type");
+    }
+
+    @Test
+    void countActiveGrantsByUserAndType_ShouldCountAllGrantedRecordsForUserAndType() {
+        // Arrange - Create multiple GRANTED records for the same user and type
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+        UUID consentId4 = UUID.randomUUID();
+        UUID consentId5 = UUID.randomUUID();
+
+        // Create 5 GRANTED records for the same user and type
+        ConsentLedger grantedRecord1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(5))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        ConsentLedger grantedRecord2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("2.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(4))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        ConsentLedger grantedRecord3 = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("3.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(3))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted3\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .build();
+
+        ConsentLedger grantedRecord4 = ConsentLedger.builder()
+                .consentId(consentId4)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("4.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash101112")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(2))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted4\"}")
+                .recordSignature(new byte[]{10, 11, 12})
+                .build();
+
+        ConsentLedger grantedRecord5 = ConsentLedger.builder()
+                .consentId(consentId5)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("5.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash131415")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().minusDays(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted5\"}")
+                .recordSignature(new byte[]{13, 14, 15})
+                .build();
+
+        // Persist all records
+        entityManager.persistAndFlush(grantedRecord1);
+        entityManager.persistAndFlush(grantedRecord2);
+        entityManager.persistAndFlush(grantedRecord3);
+        entityManager.persistAndFlush(grantedRecord4);
+        entityManager.persistAndFlush(grantedRecord5);
+        entityManager.clear();
+
+        // Act
+        long result = consentLedgerRepository.countActiveGrantsByUserAndType(testUserId, testConsentType);
+
+        // Assert
+        assertEquals(5, result, "Should count all 5 GRANTED records for the user and consent type");
     }
 } 
