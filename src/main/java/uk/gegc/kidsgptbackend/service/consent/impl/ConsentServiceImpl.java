@@ -22,10 +22,14 @@ import uk.gegc.kidsgptbackend.dto.consent.ConsentStatusResponse;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentWithdrawRequest;
 import uk.gegc.kidsgptbackend.model.consent.ConsentChildCoverage;
 import uk.gegc.kidsgptbackend.model.consent.ConsentLedger;
+import uk.gegc.kidsgptbackend.model.consent.ConsentPolicies;
 import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
 import uk.gegc.kidsgptbackend.model.consent.ConsentType;
+import uk.gegc.kidsgptbackend.model.consent.ParentVerification;
+import uk.gegc.kidsgptbackend.model.consent.VerificationStatus;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
+import uk.gegc.kidsgptbackend.repository.consent.ConsentPoliciesRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 import uk.gegc.kidsgptbackend.service.consent.ConsentService;
 import uk.gegc.kidsgptbackend.util.RequestContextUtil;
@@ -36,7 +40,9 @@ import javax.crypto.spec.SecretKeySpec;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
@@ -51,6 +57,8 @@ public class ConsentServiceImpl implements ConsentService {
     private final ConsentLedgerRepository consentLedgerRepository;
     private final ConsentChildCoverageRepository consentChildCoverageRepository;
     private final ParentVerificationRepository parentVerificationRepository;
+    private final ConsentPoliciesRepository consentPoliciesRepository;
+    private final Clock clock;
     
     @Value("${app.consent.hmac.secret-ref:default-consent-hmac-secret-key}")
     private String hmacSecret;
@@ -85,7 +93,7 @@ public class ConsentServiceImpl implements ConsentService {
         }
 
         // ---- Single time source (UTC) used everywhere
-        Instant nowUtc = Instant.now();
+        Instant nowUtc = Instant.now(clock);
         LocalDateTime nowLocal = LocalDateTime.ofInstant(nowUtc, ZoneOffset.UTC);
 
         // ---- Generate consentId once and reuse across receipt + row
@@ -217,7 +225,7 @@ public class ConsentServiceImpl implements ConsentService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid userId format: " + request.userId());
         }
         
-        Instant nowUtc = Instant.now();
+        Instant nowUtc = Instant.now(clock);
         LocalDateTime nowLocal = LocalDateTime.ofInstant(nowUtc, ZoneOffset.UTC);
         String ip = RequestContextUtil.getServerCapturedIp();
         String ua = RequestContextUtil.getServerCapturedUserAgent();
@@ -483,18 +491,51 @@ public class ConsentServiceImpl implements ConsentService {
     }
     
     @Override
+    @Transactional(readOnly = true)
     public ConsentStatusResponse getConsentStatus(String verificationId) {
-        log.info("Stub implementation: Getting consent status for verification: {}", verificationId);
-        // TODO: Implement actual consent status retrieval
-        // - Query consent_ledger by verification_id
-        // - Check if reconsent is needed based on policy updates
-        // - Return current status and reconsent flag
+        log.info("Getting consent status for verification: {}", verificationId);
         
-        return new ConsentStatusResponse(
-            null, // latestByType - to be implemented
-            false, // reconsentNeeded - to be implemented
-            null // consentId - to be implemented
-        );
+        // Parse verification ID
+        UUID verificationUuid;
+        try {
+            verificationUuid = UUID.fromString(verificationId);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid verification ID format: {}", verificationId);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid verification ID format");
+        }
+        
+        // Find the parent verification
+        ParentVerification verification = parentVerificationRepository.findById(verificationUuid)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Verification not found"));
+        
+        // Check if verification is still valid (not expired and verified)
+        if (verification.getExpiresAt().isBefore(Instant.now(clock).atOffset(ZoneOffset.UTC).toLocalDateTime())) {
+            log.warn("Verification expired for ID: {} (method: {}, parentId: {})", 
+                    verificationId, verification.getVerificationMethod(), verification.getParentId());
+            throw new ResponseStatusException(HttpStatus.GONE, "Verification has expired");
+        }
+        
+        if (verification.getVerificationStatus() != VerificationStatus.VERIFIED) {
+            log.warn("Verification not completed for ID: {} (method: {}, parentId: {}, status: {})", 
+                    verificationId, verification.getVerificationMethod(), verification.getParentId(), verification.getVerificationStatus());
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Verification not completed");
+        }
+        
+        UUID parentId = verification.getParentId();
+        
+        // Get effective latest consent status for each consent type (includes WITHDRAWN)
+        List<ConsentStatusResponse.ConsentStatusByType> latestByType = buildEffectiveConsentStatus(parentId);
+        
+        // Check if reconsent is needed by comparing with latest active policies
+        boolean reconsentNeeded = checkReconsentNeededForAllTypes(parentId, latestByType);
+        
+        // Get the most recent consent ID (if any)
+        UUID mostRecentConsentId = getMostRecentConsentId(parentId);
+        
+        log.info("Consent status retrieved for parent {}: reconsentNeeded={}, consentTypes={}", 
+                parentId, reconsentNeeded, latestByType.size());
+        
+        return new ConsentStatusResponse(latestByType, reconsentNeeded, mostRecentConsentId);
     }
 
     /** Allowlist the policy host (min guard) */
@@ -669,21 +710,7 @@ public class ConsentServiceImpl implements ConsentService {
                 .collect(Collectors.toList());
     }
     
-    private boolean checkReconsentNeeded(UUID userId, ConsentType consentType, String currentVersion) {
-        // Check if there's a newer version of the policy that requires reconsent
-        // This is a simplified implementation - in practice, you'd check against active policies
-        Optional<ConsentLedger> latestGrant = consentLedgerRepository
-                .findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
-                        userId, consentType, ConsentStatus.GRANTED);
-        
-        if (latestGrant.isPresent()) {
-            String grantedVersion = latestGrant.get().getConsentVersion();
-            // Simple version comparison - in practice, you'd use semantic versioning
-            return grantedVersion != null && !grantedVersion.equals(currentVersion);
-        }
-        
-        return false;
-    }
+
 
     /**
      * Check if the DataIntegrityViolationException is specifically a duplicate key violation.
@@ -797,5 +824,130 @@ public class ConsentServiceImpl implements ConsentService {
         // If format is unrecognized, return as-is but trimmed
         log.debug("Unrecognized locale format: {}, returning as-is", locale);
         return trimmed;
+    }
+    
+    /**
+     * Check if reconsent is needed for all consent types by comparing current versions with latest active policies.
+     * 
+     * @param parentId The parent's user ID
+     * @param latestByType The current consent status for each type
+     * @return true if reconsent is needed for any consent type
+     */
+    private boolean checkReconsentNeededForAllTypes(UUID parentId, List<ConsentStatusResponse.ConsentStatusByType> latestByType) {
+        // If no consents exist, reconsent is needed
+        if (latestByType.isEmpty()) {
+            log.debug("No existing consents found for parent {}, reconsent needed", parentId);
+            return true;
+        }
+        
+        // Check each consent type against the latest active policy
+        for (ConsentStatusResponse.ConsentStatusByType consentStatus : latestByType) {
+            if (consentStatus.status() == ConsentStatus.WITHDRAWN) {
+                log.debug("Consent withdrawn for parent {} type {}, reconsent needed", parentId, consentStatus.type());
+                return true;
+            }
+            
+            // Check if the current version is outdated compared to the latest active policy
+            if (isOutdatedAgainstActivePolicy(consentStatus.type(), consentStatus.version(), consentStatus.policyUrl())) {
+                log.debug("Policy version outdated for parent {} type {} (current: {}, latest: active), reconsent needed", 
+                        parentId, consentStatus.type(), consentStatus.version());
+                return true;
+            }
+        }
+        
+        log.debug("All consents are current for parent {}", parentId);
+        return false;
+    }
+    
+    /**
+     * Get the most recent consent ID for a parent.
+     * 
+     * @param parentId The parent's user ID
+     * @return The most recent consent ID, or null if no consents exist
+     */
+    private UUID getMostRecentConsentId(UUID parentId) {
+        PageRequest pageRequest = PageRequest.of(0, 1); // No Sort here since method has ordering
+        
+        return consentLedgerRepository.findByUserIdOrderByConsentTimestampDescCreatedAtDesc(parentId, pageRequest)
+                .getContent()
+                .stream()
+                .findFirst()
+                .map(ConsentLedger::getConsentId)
+                .orElse(null);
+    }
+    
+    /**
+     * Check if a consent version is outdated against the latest active policy.
+     * 
+     * @param consentType The type of consent to check
+     * @param currentVersion The current version to compare
+     * @param policyUrl The policy URL to derive locale context from (optional)
+     * @return true if the current version is outdated compared to the latest active policy
+     */
+    private boolean isOutdatedAgainstActivePolicy(ConsentType consentType, String currentVersion, String policyUrl) {
+        LocalDate today = LocalDate.now(clock);
+        
+        // Try to derive locale from policy URL if available
+        String locale = deriveLocaleFromPolicyUrl(policyUrl);
+        
+        // Load latest active policy (optionally by locale)
+        Optional<ConsentPolicies> policy;
+        if (locale != null) {
+            policy = consentPoliciesRepository.findActivePoliciesByTypeLocaleAndDate(consentType, locale, today)
+                    .stream()
+                    .findFirst();
+        } else {
+            policy = consentPoliciesRepository.findActivePoliciesByTypeAndDate(consentType, today)
+                    .stream()
+                    .findFirst();
+        }
+        
+        if (policy.isEmpty()) {
+            log.debug("No active policy found for type={}, assuming current version {} is valid", consentType, currentVersion);
+            return false; // no active policy => nothing to update against
+        }
+        
+        if (currentVersion == null) {
+            log.debug("Consent version is null for type={}, treating as outdated against latest={}, locale={}", 
+                    consentType, policy.get().getVersion(), locale);
+            return true; // missing version => treat as outdated
+        }
+        
+        String latestVersion = policy.get().getVersion();
+        boolean isOutdated = !latestVersion.equals(currentVersion);
+        
+        if (isOutdated) {
+            log.debug("Consent version outdated: type={}, current={}, latest={}, locale={}", 
+                    consentType, currentVersion, latestVersion, locale);
+        }
+        
+        return isOutdated;
+    }
+    
+    /**
+     * Derive locale from policy URL if it contains locale information.
+     * 
+     * @param policyUrl The policy URL to analyze
+     * @return The locale if found, or null if not found
+     */
+    private String deriveLocaleFromPolicyUrl(String policyUrl) {
+        if (policyUrl == null || policyUrl.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Look for locale patterns in the URL path
+            // Example: https://kidsgpt.club/policies/privacy/en-GB
+            String[] pathSegments = policyUrl.split("/");
+            for (String segment : pathSegments) {
+                if (segment.matches("^[a-z]{2}-[A-Z]{2}$")) {
+                    return segment;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Failed to derive locale from policy URL: {}", policyUrl, e);
+        }
+        
+        return null;
     }
 } 

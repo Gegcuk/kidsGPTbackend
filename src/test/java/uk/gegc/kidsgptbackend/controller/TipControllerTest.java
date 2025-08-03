@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = TipController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(TipControllerTest.TestConfig.class)
+@Import({TipControllerTest.TestConfig.class, uk.gegc.kidsgptbackend.config.ClockConfig.class})
 @DirtiesContext
 class TipControllerTest {
 

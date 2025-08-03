@@ -7,6 +7,8 @@ import org.springframework.boot.actuate.health.HealthContributorRegistry;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -23,7 +25,7 @@ class HealthAggregatorTest {
         HealthContributorRegistry healthRegistry = mock(HealthContributorRegistry.class);
         env = mock(Environment.class);
 
-        service = new SystemStatusService(healthRegistry, env);
+        service = new SystemStatusService(healthRegistry, env, Clock.systemUTC());
         when(healthRegistry.getContributor("db")).thenReturn(dbHealthIndicator);
         when(env.getProperty("spring.ai.openai.api-key", "")).thenReturn("sk-test");
         ReflectionTestUtils.setField(service, "commit", "abc");

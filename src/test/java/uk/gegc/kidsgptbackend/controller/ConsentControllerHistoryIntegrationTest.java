@@ -15,6 +15,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 import org.springframework.web.server.ResponseStatusException;
 import uk.gegc.kidsgptbackend.dto.consent.ConsentHistoryResponse;
 import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
@@ -37,6 +38,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 
 @WebMvcTest(controllers = ConsentController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(uk.gegc.kidsgptbackend.config.ClockConfig.class)
 class ConsentControllerHistoryIntegrationTest {
 
     @Autowired

@@ -26,8 +26,10 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.beans.factory.annotation.Autowired;
 import uk.gegc.kidsgptbackend.exception.*;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -35,11 +37,14 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    @Autowired
+    private Clock clock;
+
     @ExceptionHandler(ResourceNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public ErrorResponse handleNotFound(ResourceNotFoundException exception) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.NOT_FOUND.value(),
                 "Not Found",
                 List.of(exception.getMessage())
@@ -54,7 +59,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleBadRequest(RuntimeException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Invalid request")
@@ -67,7 +72,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ex.printStackTrace(); // DEBUG: print stack trace
         String msg = ex.getMessage() != null ? ex.getMessage() : "Operation not supported";
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
                 List.of(msg)
@@ -78,7 +83,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleIllegalArgument(IllegalArgumentException exception) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad request",
                 List.of(exception.getMessage() != null ? exception.getMessage() : "Invalid argument")
@@ -89,7 +94,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.CONFLICT)
     public ErrorResponse handleIllegalState(IllegalStateException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Invalid state")
@@ -100,7 +105,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     public ResponseEntity<ErrorResponse> handleResponseStatusException(ResponseStatusException ex) {
         String reason = ex.getReason() != null ? ex.getReason() : "Unknown error";
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 ex.getStatusCode().value(),
                 reason,
                 List.of(reason)
@@ -114,7 +119,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String cause = ex.getMostSpecificCause() != null ?
                 ex.getMostSpecificCause().getMessage() : "Database constraint violation";
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.CONFLICT.value(),
                 "Conflict",
                 List.of("Database error: " + cause)
@@ -125,7 +130,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
     public ErrorResponse handleRateLimit(RateLimitException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.TOO_MANY_REQUESTS.value(),
                 "Too Many Requests",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Rate limit exceeded")
@@ -136,7 +141,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public ErrorResponse handleModerationUnavailable(ModerationServiceException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.SERVICE_UNAVAILABLE.value(),
                 "Service Unavailable",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Moderation service unavailable")
@@ -147,7 +152,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleConversationFormat(ConversationFormatException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Invalid Conversation Format",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Invalid conversation message sequence")
@@ -158,7 +163,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleUnauthorized(UnauthorizedException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.UNAUTHORIZED.value(),
                 "Unauthorized",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Authentication required")
@@ -170,7 +175,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         // Check if it's an email conflict error
         if (ex.getMessage() != null && ex.getMessage().contains("Email already in use")) {
             ErrorResponse body = new ErrorResponse(
-                    LocalDateTime.now(),
+                    LocalDateTime.now(clock),
                     HttpStatus.CONFLICT.value(),
                     "Conflict",
                     List.of(ex.getMessage())
@@ -180,7 +185,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         
         // Default to Bad Request for other credential update errors
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Credential Update Failed",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Failed to update credentials")
@@ -198,7 +203,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public ErrorResponse handleAuthenticationException(AuthenticationException ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.UNAUTHORIZED.value(),
                 "Unauthorized",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "Authentication failed")
@@ -209,7 +214,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public ErrorResponse handleAccessDenied(Exception ex) {
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.FORBIDDEN.value(),
                 "Access Denied",
                 List.of(ex.getMessage() != null ? ex.getMessage() : "You do not have permission to access this resource")
@@ -228,7 +233,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
 
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Validation Failed",
                 details
@@ -242,7 +247,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String message = String.format("Parameter '%s' should be of type %s",
                 ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
                 List.of(message)
@@ -263,7 +268,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String msg = ex.getMostSpecificCause() != null ?
                 ex.getMostSpecificCause().getMessage() : "Malformed request body";
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Malformed JSON",
                 List.of(msg)
@@ -289,7 +294,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         }
 
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Validation Failed",
                 fieldErrors
@@ -306,7 +311,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ) {
         String message = String.format("Required parameter '%s' is missing", ex.getParameterName());
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
                 List.of(message)
@@ -326,7 +331,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String message = String.format("Method '%s' is not supported. Supported methods: %s",
                 ex.getMethod(), supportedMethods);
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.METHOD_NOT_ALLOWED.value(),
                 "Method Not Allowed",
                 List.of(message)
@@ -346,7 +351,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String message = String.format("Media type '%s' is not supported. Supported types: %s",
                 ex.getContentType(), supportedTypes);
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.UNSUPPORTED_MEDIA_TYPE.value(),
                 "Unsupported Media Type",
                 List.of(message)
@@ -363,7 +368,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     ) {
         String message = String.format("No handler found for %s %s", ex.getHttpMethod(), ex.getRequestURL());
         ErrorResponse body = new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.NOT_FOUND.value(),
                 "Not Found",
                 List.of(message)
@@ -379,7 +384,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         logger.error("Unhandled exception: ", ex);
 
         return new ErrorResponse(
-                LocalDateTime.now(),
+                LocalDateTime.now(clock),
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 "Internal Server Error",
                 List.of("An unexpected error occurred")

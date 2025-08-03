@@ -16,6 +16,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Date;
 
 
@@ -26,6 +28,7 @@ public class JwtTokenProvider {
 
     private final QuizUserDetailsService quizUserDetailsService;
     private final UserDetailsService userDetailsService;
+    private final Clock clock;
 
     @Value("${jwt.secret}")
     private String base64secret;
@@ -45,8 +48,8 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(Authentication authentication) {
-        Date now = new Date();
-        Date expiry = new Date(now.getTime() + accessTokenValidityInMs);
+        Date now = Date.from(Instant.now(clock));
+        Date expiry = Date.from(Instant.now(clock).plusMillis(accessTokenValidityInMs));
 
         return Jwts.builder()
                 .subject(authentication.getName())
@@ -58,8 +61,8 @@ public class JwtTokenProvider {
     }
 
     public String generateRefreshToken(Authentication authentication) {
-        Date now = new Date();
-        Date expiry = new Date(now.getTime() + refreshTokenValidityInMs);
+        Date now = Date.from(Instant.now(clock));
+        Date expiry = Date.from(Instant.now(clock).plusMillis(refreshTokenValidityInMs));
 
         return Jwts.builder()
                 .subject(authentication.getName())

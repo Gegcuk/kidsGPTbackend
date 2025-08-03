@@ -5,6 +5,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import uk.gegc.kidsgptbackend.exception.*;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -18,7 +20,9 @@ class GlobalExceptionHandlerTest {
 
     @BeforeEach
     void setUp() {
+        Clock clock = Clock.fixed(Instant.ofEpochMilli(1000L), java.time.ZoneOffset.UTC);
         handler = new GlobalExceptionHandler();
+        org.springframework.test.util.ReflectionTestUtils.setField(handler, "clock", clock);
     }
 
     @Test
@@ -184,8 +188,8 @@ class GlobalExceptionHandlerTest {
 
         GlobalExceptionHandler.ErrorResponse response = handler.handleBadRequest(ex);
 
-        assertThat(response.timestamp()).isBeforeOrEqualTo(LocalDateTime.now());
-        assertThat(response.timestamp()).isAfter(LocalDateTime.now().minusSeconds(1));
+        // Since we're using a fixed clock in the test, the timestamp should be exactly what we set
+        assertThat(response.timestamp()).isEqualTo(LocalDateTime.ofInstant(Instant.ofEpochMilli(1000L), java.time.ZoneOffset.UTC));
     }
 
     @Test

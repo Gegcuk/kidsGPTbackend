@@ -15,6 +15,7 @@ import uk.gegc.kidsgptbackend.model.consent.ConsentType;
 import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentChildCoverageRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
+import uk.gegc.kidsgptbackend.repository.consent.ConsentPoliciesRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 
 import java.util.List;
@@ -35,6 +36,9 @@ abstract class ConsentServiceBaseTest {
 
     @Mock
     protected ParentVerificationRepository parentVerificationRepository;
+    
+    @Mock
+    protected ConsentPoliciesRepository consentPoliciesRepository;
 
     @InjectMocks
     protected ConsentServiceImpl consentService;
@@ -51,6 +55,7 @@ abstract class ConsentServiceBaseTest {
         // Set up configuration values
         ReflectionTestUtils.setField(consentService, "hmacSecret", "test-hmac-secret-key");
         ReflectionTestUtils.setField(consentService, "defaultRetentionYears", 7);
+        ReflectionTestUtils.setField(consentService, "clock", java.time.Clock.systemUTC());
 
         // Create test data
         testUserId = UUID.randomUUID();

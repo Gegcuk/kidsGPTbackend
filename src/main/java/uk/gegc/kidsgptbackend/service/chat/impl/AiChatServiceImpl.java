@@ -34,6 +34,7 @@ import uk.gegc.kidsgptbackend.util.ModerationUtil;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -48,6 +49,7 @@ public class AiChatServiceImpl implements AiChatService {
     private final ChatClient chatClient;
     private final ModerationUtil moderationUtil;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     @Value("classpath:prompts/system/age-6-8.txt")
     private Resource systemPromptAge6_8;
@@ -89,7 +91,7 @@ public class AiChatServiceImpl implements AiChatService {
 
     @Override
     public ChatMessageResponse chat(ChatMessageRequest request, Principal principal) {
-        Instant start = Instant.now();
+        Instant start = Instant.now(clock);
         
         logger.info("=== AICHATSERVICE PROCESSING START ===");
         logger.info("User: {}", principal.getName());
@@ -184,7 +186,7 @@ public class AiChatServiceImpl implements AiChatService {
             context != null ? context.getId() : "null", 
             savedAssistantMsg != null ? savedAssistantMsg.getContent() : "null");
 
-        long latency = Duration.between(start, Instant.now()).toMillis();
+        long latency = Duration.between(start, Instant.now(clock)).toMillis();
         int tokensUsed = Optional.ofNullable(chatResponse)
                 .map(ChatResponse::getMetadata)
                 .map(meta -> meta.getUsage().getTotalTokens())
@@ -374,7 +376,7 @@ public class AiChatServiceImpl implements AiChatService {
             ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
 
             // Return the validated generated response as a normal chat response
-            long latency = Duration.between(start, Instant.now()).toMillis();
+            long latency = Duration.between(start, Instant.now(clock)).toMillis();
             int tokensUsed = Optional.ofNullable(chatResponse)
                     .map(ChatResponse::getMetadata)
                     .map(meta -> meta.getUsage().getTotalTokens())
@@ -487,7 +489,7 @@ public class AiChatServiceImpl implements AiChatService {
         assistantMsg.setContent(message);
         ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
         
-        long latency = Duration.between(start, Instant.now()).toMillis();
+        long latency = Duration.between(start, Instant.now(clock)).toMillis();
         return new ChatMessageResponse(message, "kidsGPT-fallback", latency, 0, context.getId(), 
             savedAssistantMsg != null ? savedAssistantMsg.getId() : null, null);
     }
@@ -548,7 +550,7 @@ public class AiChatServiceImpl implements AiChatService {
             ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
 
             // Return as normal chat response
-            long latency = Duration.between(start, Instant.now()).toMillis();
+            long latency = Duration.between(start, Instant.now(clock)).toMillis();
             int tokensUsed = Optional.ofNullable(chatResponse)
                     .map(ChatResponse::getMetadata)
                     .map(meta -> meta.getUsage().getTotalTokens())
@@ -573,7 +575,7 @@ public class AiChatServiceImpl implements AiChatService {
             assistantMsg.setContent(fallbackMessage);
             ChatMessage savedAssistantMsg = messageRepository.save(assistantMsg);
             
-            long latency = Duration.between(start, Instant.now()).toMillis();
+            long latency = Duration.between(start, Instant.now(clock)).toMillis();
             return new ChatMessageResponse(
                 fallbackMessage, 
                 "kidsGPT-fallback", 

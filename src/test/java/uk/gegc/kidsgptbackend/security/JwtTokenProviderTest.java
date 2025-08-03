@@ -16,6 +16,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import javax.crypto.SecretKey;
+import java.time.Clock;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -37,7 +38,7 @@ public class JwtTokenProviderTest {
         secretKey = Jwts.SIG.HS256.key().build();
         base64Secret = Base64.getEncoder().encodeToString(secretKey.getEncoded());
 
-        jwtTokenProvider = new JwtTokenProvider(null, null);
+        jwtTokenProvider = new JwtTokenProvider(null, null, Clock.systemUTC());
         ReflectionTestUtils.setField(jwtTokenProvider, "base64secret", base64Secret);
         ReflectionTestUtils.setField(jwtTokenProvider, "accessTokenValidityInMs", accessTokenValidityInMs);
         ReflectionTestUtils.setField(jwtTokenProvider, "refreshTokenValidityInMs", refreshTokenValidityInMs);
@@ -182,7 +183,7 @@ public class JwtTokenProviderTest {
     void getAuthentication_happyPath_returnsAuthToken() {
         UserDetailsService userDetailsService = username -> new User(username, "", List.of(new SimpleGrantedAuthority("ROLE_USER")));
 
-        JwtTokenProvider provider = new JwtTokenProvider(null, userDetailsService);
+        JwtTokenProvider provider = new JwtTokenProvider(null, userDetailsService, Clock.systemUTC());
         ReflectionTestUtils.setField(provider, "base64secret", base64Secret);
         ReflectionTestUtils.setField(provider, "accessTokenValidityInMs", accessTokenValidityInMs);
         ReflectionTestUtils.setField(provider, "refreshTokenValidityInMs", refreshTokenValidityInMs);
@@ -204,7 +205,7 @@ public class JwtTokenProviderTest {
     @DisplayName("getAuthentication: invalid token throws JwtException")
     void getAuthentication_sad_invalidTokenThrows() {
         UserDetailsService userDetailsService = username -> new User(username, "", List.of());
-        JwtTokenProvider provider = new JwtTokenProvider(null, userDetailsService);
+        JwtTokenProvider provider = new JwtTokenProvider(null, userDetailsService, Clock.systemUTC());
         ReflectionTestUtils.setField(provider, "base64secret", base64Secret);
         ReflectionTestUtils.setField(provider, "accessTokenValidityInMs", accessTokenValidityInMs);
         ReflectionTestUtils.setField(provider, "refreshTokenValidityInMs", refreshTokenValidityInMs);

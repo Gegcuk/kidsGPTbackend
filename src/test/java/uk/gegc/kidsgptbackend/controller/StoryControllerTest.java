@@ -16,6 +16,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.context.annotation.Import;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import uk.gegc.kidsgptbackend.dto.story.*;
 import uk.gegc.kidsgptbackend.model.story.StoryStatus;
@@ -35,6 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = StoryController.class)
 @AutoConfigureMockMvc(addFilters = false)
+@Import(uk.gegc.kidsgptbackend.config.ClockConfig.class)
 class StoryControllerTest {
 
     @Autowired
