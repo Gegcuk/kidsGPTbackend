@@ -39,7 +39,7 @@ This document lists **all necessary tests** for the `/api/v1/consent/history/{us
 10. **`findByParentVerificationId`** ❌ NOT IMPLEMENTED
     - Returns rows matching the verification id.
 
-11. **Entity persistence defaults (`@PrePersist`)** ❌ NOT IMPLEMENTED
+11. **Entity persistence defaults (`@PrePersist`)** ✅ IMPLEMENTED
     - `createdAt` auto‑populates in UTC when null on insert; verify precision/zone expectations.
 
 ---

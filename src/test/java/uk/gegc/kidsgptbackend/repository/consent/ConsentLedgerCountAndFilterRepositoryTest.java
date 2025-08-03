@@ -786,4 +786,869 @@ class ConsentLedgerCountAndFilterRepositoryTest {
         assertEquals(consentId2, nonNullRegionResult.get(0).getConsentId(), "Should return the record with non-null region");
         assertEquals("England", nonNullRegionResult.get(0).getRegion(), "Returned record should have region 'England'");
     }
+
+    @Test
+    void findByConsentTimestampBetween_ShouldIncludeBoundariesAndExcludeOutOfRangeRows() {
+        // Arrange - Create records with different timestamps
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+        UUID consentId4 = UUID.randomUUID();
+        UUID consentId5 = UUID.randomUUID();
+
+        LocalDateTime baseTime = LocalDateTime.now().withNano(0); // Remove nanoseconds for consistent testing
+        LocalDateTime fromDate = baseTime.minusDays(2);
+        LocalDateTime toDate = baseTime.plusDays(2);
+
+        // Create a record before the range (should be excluded)
+        ConsentLedger beforeRangeRecord = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime.minusDays(3)) // Before range
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"beforeRange\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        // Create a record at the from boundary (should be included)
+        ConsentLedger fromBoundaryRecord = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(fromDate) // At from boundary
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"fromBoundary\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        // Create a record within the range (should be included)
+        ConsentLedger withinRangeRecord = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime) // Within range
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withinRange\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .build();
+
+        // Create a record at the to boundary (should be included)
+        ConsentLedger toBoundaryRecord = ConsentLedger.builder()
+                .consentId(consentId4)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash101112")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(toDate) // At to boundary
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"toBoundary\"}")
+                .recordSignature(new byte[]{10, 11, 12})
+                .build();
+
+        // Create a record after the range (should be excluded)
+        ConsentLedger afterRangeRecord = ConsentLedger.builder()
+                .consentId(consentId5)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash131415")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime.plusDays(3)) // After range
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"afterRange\"}")
+                .recordSignature(new byte[]{13, 14, 15})
+                .build();
+
+        // Persist all records
+        entityManager.persistAndFlush(beforeRangeRecord);
+        entityManager.persistAndFlush(fromBoundaryRecord);
+        entityManager.persistAndFlush(withinRangeRecord);
+        entityManager.persistAndFlush(toBoundaryRecord);
+        entityManager.persistAndFlush(afterRangeRecord);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByConsentTimestampBetween(fromDate, toDate);
+
+        // Assert
+        assertEquals(3, result.size(), "Should return exactly 3 records within the range (including boundaries)");
+        
+        // Verify the returned records are the correct ones
+        List<UUID> returnedConsentIds = result.stream()
+                .map(ConsentLedger::getConsentId)
+                .toList();
+        
+        assertTrue(returnedConsentIds.contains(consentId2), "Should include the from boundary record");
+        assertTrue(returnedConsentIds.contains(consentId3), "Should include the within range record");
+        assertTrue(returnedConsentIds.contains(consentId4), "Should include the to boundary record");
+        assertFalse(returnedConsentIds.contains(consentId1), "Should not include the before range record");
+        assertFalse(returnedConsentIds.contains(consentId5), "Should not include the after range record");
+
+        // Verify all returned records have timestamps within the range
+        result.forEach(record -> {
+            assertTrue(record.getConsentTimestamp().isAfter(fromDate.minusNanos(1)) || record.getConsentTimestamp().equals(fromDate), 
+                    "All returned records should have timestamp >= fromDate");
+            assertTrue(record.getConsentTimestamp().isBefore(toDate.plusNanos(1)) || record.getConsentTimestamp().equals(toDate), 
+                    "All returned records should have timestamp <= toDate");
+        });
+    }
+
+    @Test
+    void findByConsentTimestampBetween_ShouldReturnEmptyWhenNoRecordsInRange() {
+        // Arrange - Create records outside the range
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+
+        LocalDateTime baseTime = LocalDateTime.now().withNano(0);
+        LocalDateTime fromDate = baseTime.minusDays(1);
+        LocalDateTime toDate = baseTime.plusDays(1);
+
+        // Create a record before the range
+        ConsentLedger beforeRangeRecord = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime.minusDays(3)) // Before range
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"beforeRange\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        // Create a record after the range
+        ConsentLedger afterRangeRecord = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime.plusDays(3)) // After range
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"afterRange\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        entityManager.persistAndFlush(beforeRangeRecord);
+        entityManager.persistAndFlush(afterRangeRecord);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByConsentTimestampBetween(fromDate, toDate);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Should return empty list when no records are within the range");
+    }
+
+    @Test
+    void findByConsentTimestampBetween_ShouldReturnEmptyWhenNoRecordsExist() {
+        // Arrange
+        LocalDateTime fromDate = LocalDateTime.now().minusDays(1);
+        LocalDateTime toDate = LocalDateTime.now().plusDays(1);
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByConsentTimestampBetween(fromDate, toDate);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Should return empty list when no records exist");
+    }
+
+    @Test
+    void findByConsentTimestampBetween_ShouldHandleSameFromAndToDate() {
+        // Arrange - Create records with the same timestamp
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+
+        LocalDateTime exactTime = LocalDateTime.now().withNano(0);
+
+        // Create a record at the exact time
+        ConsentLedger exactTimeRecord = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(exactTime)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"exactTime\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        // Create a record at a different time
+        ConsentLedger differentTimeRecord = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(exactTime.plusHours(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"differentTime\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .build();
+
+        entityManager.persistAndFlush(exactTimeRecord);
+        entityManager.persistAndFlush(differentTimeRecord);
+        entityManager.clear();
+
+        // Act - Search with same from and to date
+        List<ConsentLedger> result = consentLedgerRepository.findByConsentTimestampBetween(exactTime, exactTime);
+
+        // Assert
+        assertEquals(1, result.size(), "Should return exactly 1 record when from and to dates are the same");
+        assertEquals(consentId1, result.get(0).getConsentId(), "Should return the record with the exact timestamp");
+        assertEquals(exactTime, result.get(0).getConsentTimestamp(), "Returned record should have the exact timestamp");
+    }
+
+    @Test
+    void findByConsentTimestampBetween_ShouldHandleDifferentConsentStatuses() {
+        // Arrange - Create records with different statuses within the range
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+
+        LocalDateTime baseTime = LocalDateTime.now().withNano(0);
+        LocalDateTime fromDate = baseTime.minusDays(1);
+        LocalDateTime toDate = baseTime.plusDays(1);
+
+        // Create a GRANTED record within range
+        ConsentLedger grantedRecord = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime)
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .build();
+
+        // Create a WITHDRAWN record within range
+        ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime.plusHours(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withdrawn\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .withdrawnConsentId(consentId1)
+                .build();
+
+        // Create an EXPIRED record within range
+        ConsentLedger expiredRecord = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.EXPIRED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(baseTime.plusHours(2))
+                .retentionExpiresAt(LocalDateTime.now().minusDays(1)) // Expired
+                .receiptJson("{\"test\":\"expired\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .build();
+
+        entityManager.persistAndFlush(grantedRecord);
+        entityManager.persistAndFlush(withdrawnRecord);
+        entityManager.persistAndFlush(expiredRecord);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByConsentTimestampBetween(fromDate, toDate);
+
+        // Assert
+        assertEquals(3, result.size(), "Should return all 3 records regardless of consent status");
+        
+        // Verify all statuses are included
+        List<ConsentStatus> returnedStatuses = result.stream()
+                .map(ConsentLedger::getConsentStatus)
+                .toList();
+        
+        assertTrue(returnedStatuses.contains(ConsentStatus.GRANTED), "Should include GRANTED records");
+        assertTrue(returnedStatuses.contains(ConsentStatus.WITHDRAWN), "Should include WITHDRAWN records");
+        assertTrue(returnedStatuses.contains(ConsentStatus.EXPIRED), "Should include EXPIRED records");
+    }
+
+    @Test
+    void findByParentVerificationId_ShouldReturnRowsMatchingVerificationId() {
+        // Arrange - Create records with different parent verification IDs
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+        UUID consentId4 = UUID.randomUUID();
+        UUID consentId5 = UUID.randomUUID();
+
+        UUID targetVerificationId = UUID.randomUUID();
+        UUID differentVerificationId = UUID.randomUUID();
+
+        // Create a record with the target verification ID
+        ConsentLedger targetRecord1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now())
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"target1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        // Create another record with the same target verification ID
+        ConsentLedger targetRecord2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"target2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .parentVerificationId(targetVerificationId)
+                .withdrawnConsentId(consentId1)
+                .build();
+
+        // Create a record with a different verification ID
+        ConsentLedger differentRecord = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(2))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"different\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .parentVerificationId(differentVerificationId)
+                .build();
+
+        // Create a record with null verification ID
+        ConsentLedger nullRecord = ConsentLedger.builder()
+                .consentId(consentId4)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash101112")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(3))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"null\"}")
+                .recordSignature(new byte[]{10, 11, 12})
+                .parentVerificationId(null)
+                .build();
+
+        // Create a record with no verification ID field set
+        ConsentLedger noVerificationRecord = ConsentLedger.builder()
+                .consentId(consentId5)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash131415")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(4))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"noVerification\"}")
+                .recordSignature(new byte[]{13, 14, 15})
+                .build();
+
+        // Persist all records
+        entityManager.persistAndFlush(targetRecord1);
+        entityManager.persistAndFlush(targetRecord2);
+        entityManager.persistAndFlush(differentRecord);
+        entityManager.persistAndFlush(nullRecord);
+        entityManager.persistAndFlush(noVerificationRecord);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByParentVerificationId(targetVerificationId);
+
+        // Assert
+        assertEquals(2, result.size(), "Should return exactly 2 records matching the target verification ID");
+        
+        // Verify the returned records are the correct ones
+        List<UUID> returnedConsentIds = result.stream()
+                .map(ConsentLedger::getConsentId)
+                .toList();
+        
+        assertTrue(returnedConsentIds.contains(consentId1), "Should include the first target record");
+        assertTrue(returnedConsentIds.contains(consentId2), "Should include the second target record");
+        assertFalse(returnedConsentIds.contains(consentId3), "Should not include the different verification ID record");
+        assertFalse(returnedConsentIds.contains(consentId4), "Should not include the null verification ID record");
+        assertFalse(returnedConsentIds.contains(consentId5), "Should not include the no verification ID record");
+
+        // Verify all returned records have the correct parent verification ID
+        result.forEach(record -> {
+            assertEquals(targetVerificationId, record.getParentVerificationId(), 
+                    "All returned records should have the target parent verification ID");
+        });
+    }
+
+    @Test
+    void findByParentVerificationId_ShouldReturnEmptyWhenNoMatchingRecords() {
+        // Arrange - Create records with different verification IDs
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+
+        UUID existingVerificationId1 = UUID.randomUUID();
+        UUID existingVerificationId2 = UUID.randomUUID();
+        UUID nonExistentVerificationId = UUID.randomUUID();
+
+        // Create a record with first verification ID
+        ConsentLedger record1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now())
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"record1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .parentVerificationId(existingVerificationId1)
+                .build();
+
+        // Create a record with second verification ID
+        ConsentLedger record2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"record2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .parentVerificationId(existingVerificationId2)
+                .build();
+
+        entityManager.persistAndFlush(record1);
+        entityManager.persistAndFlush(record2);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByParentVerificationId(nonExistentVerificationId);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Should return empty list when no records match the verification ID");
+    }
+
+    @Test
+    void findByParentVerificationId_ShouldReturnEmptyWhenNoRecordsExist() {
+        // Arrange
+        UUID nonExistentVerificationId = UUID.randomUUID();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByParentVerificationId(nonExistentVerificationId);
+
+        // Assert
+        assertTrue(result.isEmpty(), "Should return empty list when no records exist");
+    }
+
+    @Test
+    void findByParentVerificationId_ShouldHandleDifferentConsentStatuses() {
+        // Arrange - Create records with different statuses but same verification ID
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+
+        UUID targetVerificationId = UUID.randomUUID();
+
+        // Create a GRANTED record with target verification ID
+        ConsentLedger grantedRecord = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now())
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"granted\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        // Create a WITHDRAWN record with target verification ID
+        ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.WITHDRAWN)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"withdrawn\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .parentVerificationId(targetVerificationId)
+                .withdrawnConsentId(consentId1)
+                .build();
+
+        // Create an EXPIRED record with target verification ID
+        ConsentLedger expiredRecord = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.EXPIRED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(2))
+                .retentionExpiresAt(LocalDateTime.now().minusDays(1)) // Expired
+                .receiptJson("{\"test\":\"expired\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        entityManager.persistAndFlush(grantedRecord);
+        entityManager.persistAndFlush(withdrawnRecord);
+        entityManager.persistAndFlush(expiredRecord);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByParentVerificationId(targetVerificationId);
+
+        // Assert
+        assertEquals(3, result.size(), "Should return all 3 records regardless of consent status");
+        
+        // Verify all statuses are included
+        List<ConsentStatus> returnedStatuses = result.stream()
+                .map(ConsentLedger::getConsentStatus)
+                .toList();
+        
+        assertTrue(returnedStatuses.contains(ConsentStatus.GRANTED), "Should include GRANTED records");
+        assertTrue(returnedStatuses.contains(ConsentStatus.WITHDRAWN), "Should include WITHDRAWN records");
+        assertTrue(returnedStatuses.contains(ConsentStatus.EXPIRED), "Should include EXPIRED records");
+    }
+
+    @Test
+    void findByParentVerificationId_ShouldHandleMultipleRecordsWithSameVerificationId() {
+        // Arrange - Create multiple records with the same verification ID
+        UUID consentId1 = UUID.randomUUID();
+        UUID consentId2 = UUID.randomUUID();
+        UUID consentId3 = UUID.randomUUID();
+        UUID consentId4 = UUID.randomUUID();
+
+        UUID targetVerificationId = UUID.randomUUID();
+
+        // Create multiple records with the same verification ID
+        ConsentLedger record1 = ConsentLedger.builder()
+                .consentId(consentId1)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash123")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now())
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"record1\"}")
+                .recordSignature(new byte[]{1, 2, 3})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        ConsentLedger record2 = ConsentLedger.builder()
+                .consentId(consentId2)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash456")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(1))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"record2\"}")
+                .recordSignature(new byte[]{4, 5, 6})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        ConsentLedger record3 = ConsentLedger.builder()
+                .consentId(consentId3)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash789")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(2))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"record3\"}")
+                .recordSignature(new byte[]{7, 8, 9})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        ConsentLedger record4 = ConsentLedger.builder()
+                .consentId(consentId4)
+                .userId(testUserId)
+                .consentType(testConsentType)
+                .consentVersion("1.0.0")
+                .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/policy")
+                .contentHash("hash101112")
+                .jurisdiction("GB")
+                .region("England")
+                .locale("en-GB")
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .source(ConsentSource.WEB)
+                .ipAddress("192.168.1.1")
+                .userAgent("Mozilla/5.0")
+                .consentTimestamp(LocalDateTime.now().plusHours(3))
+                .retentionExpiresAt(LocalDateTime.now().plusYears(8))
+                .receiptJson("{\"test\":\"record4\"}")
+                .recordSignature(new byte[]{10, 11, 12})
+                .parentVerificationId(targetVerificationId)
+                .build();
+
+        entityManager.persistAndFlush(record1);
+        entityManager.persistAndFlush(record2);
+        entityManager.persistAndFlush(record3);
+        entityManager.persistAndFlush(record4);
+        entityManager.clear();
+
+        // Act
+        List<ConsentLedger> result = consentLedgerRepository.findByParentVerificationId(targetVerificationId);
+
+        // Assert
+        assertEquals(4, result.size(), "Should return all 4 records with the same verification ID");
+        
+        // Verify all returned records have the correct verification ID
+        result.forEach(record -> {
+            assertEquals(targetVerificationId, record.getParentVerificationId(), 
+                    "All returned records should have the target parent verification ID");
+        });
+
+        // Verify all expected consent IDs are returned
+        List<UUID> returnedConsentIds = result.stream()
+                .map(ConsentLedger::getConsentId)
+                .toList();
+        
+        assertTrue(returnedConsentIds.contains(consentId1), "Should include record1");
+        assertTrue(returnedConsentIds.contains(consentId2), "Should include record2");
+        assertTrue(returnedConsentIds.contains(consentId3), "Should include record3");
+        assertTrue(returnedConsentIds.contains(consentId4), "Should include record4");
+    }
 } 
