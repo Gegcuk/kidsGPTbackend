@@ -71,8 +71,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Act
         consentService.withdrawConsent(withdrawRequest);
 
-        // Assert - Verify the persisted withdrawal ledger has correct fields (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(ledger -> {
+        // Assert - Verify the persisted withdrawal ledger has correct fields
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
             // Verify consentStatus=WITHDRAWN
             assertEquals(ConsentStatus.WITHDRAWN, ledger.getConsentStatus());
 
@@ -160,8 +160,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Act
         consentService.withdrawConsent(withdrawRequest);
 
-        // Assert - Verify the receipt JSON contains all required fields (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(ledger -> {
+        // Assert - Verify the receipt JSON contains all required fields
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
             String receiptJson = ledger.getReceiptJson();
             assertNotNull(receiptJson);
 
@@ -238,8 +238,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Act
         consentService.withdrawConsent(withdrawRequest);
 
-        // Assert - Verify the receipt JSON omits reason when not provided (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(ledger -> {
+        // Assert - Verify the receipt JSON omits reason when not provided
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
             String receiptJson = ledger.getReceiptJson();
             assertNotNull(receiptJson);
 
@@ -318,8 +318,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Act
         consentService.withdrawConsent(withdrawRequest);
 
-        // Assert - Verify the HMAC signature is generated (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(ledger -> {
+        // Assert - Verify the HMAC signature is generated
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
             // Verify recordSignature is non-null and non-empty
             assertNotNull(ledger.getRecordSignature());
             assertTrue(ledger.getRecordSignature().length > 0);
@@ -386,8 +386,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Act
         consentService.withdrawConsent(withdrawRequest);
 
-        // Assert - Verify the HMAC signature is still generated with Base64 key (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(ledger -> {
+        // Assert - Verify the HMAC signature is still generated with Base64 key
+        verify(consentLedgerRepository).saveAndFlush(argThat(ledger -> {
             // Verify recordSignature is non-null and non-empty (Base64 key path works)
             assertNotNull(ledger.getRecordSignature());
             assertTrue(ledger.getRecordSignature().length > 0);
@@ -456,8 +456,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Assert - Verify that NO calls to ConsentChildCoverageRepository.saveAll are made
         verify(consentChildCoverageRepository, never()).saveAll(any());
 
-        // Also verify that the withdrawal ledger was saved (to ensure the test is working) (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        // Also verify that the withdrawal ledger was saved (to ensure the test is working)
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
     }
 
     @Test
@@ -985,8 +985,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Assert
         assertNotNull(response);
 
-        // Verify that saveAndFlush was called with a withdrawal that has the GRANT's version as source of truth (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(withdrawal -> {
+        // Verify that saveAndFlush was called with a withdrawal that has the GRANT's version as source of truth
+        verify(consentLedgerRepository).saveAndFlush(argThat(withdrawal -> {
             // The withdrawal should have the grant's version ("1.0.0") as the source of truth
             return withdrawal.getConsentVersion().equals("1.0.0") &&
                     withdrawal.getConsentStatus() == ConsentStatus.WITHDRAWN &&
@@ -1151,8 +1151,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Assert
         assertNotNull(response);
 
-        // Verify that saveAndFlush was called with a withdrawal that preserves the original locale and region (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(withdrawal -> {
+        // Verify that saveAndFlush was called with a withdrawal that preserves the original locale and region
+        verify(consentLedgerRepository).saveAndFlush(argThat(withdrawal -> {
             return withdrawal.getLocale().equals(originalLocale) &&
                     withdrawal.getRegion().equals(originalRegion) &&
                     withdrawal.getConsentStatus() == ConsentStatus.WITHDRAWN;
@@ -1242,8 +1242,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Assert
         assertNotNull(response);
 
-        // Verify that saveAndFlush was called with a withdrawal that preserves the original parentVerificationId (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(withdrawal -> {
+        // Verify that saveAndFlush was called with a withdrawal that preserves the original parentVerificationId
+        verify(consentLedgerRepository).saveAndFlush(argThat(withdrawal -> {
             return withdrawal.getParentVerificationId().equals(originalVerificationId) &&
                     withdrawal.getConsentStatus() == ConsentStatus.WITHDRAWN;
         }));
@@ -1335,8 +1335,8 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         // Assert
         assertNotNull(response);
 
-        // Verify that saveAndFlush was called with server-captured IP/UA (not client-provided) (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(withdrawal -> {
+        // Verify that saveAndFlush was called with server-captured IP/UA (not client-provided)
+        verify(consentLedgerRepository).saveAndFlush(argThat(withdrawal -> {
             return withdrawal.getIpAddress().equals(serverIp) &&
                     withdrawal.getUserAgent().equals(serverUa) &&
                     withdrawal.getConsentStatus() == ConsentStatus.WITHDRAWN;

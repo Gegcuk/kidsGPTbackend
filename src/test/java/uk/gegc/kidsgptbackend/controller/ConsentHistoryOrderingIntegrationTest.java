@@ -169,11 +169,7 @@ class ConsentHistoryOrderingIntegrationTest {
         // Create 10 consent records with identical consentTimestamp but different createdAt
         // This will test the tie-break logic (consentTimestamp desc, createdAt desc)
         for (int i = 0; i < 10; i++) {
-            ConsentLedger consentLedger = ConsentLedger.builder()
-                    .userId(testUserId)
-                    .consentType(ConsentType.values()[i % ConsentType.values().length])
-                    .consentVersion("1." + (i % 3) + ".0")
-                    .consentStatus(ConsentStatus.GRANTED)
+            ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)                  .consentType(ConsentType.values()[i % ConsentType.values().length])                    .consentVersion("1." + (i % 3) + ".0")                    .consentStatus(ConsentStatus.GRANTED)
                     .policyUrl("https://example.com/policy" + i)
                     .contentHash("hash" + i)
                     .jurisdiction("GB")

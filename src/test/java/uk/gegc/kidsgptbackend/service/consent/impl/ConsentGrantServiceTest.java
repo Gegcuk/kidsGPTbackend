@@ -94,8 +94,8 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         assertNotNull(response.latestByType());
         assertEquals(1, response.latestByType().size());
 
-        // Verify consent ledger was saved with correct data (called twice - once for initial save, once for update)
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(consent ->
+        // Verify consent ledger was saved with correct data (single save with complete data)
+        verify(consentLedgerRepository).saveAndFlush(argThat(consent ->
                 consent.getUserId().equals(testUserId) &&
                         consent.getConsentType().equals(ConsentType.PARENTAL_CONSENT) &&
                         consent.getConsentStatus().equals(ConsentStatus.GRANTED) &&
@@ -175,7 +175,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
 
         // Assert
         assertNotNull(response);
-        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(consent ->
+        verify(consentLedgerRepository).saveAndFlush(argThat(consent ->
                 consent.getParentVerificationId() == null
         ));
     }
@@ -240,7 +240,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(validRequest);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {
@@ -293,7 +293,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(validRequest);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {
@@ -340,7 +340,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(validRequest);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {
@@ -480,7 +480,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(requestWithSpecialChars);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {
@@ -589,7 +589,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(request);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {
@@ -663,7 +663,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(request);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {
@@ -727,7 +727,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(request);
 
         // Assert
-        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        verify(consentLedgerRepository).saveAndFlush(any(ConsentLedger.class));
         
         List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
         assertTrue(capturedConsents.stream().anyMatch(consent -> {

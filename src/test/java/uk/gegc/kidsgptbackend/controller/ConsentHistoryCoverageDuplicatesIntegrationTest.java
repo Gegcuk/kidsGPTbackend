@@ -158,6 +158,7 @@ class ConsentHistoryCoverageDuplicatesIntegrationTest {
     private void createTestDataWithDuplicateKidIds() {
         // Create consent ledger entry
         ConsentLedger consentLedger = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(ConsentType.PARENTAL_CONSENT)
                 .consentVersion("1.0.0")

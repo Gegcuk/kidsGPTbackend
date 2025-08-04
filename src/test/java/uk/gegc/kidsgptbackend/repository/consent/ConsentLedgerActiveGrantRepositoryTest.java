@@ -41,6 +41,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
 
         // Create a GRANTED record for the exact version
         ConsentLedger grantedRecord = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -67,6 +68,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
 
         // Create a WITHDRAWN record for the same version
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -89,6 +91,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
 
         // Create a GRANTED record for a different version
         ConsentLedger grantedDifferentVersion = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
@@ -110,6 +113,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
 
         // Create a GRANTED record for a different user
         ConsentLedger grantedDifferentUser = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(UUID.randomUUID())
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -155,6 +159,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
         // Arrange - Create only a WITHDRAWN record for the version
 
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)

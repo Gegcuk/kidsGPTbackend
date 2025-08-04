@@ -39,8 +39,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
     void existsWithdrawalByUserTypeAndVersion_ShouldReturnTrueWhenWithdrawalExists() {
         // Arrange - Create a WITHDRAWN record for the exact user/type/version
 
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -75,8 +74,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
     void existsWithdrawalByUserTypeAndVersion_ShouldReturnFalseWhenNoWithdrawalExists() {
         // Arrange - Create only a GRANTED record for the user/type/version
 
-        ConsentLedger grantedRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
                 .consentStatus(ConsentStatus.GRANTED)
@@ -121,8 +119,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
     void existsWithdrawalByUserTypeAndVersion_ShouldReturnFalseForDifferentVersion() {
         // Arrange - Create a WITHDRAWN record for a different version
 
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0") // Different version
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -159,6 +156,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
         UUID differentUserId = UUID.randomUUID();
 
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(differentUserId) // Different user
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -194,8 +192,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
     void existsWithdrawalByUserTypeAndVersion_ShouldReturnFalseForDifferentConsentType() {
         // Arrange - Create a WITHDRAWN record for a different consent type
 
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
                 .consentVersion(testVersion)
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -230,8 +227,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
     void duplicateKeyConstraint_ShouldPreventDuplicateWithdrawals() {
         // Arrange - Create a GRANTED record first
 
-        ConsentLedger grantedRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
                 .consentStatus(ConsentStatus.GRANTED)
@@ -256,8 +252,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
         entityManager.clear();
 
         // Create first withdrawal record
-        ConsentLedger withdrawalRecord1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawalRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -278,8 +273,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
                 .build();
 
         // Create second withdrawal record with same user/type/version/status (simulating concurrent insert)
-        ConsentLedger withdrawalRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawalRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -326,8 +320,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
         // Arrange - Create withdrawal records for different versions
 
         // Create granted records for different versions
-        ConsentLedger grantedRecord1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -346,8 +339,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger grantedRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -373,8 +365,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
         entityManager.clear();
 
         // Create withdrawal records for different versions
-        ConsentLedger withdrawalRecord1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawalRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -394,8 +385,7 @@ class ConsentLedgerWithdrawalRepositoryTest {
                 .withdrawnConsentId(savedGrantedRecord1.getConsentId())
                 .build();
 
-        ConsentLedger withdrawalRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawalRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)

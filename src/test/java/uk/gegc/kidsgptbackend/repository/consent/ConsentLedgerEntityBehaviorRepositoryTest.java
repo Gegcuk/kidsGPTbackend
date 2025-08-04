@@ -38,9 +38,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
         // Arrange - Create a ConsentLedger with null createdAt
         LocalDateTime beforeInsert = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         
-        ConsentLedger consentLedger = ConsentLedger.builder()
-                .userId(testUserId)
-                .consentType(testConsentType)
+        ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)                .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
                 .policyUrl("https://example.com/policy")
@@ -88,8 +86,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
         // Arrange - Create a ConsentLedger with a specific createdAt value
         LocalDateTime specificCreatedAt = LocalDateTime.of(2023, 1, 1, 12, 0, 0);
         
-        ConsentLedger consentLedger = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -125,8 +122,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
     void entityPersistenceDefaults_ShouldHandleMultipleInsertsWithNullCreatedAt() {
         // Arrange - Create multiple ConsentLedger entities with null createdAt
         
-        ConsentLedger consentLedger1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger consentLedger1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -146,8 +142,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null)
                 .build();
 
-        ConsentLedger consentLedger2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger consentLedger2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -167,8 +162,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null)
                 .build();
 
-        ConsentLedger consentLedger3 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger consentLedger3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -218,8 +212,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
     void entityPersistenceDefaults_ShouldVerifyPrecisionAndZoneExpectations() {
         // Arrange - Create a ConsentLedger with null createdAt
         
-        ConsentLedger consentLedger = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)

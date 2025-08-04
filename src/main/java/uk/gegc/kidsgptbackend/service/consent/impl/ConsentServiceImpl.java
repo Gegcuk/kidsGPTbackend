@@ -142,8 +142,18 @@ public class ConsentServiceImpl implements ConsentService {
         // ---- Resolve verification method for receipt
         String verificationMethod = resolveVerificationMethod(request.verificationId());
 
-        // ---- Persist ledger row first to get auto-generated ID
+        // ---- Pre-generate UUID for application-assigned ID
+        UUID consentId = UUID.randomUUID();
+
+        // ---- Build canonical receipt JSON with pre-generated ID (deterministic ordering)
+        String receiptJson = buildCanonicalReceiptJson(consentId, request, jurisdiction, region, locale, ip, ua, nowUtc, kids, verificationMethod);
+
+        // ---- HMAC over canonical JSON
+        byte[] recordSignature = generateHmacSignature(receiptJson);
+
+        // ---- Persist ledger row with complete data (single save)
         ConsentLedger consentLedger = ConsentLedger.builder()
+                .consentId(consentId) // Set pre-generated ID
                 .userId(request.userId())
                 .consentType(request.consentType())
                 .consentVersion(request.consentVersion())
@@ -160,13 +170,13 @@ public class ConsentServiceImpl implements ConsentService {
                 .consentTimestamp(nowLocal)
                 .parentVerificationId(request.verificationId())
                 .retentionExpiresAt(retentionExpiresAt)
-                .receiptJson("{}") // Valid JSON placeholder, will be updated after ID generation
-                .recordSignature(new byte[0]) // Placeholder, will be updated after ID generation
+                .receiptJson(receiptJson) // Set actual receipt JSON
+                .recordSignature(recordSignature) // Set actual signature
                 .build();
 
         ConsentLedger savedConsent;
         try {
-            // Force DB hit now so we catch constraint violations here, not at tx commit
+            // Single save with complete data
             savedConsent = consentLedgerRepository.saveAndFlush(consentLedger);
             log.info("Saved consent ledger entry with ID: {}", savedConsent.getConsentId());
         } catch (DataIntegrityViolationException e) {
@@ -182,17 +192,6 @@ public class ConsentServiceImpl implements ConsentService {
             }
             throw e; // not a duplicate — bubble up
         }
-
-        // ---- Build canonical receipt JSON with auto-generated ID (deterministic ordering)
-        String receiptJson = buildCanonicalReceiptJson(savedConsent.getConsentId(), request, jurisdiction, region, locale, ip, ua, nowUtc, kids, verificationMethod);
-
-        // ---- HMAC over canonical JSON
-        byte[] recordSignature = generateHmacSignature(receiptJson);
-
-        // ---- Update the saved entity with the receipt JSON and signature
-        savedConsent.setReceiptJson(receiptJson);
-        savedConsent.setRecordSignature(recordSignature);
-        consentLedgerRepository.saveAndFlush(savedConsent);
 
         // ---- Child coverage: only for parent/processing consents
         if (request.consentType() == ConsentType.PARENTAL_CONSENT || request.consentType() == ConsentType.DATA_PROCESSING) {
@@ -276,12 +275,16 @@ public class ConsentServiceImpl implements ConsentService {
             }
         }
 
-        // ---- Generate UUID manually for test environment compatibility
+        // ---- Pre-generate UUID for application-assigned ID
         UUID withdrawalId = UUID.randomUUID();
         
-        // ---- Persist withdrawal ledger row with manually generated ID
+        // ---- Build withdrawal receipt JSON with pre-generated ID
+        String receiptJson = buildWithdrawalReceiptJson(withdrawalId, request, granted, ip, ua, nowUtc);
+        byte[] recordSignature = generateHmacSignature(receiptJson);
+        
+        // ---- Persist withdrawal ledger row with complete data (single save)
         ConsentLedger withdrawalLedger = ConsentLedger.builder()
-                .consentId(withdrawalId) // Manually set ID for test compatibility
+                .consentId(withdrawalId) // Set pre-generated ID
                 .userId(userId)
                 .consentType(granted.getConsentType())
                 .consentVersion(granted.getConsentVersion()) // Use version from grant, not request
@@ -299,23 +302,15 @@ public class ConsentServiceImpl implements ConsentService {
                 .parentVerificationId(granted.getParentVerificationId())
                 .retentionExpiresAt(granted.getRetentionExpiresAt())
                 .withdrawnConsentId(granted.getConsentId()) // Link to the withdrawn consent
-                .receiptJson("{}") // Valid JSON placeholder, will be updated after ID generation
-                .recordSignature(new byte[0]) // Placeholder, will be updated after ID generation
+                .receiptJson(receiptJson) // Set actual receipt JSON
+                .recordSignature(recordSignature) // Set actual signature
                 .build();
         
         ConsentLedger savedWithdrawal;
         try {
+            // Single save with complete data
             savedWithdrawal = consentLedgerRepository.saveAndFlush(withdrawalLedger);
             log.info("Saved consent withdrawal entry with ID: {}", savedWithdrawal.getConsentId());
-            
-            // ---- Build withdrawal receipt JSON with generated ID
-            String receiptJson = buildWithdrawalReceiptJson(withdrawalId, request, granted, ip, ua, nowUtc);
-            byte[] recordSignature = generateHmacSignature(receiptJson);
-
-            // ---- Update the saved entity with the receipt JSON and signature
-            savedWithdrawal.setReceiptJson(receiptJson);
-            savedWithdrawal.setRecordSignature(recordSignature);
-            savedWithdrawal = consentLedgerRepository.saveAndFlush(savedWithdrawal);
             
         } catch (DataIntegrityViolationException e) {
             if (isDuplicateKey(e)) {

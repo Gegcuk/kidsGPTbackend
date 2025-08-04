@@ -40,8 +40,7 @@ class ConsentLedgerOrderingRepositoryTest {
         LocalDateTime createdAt3 = LocalDateTime.of(2024, 1, 15, 12, 0, 1);  // Earliest
 
         // Create records with same consentTimestamp but different createdAt values
-        ConsentLedger record1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -61,8 +60,7 @@ class ConsentLedgerOrderingRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger record2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -82,8 +80,7 @@ class ConsentLedgerOrderingRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        ConsentLedger record3 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.DATA_PROCESSING)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -151,8 +148,7 @@ class ConsentLedgerOrderingRepositoryTest {
         // Create records with different consentTimestamps but same createdAt
         LocalDateTime sameCreatedAt = LocalDateTime.of(2024, 1, 15, 12, 0, 0);
 
-        ConsentLedger record1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -172,8 +168,7 @@ class ConsentLedgerOrderingRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger record2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -193,8 +188,7 @@ class ConsentLedgerOrderingRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        ConsentLedger record3 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.DATA_PROCESSING)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)

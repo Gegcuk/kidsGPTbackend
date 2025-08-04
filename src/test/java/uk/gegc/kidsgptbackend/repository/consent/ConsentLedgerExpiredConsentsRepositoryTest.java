@@ -46,8 +46,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
         LocalDateTime expiresLater = now.plusDays(1); // Expires tomorrow (should not be included)
 
         // Create an expired record (expired yesterday)
-        ConsentLedger expiredRecord1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger expiredRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -67,8 +66,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create another expired record (expired 1 hour ago)
-        ConsentLedger expiredRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger expiredRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -88,8 +86,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create a record that expires now (should be included)
-        ConsentLedger expiresNowRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger expiresNowRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -109,8 +106,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create a record that expires later (should not be included)
-        ConsentLedger expiresLaterRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger expiresLaterRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.DATA_PROCESSING)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -168,8 +164,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
         LocalDateTime expiresLater2 = now.plusDays(30);
 
         // Create records that expire in the future
-        ConsentLedger futureRecord1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger futureRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -188,8 +183,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger futureRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger futureRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -234,8 +228,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
         // Arrange - Create a record that expires exactly at the specified time
         LocalDateTime exactExpirationTime = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusMinutes(5); // Set to a specific time
 
-        ConsentLedger exactExpirationRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger exactExpirationRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -281,8 +274,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
         LocalDateTime expiredTime = now.minusDays(1);
 
         // Create an expired GRANTED record
-        ConsentLedger grantedRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -302,8 +294,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create an expired WITHDRAWN record
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)

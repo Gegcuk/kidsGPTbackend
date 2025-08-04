@@ -45,8 +45,7 @@ class ConsentLedgerPaginationRepositoryTest {
         LocalDateTime createdAt4 = LocalDateTime.now().minusMinutes(5);
 
         // Create records with same consentTimestamp but different createdAt values
-        ConsentLedger record1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PARENTAL_CONSENT)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -66,8 +65,7 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger record2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -87,8 +85,7 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        ConsentLedger record3 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -108,8 +105,7 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{7, 8, 9})
                 .build();
 
-        ConsentLedger record4 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record4 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.DATA_PROCESSING)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)

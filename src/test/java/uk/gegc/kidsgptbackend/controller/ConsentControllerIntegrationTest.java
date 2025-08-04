@@ -39,6 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
+@Transactional
 class ConsentControllerIntegrationTest {
 
     @Autowired
@@ -65,6 +66,7 @@ class ConsentControllerIntegrationTest {
     private String accessToken;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // Set up role and user
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {

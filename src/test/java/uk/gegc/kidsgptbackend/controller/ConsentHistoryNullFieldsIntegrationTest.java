@@ -148,6 +148,7 @@ class ConsentHistoryNullFieldsIntegrationTest {
         
         // Create consent with null optional fields (no parentVerificationId, locale, region)
         ConsentLedger consentWithNullFields = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
@@ -170,6 +171,7 @@ class ConsentHistoryNullFieldsIntegrationTest {
         
         // Create consent with all fields populated
         ConsentLedger consentWithAllFields = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")

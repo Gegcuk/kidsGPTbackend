@@ -43,8 +43,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         LocalDateTime timestamp3 = LocalDateTime.now();
 
         // Create records with different timestamps
-        ConsentLedger record1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -63,8 +62,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger record2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -83,8 +81,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        ConsentLedger record3 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("3.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -140,6 +137,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         UUID differentUserId = UUID.randomUUID();
 
         ConsentLedger record = ConsentLedger.builder()
+                .consentId(UUID.randomUUID())
                 .userId(differentUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -174,8 +172,7 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentConsentType() {
         // Arrange - Create a record for a different consent type
-        ConsentLedger record = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -213,8 +210,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         LocalDateTime timestamp2 = LocalDateTime.now();
 
         // Create a GRANTED record with earlier timestamp
-        ConsentLedger grantedRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -234,8 +230,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         // Create a WITHDRAWN record with later timestamp
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -285,8 +280,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         LocalDateTime timestamp4 = LocalDateTime.now();
 
         // Create a GRANTED record with earliest timestamp
-        ConsentLedger grantedRecord1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -306,8 +300,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         // Create a WITHDRAWN record with second timestamp
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -327,8 +320,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         // Create a GRANTED record with third timestamp (should be returned for GRANTED status)
-        ConsentLedger grantedRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -348,8 +340,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         // Create a WITHDRAWN record with latest timestamp (should be returned for WITHDRAWN status)
-        ConsentLedger withdrawnRecord2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -404,8 +395,7 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyWhenNoRecordsWithStatusExist() {
         // Arrange - Create only GRANTED records
-        ConsentLedger grantedRecord = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger grantedRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -453,7 +443,8 @@ class ConsentLedgerFindFirstRepositoryTest {
         // Arrange - Create a record for a different user
         UUID differentUserId = UUID.randomUUID();
 
-        ConsentLedger record = ConsentLedger.builder()
+        ConsentLedger record = ConsentLedger.builder() 
+                .consentId(UUID.randomUUID())
                 .userId(differentUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -489,8 +480,7 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentConsentType() {
         // Arrange - Create a record for a different consent type
-        ConsentLedger record = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -531,8 +521,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         LocalDateTime createdAt3 = LocalDateTime.now().minusMinutes(10);
 
         // Create records with same consentTimestamp but different createdAt values
-        ConsentLedger record1 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -552,8 +541,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger record2 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -573,8 +561,7 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        ConsentLedger record3 = ConsentLedger.builder()
-                .userId(testUserId)
+        ConsentLedger record3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("3.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
