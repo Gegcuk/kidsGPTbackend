@@ -70,9 +70,9 @@ All verification-related tests and the entire test suite are currently passing. 
 
 ---
 
-## 3) Service Unit Tests (`ParentVerificationServiceImpl`) ❌
+## 3) Service Unit Tests (`ParentVerificationServiceImpl`) 🔄
 
-### 3.1 Happy path – new verification (EMAIL) ❌
+### 3.1 Happy path – new verification (EMAIL) ✅
 - **Given** parent exists, no pending existing  
 - **When** initiate  
 - **Then**: entity saved with `PENDING`, correct `expiresAt = now + TTL`, new `verificationId`, `attemptCount=0`; email dispatch scheduled `afterCommit`; response has `201 semantics` (via controller).
