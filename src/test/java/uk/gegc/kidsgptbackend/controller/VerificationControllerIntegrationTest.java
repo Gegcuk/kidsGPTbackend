@@ -504,4 +504,386 @@ class VerificationControllerIntegrationTest {
         // Both should return the same verification ID, indicating identical contact hash
         assertThat(verificationId1).isEqualTo(verificationId2);
     }
+
+    // Section 2.1: Success responses tests
+    @Test
+    @DisplayName("201 Created for new verification with proper headers and Location")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_newVerification_returns201WithProperHeaders() throws Exception {
+        VerificationInitiateRequest request = new VerificationInitiateRequest(
+                parentId,
+                VerificationMethod.EMAIL,
+                "newverification@example.com"
+        );
+
+        String response = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/status/")))
+                .andExpect(header().string("Cache-Control", "no-store, must-revalidate"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("Expires", "0"))
+                .andExpect(header().string("X-Verification-Id", org.hamcrest.Matchers.notNullValue()))
+                .andExpect(jsonPath("$.verificationId").exists())
+                .andExpect(jsonPath("$.verificationStatus").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+
+        // Verify response body contains expected fields
+        assertThat(response).contains("\"verificationId\"");
+        assertThat(response).contains("\"verificationStatus\":\"PENDING\"");
+        
+        // Extract verification ID from response and verify Location header format
+        String verificationId = objectMapper.readTree(response).get("verificationId").asText();
+        assertThat(verificationId).isNotNull();
+        assertThat(verificationId).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("200 OK for reuse of existing pending verification (idempotent)")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_reuseExistingVerification_returns200WithSameHeaders() throws Exception {
+        // First request - should create new verification
+        VerificationInitiateRequest request = new VerificationInitiateRequest(
+                parentId,
+                VerificationMethod.EMAIL,
+                "reuse@example.com"
+        );
+
+        String response1 = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/status/")))
+                .andExpect(header().string("Cache-Control", "no-store, must-revalidate"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("Expires", "0"))
+                .andExpect(header().string("X-Verification-Id", org.hamcrest.Matchers.notNullValue()))
+                .andReturn().getResponse().getContentAsString();
+
+        String verificationId1 = objectMapper.readTree(response1).get("verificationId").asText();
+
+        // Second request with same data - should reuse existing verification
+        String response2 = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store, must-revalidate"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("Expires", "0"))
+                .andExpect(header().string("X-Verification-Id", org.hamcrest.Matchers.notNullValue()))
+                .andExpect(jsonPath("$.verificationId").exists())
+                .andExpect(jsonPath("$.verificationStatus").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+
+        String verificationId2 = objectMapper.readTree(response2).get("verificationId").asText();
+
+        // Both should return the same verification ID (idempotent behavior)
+        assertThat(verificationId1).isEqualTo(verificationId2);
+        
+        // Verify response body contains expected fields
+        assertThat(response2).contains("\"verificationId\"");
+        assertThat(response2).contains("\"verificationStatus\":\"PENDING\"");
+    }
+
+    @Test
+    @DisplayName("201 Created for SMS verification with proper headers (even if SMS not implemented)")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_smsVerification_returns201WithProperHeaders() throws Exception {
+        VerificationInitiateRequest request = new VerificationInitiateRequest(
+                parentId,
+                VerificationMethod.SMS,
+                "+15551234567"
+        );
+
+        String response = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/status/")))
+                .andExpect(header().string("Cache-Control", "no-store, must-revalidate"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("Expires", "0"))
+                .andExpect(header().string("X-Verification-Id", org.hamcrest.Matchers.notNullValue()))
+                .andExpect(jsonPath("$.verificationId").exists())
+                .andExpect(jsonPath("$.verificationStatus").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+
+        // Verify response body contains expected fields
+        assertThat(response).contains("\"verificationId\"");
+        assertThat(response).contains("\"verificationStatus\":\"PENDING\"");
+        
+        // Extract verification ID from response and verify Location header format
+        String verificationId = objectMapper.readTree(response).get("verificationId").asText();
+        assertThat(verificationId).isNotNull();
+        assertThat(verificationId).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("200 OK for SMS verification reuse with proper headers")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_smsVerificationReuse_returns200WithSameHeaders() throws Exception {
+        // First request - should create new SMS verification
+        VerificationInitiateRequest request = new VerificationInitiateRequest(
+                parentId,
+                VerificationMethod.SMS,
+                "+15559876543"
+        );
+
+        String response1 = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/status/")))
+                .andExpect(header().string("Cache-Control", "no-store, must-revalidate"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("Expires", "0"))
+                .andExpect(header().string("X-Verification-Id", org.hamcrest.Matchers.notNullValue()))
+                .andReturn().getResponse().getContentAsString();
+
+        String verificationId1 = objectMapper.readTree(response1).get("verificationId").asText();
+
+        // Second request with same data - should reuse existing SMS verification
+        String response2 = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store, must-revalidate"))
+                .andExpect(header().string("Pragma", "no-cache"))
+                .andExpect(header().string("Expires", "0"))
+                .andExpect(header().string("X-Verification-Id", org.hamcrest.Matchers.notNullValue()))
+                .andExpect(jsonPath("$.verificationId").exists())
+                .andExpect(jsonPath("$.verificationStatus").value("PENDING"))
+                .andReturn().getResponse().getContentAsString();
+
+        String verificationId2 = objectMapper.readTree(response2).get("verificationId").asText();
+
+        // Both should return the same verification ID (idempotent behavior)
+        assertThat(verificationId1).isEqualTo(verificationId2);
+        
+        // Verify response body contains expected fields
+        assertThat(response2).contains("\"verificationId\"");
+                 assertThat(response2).contains("\"verificationStatus\":\"PENDING\"");
+     }
+
+    // Section 2.2: Validation failures → 400 tests
+    @Test
+    @DisplayName("Validation failures return 400 with proper ErrorResponse format")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_validationFailures_return400WithErrorResponse() throws Exception {
+        // Test missing parentId returns 400 with ErrorResponse
+        String jsonMissingParentId = """
+                {
+                    "verificationMethod": "EMAIL",
+                    "contactInfo": "test@example.com"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMissingParentId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test missing verificationMethod returns 400 with ErrorResponse
+        String jsonMissingMethod = """
+                {
+                    "parentId": "%s",
+                    "contactInfo": "test@example.com"
+                }
+                """.formatted(parentId);
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMissingMethod))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("verificationMethod: Verification method is required")))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test missing contactInfo returns 400 with ErrorResponse
+        String jsonMissingContact = """
+                {
+                    "parentId": "%s",
+                    "verificationMethod": "EMAIL"
+                }
+                """.formatted(parentId);
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMissingContact))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test invalid email format returns 400 with ErrorResponse
+        VerificationInitiateRequest invalidEmailRequest = new VerificationInitiateRequest(
+                parentId,
+                VerificationMethod.EMAIL,
+                "invalid-email"
+        );
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidEmailRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL")))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test invalid SMS format returns 400 with ErrorResponse
+        VerificationInitiateRequest invalidSmsRequest = new VerificationInitiateRequest(
+                parentId,
+                VerificationMethod.SMS,
+                "1234567890" // Missing + prefix
+        );
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidSmsRequest)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test unsupported method returns 400 with ErrorResponse
+        String jsonUnsupportedMethod = """
+                {
+                    "parentId": "%s",
+                    "verificationMethod": "PHONE_CALL",
+                    "contactInfo": "test@example.com"
+                }
+                """.formatted(parentId);
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonUnsupportedMethod))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("verificationMethod: Unsupported verification method")))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test empty JSON body returns 400 with ErrorResponse
+        String emptyJson = "{}";
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(emptyJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.timestamp").exists());
+
+        // Test malformed JSON returns 400 with ErrorResponse
+        String malformedJson = "{ invalid json }";
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(malformedJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Malformed JSON"))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    @DisplayName("Multiple validation errors return 400 with all error details")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_multipleValidationErrors_return400WithAllDetails() throws Exception {
+        // Test with multiple missing fields
+        String jsonMultipleErrors = """
+                {
+                    "verificationMethod": "PHONE_CALL"
+                }
+                """;
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonMultipleErrors))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")))
+                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    @DisplayName("ErrorResponse structure validation for validation failures")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_errorResponseStructure_validationFailures() throws Exception {
+        String json = """
+                {
+                    "verificationMethod": "EMAIL",
+                    "contactInfo": "test@example.com"
+                }
+                """;
+
+        String response = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(json))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").exists())
+                .andExpect(jsonPath("$.details").exists())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andReturn().getResponse().getContentAsString();
+
+        // Verify ErrorResponse structure
+        assertThat(response).contains("\"error\":\"Validation Failed\"");
+        assertThat(response).contains("\"details\"");
+        assertThat(response).contains("\"timestamp\"");
+        
+                 // Verify that details is an array
+         assertThat(response).contains("\"details\":[");
+         assertThat(response).contains("parentId: Parent ID is required");
+     }
+
+    // Section 2.3: Parent not found → 404 tests
+    @Test
+    @DisplayName("Nonexistent parentId returns 404 with ResponseStatusException")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_nonexistentParentId_returns404() throws Exception {
+        // Create a non-existent parent ID
+        UUID nonexistentParentId = UUID.randomUUID();
+        
+        VerificationInitiateRequest request = new VerificationInitiateRequest(
+                nonexistentParentId,
+                VerificationMethod.EMAIL,
+                "test@example.com"
+        );
+
+        mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value(org.hamcrest.Matchers.containsString("Parent not found with ID")))
+                .andExpect(jsonPath("$.timestamp").exists());
+    }
+
+    @Test
+    @DisplayName("404 response structure validation for nonexistent parent")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_404ResponseStructure_nonexistentParent() throws Exception {
+        // Create a non-existent parent ID
+        UUID nonexistentParentId = UUID.randomUUID();
+        
+        VerificationInitiateRequest request = new VerificationInitiateRequest(
+                nonexistentParentId,
+                VerificationMethod.EMAIL,
+                "test@example.com"
+        );
+
+        String response = mockMvc.perform(post("/api/v1/verification/initiate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").exists())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andReturn().getResponse().getContentAsString();
+
+        // Verify ErrorResponse structure for 404
+        assertThat(response).contains("\"error\":\"Parent not found with ID");
+        assertThat(response).contains("\"timestamp\"");
+        assertThat(response).contains("\"status\":404");
+    }
 } 
