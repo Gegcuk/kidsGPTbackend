@@ -38,17 +38,12 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnLatestByConsentTimestamp() {
         // Arrange - Create multiple records with varying timestamps
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-
         LocalDateTime timestamp1 = LocalDateTime.now().minusHours(2);
         LocalDateTime timestamp2 = LocalDateTime.now().minusHours(1);
         LocalDateTime timestamp3 = LocalDateTime.now();
 
         // Create records with different timestamps
         ConsentLedger record1 = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -69,7 +64,6 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         ConsentLedger record2 = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
@@ -87,11 +81,9 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
                 .receiptJson("{\"test\":\"record2\"}")
                 .recordSignature(new byte[]{4, 5, 6})
-                .withdrawnConsentId(consentId1)
                 .build();
 
         ConsentLedger record3 = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("3.0.0")
@@ -111,10 +103,11 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{7, 8, 9})
                 .build();
 
-        // Persist records in non-chronological order
-        entityManager.persistAndFlush(record2); // timestamp2 (middle)
-        entityManager.persistAndFlush(record3); // timestamp3 (latest)
-        entityManager.persistAndFlush(record1); // timestamp1 (earliest)
+        // Save records in non-chronological order and get their auto-generated IDs
+        ConsentLedger savedRecord2 = consentLedgerRepository.save(record2); // timestamp2 (middle)
+        ConsentLedger savedRecord3 = consentLedgerRepository.save(record3); // timestamp3 (latest)
+        ConsentLedger savedRecord1 = consentLedgerRepository.save(record1); // timestamp1 (earliest)
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -124,7 +117,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         // Assert
         assertTrue(result.isPresent(), "Should find a record");
         ConsentLedger foundRecord = result.get();
-        assertEquals(consentId3, foundRecord.getConsentId(), "Should return the record with the latest consentTimestamp");
+        assertEquals(savedRecord3.getConsentId(), foundRecord.getConsentId(), "Should return the record with the latest consentTimestamp");
         assertEquals("3.0.0", foundRecord.getConsentVersion(), "Should return the record with version 3.0.0");
         // Compare timestamps with tolerance for precision differences
         assertTrue(foundRecord.getConsentTimestamp().isAfter(timestamp2) || foundRecord.getConsentTimestamp().equals(timestamp2),
@@ -145,10 +138,8 @@ class ConsentLedgerFindFirstRepositoryTest {
     void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentUser() {
         // Arrange - Create a record for a different user
         UUID differentUserId = UUID.randomUUID();
-        UUID consentId = UUID.randomUUID();
 
         ConsentLedger record = ConsentLedger.builder()
-                .consentId(consentId)
                 .userId(differentUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -168,7 +159,8 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(record);
+        consentLedgerRepository.save(record);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -182,10 +174,7 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentConsentType() {
         // Arrange - Create a record for a different consent type
-        UUID consentId = UUID.randomUUID();
-
         ConsentLedger record = ConsentLedger.builder()
-                .consentId(consentId)
                 .userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
                 .consentVersion("1.0.0")
@@ -205,7 +194,8 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(record);
+        consentLedgerRepository.save(record);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -219,15 +209,11 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnLatestRegardlessOfStatus() {
         // Arrange - Create records with different statuses but varying timestamps
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-
         LocalDateTime timestamp1 = LocalDateTime.now().minusHours(1);
         LocalDateTime timestamp2 = LocalDateTime.now();
 
         // Create a GRANTED record with earlier timestamp
         ConsentLedger grantedRecord = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -249,7 +235,6 @@ class ConsentLedgerFindFirstRepositoryTest {
 
         // Create a WITHDRAWN record with later timestamp
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -267,11 +252,12 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
                 .receiptJson("{\"test\":\"withdrawn\"}")
                 .recordSignature(new byte[]{4, 5, 6})
-                .withdrawnConsentId(consentId1)
                 .build();
 
-        entityManager.persistAndFlush(grantedRecord);
-        entityManager.persistAndFlush(withdrawnRecord);
+        // Save records and get their auto-generated IDs
+        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
+        ConsentLedger savedWithdrawnRecord = consentLedgerRepository.save(withdrawnRecord);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -281,7 +267,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         // Assert
         assertTrue(result.isPresent(), "Should find a record");
         ConsentLedger foundRecord = result.get();
-        assertEquals(consentId2, foundRecord.getConsentId(), "Should return the record with the latest consentTimestamp regardless of status");
+        assertEquals(savedWithdrawnRecord.getConsentId(), foundRecord.getConsentId(), "Should return the record with the latest consentTimestamp regardless of status");
         assertEquals(ConsentStatus.WITHDRAWN, foundRecord.getConsentStatus(), "Should return the WITHDRAWN record with later timestamp");
         // Compare timestamps with tolerance for precision differences
         assertTrue(foundRecord.getConsentTimestamp().isAfter(timestamp1) || foundRecord.getConsentTimestamp().equals(timestamp1),
@@ -293,11 +279,6 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldFilterByStatusAndReturnLatestEntry() {
         // Arrange - Create multiple records with different statuses and timestamps
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
-
         LocalDateTime timestamp1 = LocalDateTime.now().minusHours(3);
         LocalDateTime timestamp2 = LocalDateTime.now().minusHours(2);
         LocalDateTime timestamp3 = LocalDateTime.now().minusHours(1);
@@ -305,7 +286,6 @@ class ConsentLedgerFindFirstRepositoryTest {
 
         // Create a GRANTED record with earliest timestamp
         ConsentLedger grantedRecord1 = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -327,7 +307,6 @@ class ConsentLedgerFindFirstRepositoryTest {
 
         // Create a WITHDRAWN record with second timestamp
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -345,12 +324,10 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
                 .receiptJson("{\"test\":\"withdrawn\"}")
                 .recordSignature(new byte[]{4, 5, 6})
-                .withdrawnConsentId(consentId1)
                 .build();
 
         // Create a GRANTED record with third timestamp (should be returned for GRANTED status)
         ConsentLedger grantedRecord2 = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
@@ -372,7 +349,6 @@ class ConsentLedgerFindFirstRepositoryTest {
 
         // Create a WITHDRAWN record with latest timestamp (should be returned for WITHDRAWN status)
         ConsentLedger withdrawnRecord2 = ConsentLedger.builder()
-                .consentId(consentId4)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
@@ -390,14 +366,14 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
                 .receiptJson("{\"test\":\"withdrawn2\"}")
                 .recordSignature(new byte[]{10, 11, 12})
-                .withdrawnConsentId(consentId3)
                 .build();
 
-        // Persist records in non-chronological order
-        entityManager.persistAndFlush(withdrawnRecord2); // timestamp4 (latest)
-        entityManager.persistAndFlush(grantedRecord1); // timestamp1 (earliest)
-        entityManager.persistAndFlush(grantedRecord2); // timestamp3 (third)
-        entityManager.persistAndFlush(withdrawnRecord); // timestamp2 (second)
+        // Save records in non-chronological order and get their auto-generated IDs
+        ConsentLedger savedWithdrawnRecord2 = consentLedgerRepository.save(withdrawnRecord2); // timestamp4 (latest)
+        ConsentLedger savedGrantedRecord1 = consentLedgerRepository.save(grantedRecord1); // timestamp1 (earliest)
+        ConsentLedger savedGrantedRecord2 = consentLedgerRepository.save(grantedRecord2); // timestamp3 (third)
+        ConsentLedger savedWithdrawnRecord = consentLedgerRepository.save(withdrawnRecord); // timestamp2 (second)
+        entityManager.flush();
         entityManager.clear();
 
         // Act - Test for GRANTED status
@@ -408,7 +384,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         // Assert - Should return the latest GRANTED record
         assertTrue(grantedResult.isPresent(), "Should find a GRANTED record");
         ConsentLedger foundGrantedRecord = grantedResult.get();
-        assertEquals(consentId3, foundGrantedRecord.getConsentId(), "Should return the latest GRANTED record");
+        assertEquals(savedGrantedRecord2.getConsentId(), foundGrantedRecord.getConsentId(), "Should return the latest GRANTED record");
         assertEquals(ConsentStatus.GRANTED, foundGrantedRecord.getConsentStatus(), "Should be GRANTED status");
         assertEquals("2.0.0", foundGrantedRecord.getConsentVersion(), "Should return the record with version 2.0.0");
 
@@ -420,7 +396,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         // Assert - Should return the latest WITHDRAWN record
         assertTrue(withdrawnResult.isPresent(), "Should find a WITHDRAWN record");
         ConsentLedger foundWithdrawnRecord = withdrawnResult.get();
-        assertEquals(consentId4, foundWithdrawnRecord.getConsentId(), "Should return the latest WITHDRAWN record");
+        assertEquals(savedWithdrawnRecord2.getConsentId(), foundWithdrawnRecord.getConsentId(), "Should return the latest WITHDRAWN record");
         assertEquals(ConsentStatus.WITHDRAWN, foundWithdrawnRecord.getConsentStatus(), "Should be WITHDRAWN status");
         assertEquals("2.0.0", foundWithdrawnRecord.getConsentVersion(), "Should return the record with version 2.0.0");
     }
@@ -428,10 +404,7 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyWhenNoRecordsWithStatusExist() {
         // Arrange - Create only GRANTED records
-        UUID consentId = UUID.randomUUID();
-
         ConsentLedger grantedRecord = ConsentLedger.builder()
-                .consentId(consentId)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -451,7 +424,8 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(grantedRecord);
+        consentLedgerRepository.save(grantedRecord);
+        entityManager.flush();
         entityManager.clear();
 
         // Act - Test for WITHDRAWN status when only GRANTED exists
@@ -478,10 +452,8 @@ class ConsentLedgerFindFirstRepositoryTest {
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentUser() {
         // Arrange - Create a record for a different user
         UUID differentUserId = UUID.randomUUID();
-        UUID consentId = UUID.randomUUID();
 
         ConsentLedger record = ConsentLedger.builder()
-                .consentId(consentId)
                 .userId(differentUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -501,7 +473,8 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(record);
+        consentLedgerRepository.save(record);
+        entityManager.flush();
         entityManager.clear();
 
         // Act - Test for the target user
@@ -516,10 +489,7 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldReturnEmptyForDifferentConsentType() {
         // Arrange - Create a record for a different consent type
-        UUID consentId = UUID.randomUUID();
-
         ConsentLedger record = ConsentLedger.builder()
-                .consentId(consentId)
                 .userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE) // Different consent type
                 .consentVersion("1.0.0")
@@ -539,7 +509,8 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(record);
+        consentLedgerRepository.save(record);
+        entityManager.flush();
         entityManager.clear();
 
         // Act - Test for the target consent type
@@ -554,10 +525,6 @@ class ConsentLedgerFindFirstRepositoryTest {
     @Test
     void findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc_ShouldHonorCompositeSortForSameTimestamp() {
         // Arrange - Create multiple records with same consentTimestamp but different createdAt
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-
         LocalDateTime sameConsentTimestamp = LocalDateTime.now().minusHours(1);
         LocalDateTime createdAt1 = LocalDateTime.now().minusMinutes(30);
         LocalDateTime createdAt2 = LocalDateTime.now().minusMinutes(20);
@@ -565,7 +532,6 @@ class ConsentLedgerFindFirstRepositoryTest {
 
         // Create records with same consentTimestamp but different createdAt values
         ConsentLedger record1 = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -587,7 +553,6 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         ConsentLedger record2 = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
@@ -609,7 +574,6 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .build();
 
         ConsentLedger record3 = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("3.0.0")
@@ -630,10 +594,11 @@ class ConsentLedgerFindFirstRepositoryTest {
                 .recordSignature(new byte[]{7, 8, 9})
                 .build();
 
-        // Persist records in non-chronological order
-        entityManager.persistAndFlush(record2); // createdAt2 (2nd)
-        entityManager.persistAndFlush(record3); // createdAt3 (3rd - latest)
-        entityManager.persistAndFlush(record1); // createdAt1 (1st - earliest)
+        // Save records in non-chronological order and get their auto-generated IDs
+        ConsentLedger savedRecord2 = consentLedgerRepository.save(record2); // createdAt2 (2nd)
+        ConsentLedger savedRecord3 = consentLedgerRepository.save(record3); // createdAt3 (3rd - latest)
+        ConsentLedger savedRecord1 = consentLedgerRepository.save(record1); // createdAt1 (1st - earliest)
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -644,7 +609,7 @@ class ConsentLedgerFindFirstRepositoryTest {
         // Assert
         assertTrue(result.isPresent(), "Should find a record");
         ConsentLedger foundRecord = result.get();
-        assertEquals(consentId3, foundRecord.getConsentId(), "Should return the record with the latest createdAt when consentTimestamp is the same");
+        assertEquals(savedRecord3.getConsentId(), foundRecord.getConsentId(), "Should return the record with the latest createdAt when consentTimestamp is the same");
         assertEquals("3.0.0", foundRecord.getConsentVersion(), "Should return the record with version 3.0.0");
 
         // Verify all records have the same consentTimestamp (with tolerance for precision differences)

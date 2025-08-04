@@ -29,6 +29,7 @@ import java.util.UUID;
 public class ParentVerification {
     
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "verification_id", updatable = false, nullable = false)
     private UUID verificationId;
     
