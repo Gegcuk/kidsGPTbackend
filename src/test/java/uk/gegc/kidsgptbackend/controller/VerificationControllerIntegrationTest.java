@@ -886,4 +886,88 @@ class VerificationControllerIntegrationTest {
         assertThat(response).contains("\"timestamp\"");
         assertThat(response).contains("\"status\":404");
     }
+
+    // Section 2.5: No PII leakage in logs test
+    @Test
+    @DisplayName("No PII leakage in logs - Verify that application logs mask email domain")
+    @WithMockUser(username = "testparent", roles = {"PARENT"})
+    void initiateVerification_noPiiLeakageInLogs_masksEmailDomain() throws Exception {
+        // Create a test appender to capture logs
+        ch.qos.logback.classic.Logger logger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger("uk.gegc.kidsgptbackend");
+        ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> listAppender = new ch.qos.logback.core.read.ListAppender<>();
+        listAppender.start();
+        logger.addAppender(listAppender);
+
+        try {
+            // Test with various email addresses that should be masked
+            String[] testEmails = {
+                "user@example.com",
+                "john.doe@test.org",
+                "admin@company.co.uk",
+                "test@subdomain.example.net"
+            };
+
+            for (String email : testEmails) {
+                VerificationInitiateRequest request = new VerificationInitiateRequest(
+                        parentId,
+                        VerificationMethod.EMAIL,
+                        email
+                );
+
+                // Clear previous logs
+                listAppender.list.clear();
+
+                // Perform the request
+                mockMvc.perform(post("/api/v1/verification/initiate")
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(objectMapper.writeValueAsString(request)))
+                        .andExpect(status().isCreated());
+
+                // Get all logged messages
+                String allLogs = listAppender.list.stream()
+                        .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                        .collect(java.util.stream.Collectors.joining(" "));
+
+                // Verify that the full email address is NOT logged
+                assertThat(allLogs).doesNotContain(email);
+                
+                // Verify that masked email format is used (***@domain)
+                String expectedMaskedFormat = "***@" + email.substring(email.indexOf('@') + 1);
+                assertThat(allLogs).contains(expectedMaskedFormat);
+            }
+
+            // Test with phone numbers (SMS verification)
+            String testPhone = "+1234567890";
+            VerificationInitiateRequest phoneRequest = new VerificationInitiateRequest(
+                    parentId,
+                    VerificationMethod.SMS,
+                    testPhone
+            );
+
+            // Clear previous logs
+            listAppender.list.clear();
+
+            // Perform the request
+            mockMvc.perform(post("/api/v1/verification/initiate")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(phoneRequest)))
+                    .andExpect(status().isCreated());
+
+            // Get all logged messages
+            String allLogs = listAppender.list.stream()
+                    .map(ch.qos.logback.classic.spi.ILoggingEvent::getFormattedMessage)
+                    .collect(java.util.stream.Collectors.joining(" "));
+
+            // Verify that the full phone number is NOT logged
+            assertThat(allLogs).doesNotContain(testPhone);
+            
+            // Verify that phone number is masked (show only last 2 digits)
+            String expectedMaskedPhone = "***" + testPhone.substring(testPhone.length() - 2);
+            assertThat(allLogs).contains(expectedMaskedPhone);
+
+        } finally {
+            // Clean up
+            logger.detachAppender(listAppender);
+        }
+    }
 } 

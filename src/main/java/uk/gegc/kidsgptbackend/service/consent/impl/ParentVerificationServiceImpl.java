@@ -58,8 +58,8 @@ public class ParentVerificationServiceImpl implements ParentVerificationService 
     @Override
     @org.springframework.transaction.annotation.Transactional
     public VerificationInitiationResult initiateVerification(VerificationInitiateRequest request) {
-        log.info("Initiating verification for parent: {} with method: {}", 
-                request.parentId(), request.verificationMethod());
+        log.info("Initiating verification for parent: {} with method: {} for contact: {}", 
+                request.parentId(), request.verificationMethod(), maskContactInfo(request.contactInfo()));
         
         // Validate parent exists
         if (!userRepository.existsById(request.parentId())) {
