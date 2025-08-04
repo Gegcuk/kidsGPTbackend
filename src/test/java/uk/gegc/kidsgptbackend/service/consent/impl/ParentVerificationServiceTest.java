@@ -544,4 +544,24 @@ class ParentVerificationServiceTest {
         // The actual email sending is handled by EmailServiceImpl which checks the enabled flag
         // and logs a warning when disabled, but doesn't throw an exception
     }
+
+    @Test
+    @DisplayName("3.7 Parent not found - repository reports no user throws ResponseStatusException 404")
+    void initiateVerification_parentNotFound_throwsResponseStatusException404() {
+        // Given: repository reports no user
+        when(userRepository.existsById(testParentId)).thenReturn(false);
+
+        // When & Then: initiate should throw ResponseStatusException with NOT_FOUND status
+        assertThatThrownBy(() -> parentVerificationService.initiateVerification(testRequest))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasFieldOrPropertyWithValue("statusCode", HttpStatus.NOT_FOUND)
+                .hasMessageContaining("Parent not found with ID: " + testParentId);
+        
+        // Verify the repository was called to check if parent exists
+        verify(userRepository).existsById(testParentId);
+        
+        // Verify no other repository calls were made (should fail early)
+        verifyNoMoreInteractions(parentVerificationRepository);
+        verifyNoMoreInteractions(emailService);
+    }
 } 
