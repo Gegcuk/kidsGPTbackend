@@ -128,17 +128,15 @@ public class ParentVerificationServiceImpl implements ParentVerificationService 
     }
 
     private VerificationCreationResult createNewVerification(VerificationInitiateRequest request, LocalDateTime now, byte[] contactHash) {
-        UUID verificationId = UUID.randomUUID();
         String verificationCode = generateVerificationCode();
         LocalDateTime expiresAt = now.plusMinutes(ttlMinutes); // Configurable timeout
         
         ParentVerification verification = ParentVerification.builder()
-                .verificationId(verificationId)
                 .parentId(request.parentId())
                 .verificationMethod(request.verificationMethod())
                 .verificationStatus(VerificationStatus.PENDING)
                 .contactInfoHash(contactHash)
-                .verificationCodeHash(hashVerificationCode(verificationCode, verificationId))
+                .verificationCodeHash(new byte[32]) // Placeholder, will be updated after ID generation
                 .attemptCount(0)
                 .expiresAt(expiresAt)
                 .createdAt(now)
@@ -146,7 +144,12 @@ public class ParentVerificationServiceImpl implements ParentVerificationService 
         
         try {
             verification = parentVerificationRepository.save(verification);
-            log.info("Created new verification: {}", verificationId);
+            log.info("Created new verification: {}", verification.getVerificationId());
+            
+            // Now update the verification code hash with the generated ID
+            verification.setVerificationCodeHash(hashVerificationCode(verificationCode, verification.getVerificationId()));
+            verification = parentVerificationRepository.save(verification);
+            
         } catch (DataIntegrityViolationException e) {
             // Handle race condition - another thread created the same verification
             log.info("Race condition detected, attempting to find existing verification");

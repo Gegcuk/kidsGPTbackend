@@ -35,6 +35,19 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 .consentType(ConsentType.PARENTAL_CONSENT)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
+                .policyUrl("https://example.com/parental")
+                .contentHash("abc123hash")
+                .jurisdiction("GB")
+                .region("ENGLAND")
+                .locale("en-GB")
+                .source(ConsentSource.WEB)
+                .ipAddress(serverIp)
+                .userAgent(serverUa)
+                .lawfulBasis(LawfulBasis.CONSENT)
+                .parentVerificationId(testVerificationId)
+                .receiptJson("{}")
+                .recordSignature(new byte[64])
+                .retentionExpiresAt(LocalDateTime.now().plusYears(1))
                 .build();
 
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
@@ -80,8 +93,8 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         assertNotNull(response.latestByType());
         assertEquals(1, response.latestByType().size());
 
-        // Verify consent ledger was saved with correct data
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent ->
+        // Verify consent ledger was saved with correct data (called twice - once for initial save, once for update)
+        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(consent ->
                 consent.getUserId().equals(testUserId) &&
                         consent.getConsentType().equals(ConsentType.PARENTAL_CONSENT) &&
                         consent.getConsentStatus().equals(ConsentStatus.GRANTED) &&
@@ -161,7 +174,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
 
         // Assert
         assertNotNull(response);
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent ->
+        verify(consentLedgerRepository, times(2)).saveAndFlush(argThat(consent ->
                 consent.getParentVerificationId() == null
         ));
     }
