@@ -191,4 +191,64 @@ class ParentVerificationServiceTest {
         assertThat(result.verificationStatus().createdAt()).isNotNull();
         assertThat(result.verificationStatus().verifiedAt()).isNull(); // Not verified yet
     }
+
+    @Test
+    @DisplayName("3.2 Idempotent reuse (EMAIL) - record reused, code rotated, expiresAt extended, newlyCreated=false")
+    void initiateVerification_idempotentReuse_reusesExistingRecord() {
+        // Given: pending record exists for same (parentId, EMAIL, contactHash) and not expired
+        UUID existingVerificationId = UUID.randomUUID();
+        byte[] existingCodeHash = new byte[]{1, 2, 3, 4};
+        LocalDateTime existingExpiresAt = fixedTime.plusMinutes(15); // Not expired yet
+        
+        ParentVerification existingVerification = ParentVerification.builder()
+                .verificationId(existingVerificationId)
+                .parentId(testParentId)
+                .verificationMethod(VerificationMethod.EMAIL)
+                .verificationStatus(VerificationStatus.PENDING)
+                .attemptCount(0)
+                .expiresAt(existingExpiresAt)
+                .verificationCodeHash(existingCodeHash)
+                .contactInfoHash(new byte[]{5, 6, 7, 8}) // Mock contact hash
+                .createdAt(fixedTime.minusMinutes(10))
+                .build();
+
+        when(userRepository.existsById(testParentId)).thenReturn(true);
+        when(parentVerificationRepository.findPendingForParentMethodContact(
+                eq(testParentId), 
+                eq(VerificationMethod.EMAIL), 
+                any(byte[].class), 
+                eq(fixedTime)
+        )).thenReturn(Optional.of(existingVerification));
+
+        // Mock the repository save to return the updated entity
+        when(parentVerificationRepository.save(any(ParentVerification.class)))
+                .thenAnswer(invocation -> {
+                    ParentVerification verification = invocation.getArgument(0);
+                    return verification;
+                });
+
+        // When: initiate
+        VerificationInitiationResult result = parentVerificationService.initiateVerification(testRequest);
+
+        // Then: verify record was reused and updated
+        verify(parentVerificationRepository, times(1)).save(any(ParentVerification.class));
+        
+        // Verify response indicates NOT newly created (idempotent behavior)
+        assertThat(result.newlyCreated()).isFalse();
+        assertThat(result.verificationStatus().verificationStatus()).isEqualTo(VerificationStatus.PENDING);
+        assertThat(result.verificationStatus().verificationId()).isEqualTo(existingVerificationId);
+        assertThat(result.verificationStatus().parentId()).isEqualTo(testParentId);
+        assertThat(result.verificationStatus().verificationMethod()).isEqualTo(VerificationMethod.EMAIL);
+        
+        // Verify expiresAt was extended (now + TTL)
+        LocalDateTime expectedExtendedExpiresAt = fixedTime.plusMinutes(30);
+        assertThat(result.verificationStatus().expiresAt().toLocalDateTime()).isEqualTo(expectedExtendedExpiresAt);
+        
+        // Verify the verification code hash was rotated (should be different from original)
+        verify(parentVerificationRepository).save(argThat(verification -> 
+                verification.getVerificationId().equals(existingVerificationId) &&
+                verification.getExpiresAt().equals(expectedExtendedExpiresAt) &&
+                !java.util.Arrays.equals(verification.getVerificationCodeHash(), existingCodeHash) // Code hash should be rotated
+        ));
+    }
 } 

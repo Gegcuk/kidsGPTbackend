@@ -77,7 +77,7 @@ All verification-related tests and the entire test suite are currently passing. 
 - **When** initiate  
 - **Then**: entity saved with `PENDING`, correct `expiresAt = now + TTL`, new `verificationId`, `attemptCount=0`; email dispatch scheduled `afterCommit`; response has `201 semantics` (via controller).
 
-### 3.2 Idempotent reuse (EMAIL) ❌
+### 3.2 Idempotent reuse (EMAIL) ✅
 - **Given** pending record exists for same `(parentId, EMAIL, contactHash)` and not expired  
 - **When** initiate  
 - **Then**: record reused, **code rotated**, `expiresAt` extended, `newlyCreated=false`.
