@@ -22,6 +22,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentCaptor;
 
 @ExtendWith(MockitoExtension.class)
 class ConsentGrantServiceTest extends ConsentServiceBaseTest {
@@ -206,15 +207,20 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
     @Test
     void grantConsent_ShouldGenerateValidReceiptJson() {
         // Arrange
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
@@ -222,7 +228,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -234,33 +240,40 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(validRequest);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             String receiptJson = consent.getReceiptJson();
-            assertNotNull(receiptJson);
-            assertTrue(receiptJson.contains("\"consent_type\":\"PRIVACY_POLICY\""));
-            assertTrue(receiptJson.contains("\"consent_version\":\"1.0.0\""));
-            assertTrue(receiptJson.contains("\"policy_url\":\"https://example.com/privacy\""));
-            assertTrue(receiptJson.contains("\"jurisdiction\":\"GB\""));
-            assertTrue(receiptJson.contains("\"lawful_basis\":\"CONSENT\""));
-            assertTrue(receiptJson.contains("\"source\":\"WEB\""));
-            assertTrue(receiptJson.contains("\"region\":\"ENGLAND\""));
-            assertTrue(receiptJson.contains("\"kids\":["));
-            return true;
+            return receiptJson != null &&
+                   receiptJson.contains("\"consent_type\":\"PRIVACY_POLICY\"") &&
+                   receiptJson.contains("\"consent_version\":\"1.0.0\"") &&
+                   receiptJson.contains("\"policy_url\":\"https://example.com/privacy\"") &&
+                   receiptJson.contains("\"jurisdiction\":\"GB\"") &&
+                   receiptJson.contains("\"lawful_basis\":\"CONSENT\"") &&
+                   receiptJson.contains("\"source\":\"WEB\"") &&
+                   receiptJson.contains("\"region\":\"ENGLAND\"") &&
+                   receiptJson.contains("\"kids\":[");
         }));
     }
 
     @Test
     void grantConsent_ShouldGenerateHmacSignature() {
         // Arrange
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
@@ -268,7 +281,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -280,26 +293,32 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(validRequest);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             byte[] signature = consent.getRecordSignature();
-            assertNotNull(signature);
-            assertTrue(signature.length > 0);
-            return true;
+            return signature != null && signature.length > 0;
         }));
     }
 
     @Test
     void grantConsent_ShouldSetRetentionExpiryDate() {
         // Arrange
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
@@ -307,7 +326,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -321,12 +340,14 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(validRequest);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             LocalDateTime retentionExpiresAt = consent.getRetentionExpiresAt();
-            assertNotNull(retentionExpiresAt);
-            assertTrue(retentionExpiresAt.isAfter(beforeCall.plusYears(4)));
-            assertTrue(retentionExpiresAt.isBefore(beforeCall.plusYears(6)));
-            return true;
+            return retentionExpiresAt != null && 
+                   retentionExpiresAt.isAfter(beforeCall.plusYears(4)) &&
+                   retentionExpiresAt.isBefore(beforeCall.plusYears(6));
         }));
     }
 
@@ -426,15 +447,20 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
 
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
@@ -442,7 +468,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -454,13 +480,15 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(requestWithSpecialChars);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             String receiptJson = consent.getReceiptJson();
-            assertNotNull(receiptJson);
-            assertTrue(receiptJson.contains("https://example.com/privacy?param=value&other=test"));
-            assertTrue(receiptJson.contains("ENGLAND & WALES"));
-            assertTrue(receiptJson.contains("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
-            return true;
+            return receiptJson != null &&
+                   receiptJson.contains("https://example.com/privacy?param=value&other=test") &&
+                   receiptJson.contains("ENGLAND & WALES") &&
+                   receiptJson.contains("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
         }));
     }
 
@@ -511,15 +539,20 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
     @Test
     void grantConsent_ShouldCalculateRetentionBasedOnConsentType() {
         // Arrange
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.TERMS_OF_SERVICE)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
 
         // Stub for all consent types that buildLatestConsentStatus might call
         for (ConsentType type : ConsentType.values()) {
@@ -527,7 +560,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -556,35 +589,42 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(request);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             LocalDateTime retentionExpiresAt = consent.getRetentionExpiresAt();
-            assertNotNull(retentionExpiresAt);
+            if (retentionExpiresAt == null) return false;
 
             // Should be 6 years for UK TERMS_OF_SERVICE
             LocalDateTime expectedExpiry = LocalDateTime.now().plusYears(6);
-            assertTrue(retentionExpiresAt.isAfter(expectedExpiry.minusDays(1)));
-            assertTrue(retentionExpiresAt.isBefore(expectedExpiry.plusDays(1)));
-            return true;
+            return retentionExpiresAt.isAfter(expectedExpiry.minusDays(1)) &&
+                   retentionExpiresAt.isBefore(expectedExpiry.plusDays(1));
         }));
     }
 
     @Test
     void grantConsent_ShouldResolveVerificationMethod() {
         // Arrange
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PARENTAL_CONSENT)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
         uk.gegc.kidsgptbackend.model.consent.ParentVerification verification = uk.gegc.kidsgptbackend.model.consent.ParentVerification.builder()
                 .verificationId(testVerificationId)
                 .verificationMethod(VerificationMethod.EMAIL)
                 .build();
 
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
         when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
         when(parentVerificationRepository.findById(testVerificationId)).thenReturn(Optional.of(verification));
 
@@ -594,7 +634,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -623,26 +663,32 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(request);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             String receiptJson = consent.getReceiptJson();
-            assertNotNull(receiptJson);
-            assertTrue(receiptJson.contains("\"method\":\"EMAIL\""));
-            return true;
+            return receiptJson != null && receiptJson.contains("\"method\":\"EMAIL\"");
         }));
     }
 
     @Test
     void grantConsent_ShouldHandleUnknownVerificationMethod() {
         // Arrange
-        ConsentLedger savedConsent = ConsentLedger.builder()
-                .consentId(UUID.randomUUID())
-                .userId(testUserId)
-                .consentType(ConsentType.PARENTAL_CONSENT)
-                .consentVersion("1.0.0")
-                .consentStatus(ConsentStatus.GRANTED)
-                .build();
-
-        when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class))).thenReturn(savedConsent);
+        ArgumentCaptor<ConsentLedger> consentCaptor = ArgumentCaptor.forClass(ConsentLedger.class);
+        when(consentLedgerRepository.saveAndFlush(consentCaptor.capture())).thenAnswer(invocation -> {
+            ConsentLedger captured = invocation.getArgument(0);
+            return ConsentLedger.builder()
+                    .consentId(captured.getConsentId() != null ? captured.getConsentId() : UUID.randomUUID())
+                    .userId(captured.getUserId())
+                    .consentType(captured.getConsentType())
+                    .consentVersion(captured.getConsentVersion())
+                    .consentStatus(captured.getConsentStatus())
+                    .receiptJson(captured.getReceiptJson())
+                    .recordSignature(captured.getRecordSignature())
+                    .retentionExpiresAt(captured.getRetentionExpiresAt())
+                    .build();
+        });
         when(consentChildCoverageRepository.saveAll(anyList())).thenReturn(List.of());
         when(parentVerificationRepository.findById(testVerificationId)).thenReturn(Optional.empty());
 
@@ -652,7 +698,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
                         .thenReturn(Optional.empty())
-                        .thenReturn(Optional.of(savedConsent));
+                        .thenReturn(Optional.empty());
             } else {
                 when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                         eq(testUserId), eq(type), eq(ConsentStatus.GRANTED)))
@@ -681,11 +727,12 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         consentService.grantConsent(request);
 
         // Assert
-        verify(consentLedgerRepository).saveAndFlush(argThat(consent -> {
+        verify(consentLedgerRepository, times(2)).saveAndFlush(any(ConsentLedger.class));
+        
+        List<ConsentLedger> capturedConsents = consentCaptor.getAllValues();
+        assertTrue(capturedConsents.stream().anyMatch(consent -> {
             String receiptJson = consent.getReceiptJson();
-            assertNotNull(receiptJson);
-            assertTrue(receiptJson.contains("\"method\":\"unknown\""));
-            return true;
+            return receiptJson != null && receiptJson.contains("\"method\":\"unknown\"");
         }));
     }
 
