@@ -56,7 +56,6 @@ class ConsentHistoryCoverageDuplicatesIntegrationTest {
                 .build();
         testUserId = UUID.randomUUID();
         baseTimestamp = LocalDateTime.now().minusDays(1);
-        consentId = UUID.randomUUID();
         kidIds = List.of(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
         
         // Create test data with duplicate/extraneous kid IDs
@@ -159,7 +158,6 @@ class ConsentHistoryCoverageDuplicatesIntegrationTest {
     private void createTestDataWithDuplicateKidIds() {
         // Create consent ledger entry
         ConsentLedger consentLedger = ConsentLedger.builder()
-                .consentId(consentId)
                 .userId(testUserId)
                 .consentType(ConsentType.PARENTAL_CONSENT)
                 .consentVersion("1.0.0")
@@ -179,7 +177,8 @@ class ConsentHistoryCoverageDuplicatesIntegrationTest {
                 .recordSignature("duplicate-coverage-signature".getBytes())
                 .build();
         
-        consentLedgerRepository.save(consentLedger);
+        ConsentLedger savedConsentLedger = consentLedgerRepository.save(consentLedger);
+        consentId = savedConsentLedger.getConsentId();
         
         // Create coverage entries with duplicates and extraneous data
         List<ConsentChildCoverage> coverageEntries = new ArrayList<>();

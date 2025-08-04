@@ -177,7 +177,6 @@ class ConsentHistoryPerformanceIntegrationTest {
         // Create 150 consent records (more than the page size of 100)
         for (int i = 0; i < 150; i++) {
             ConsentLedger consentLedger = ConsentLedger.builder()
-                    .consentId(UUID.randomUUID())
                     .userId(testUserId)
                     .consentType(ConsentType.values()[i % ConsentType.values().length])
                     .consentVersion("1." + (i % 5) + ".0")

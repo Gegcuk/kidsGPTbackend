@@ -1,253 +1,89 @@
 # Test Update Plan - @GeneratedValue Annotations Fix
 
-## Summary
-After adding `@GeneratedValue(strategy = GenerationType.UUID)` to `ParentVerification` and `ConsentLedger` entities, multiple test failures occurred. This document outlines the issues and the plan to fix them.
+## Current Status (2025-08-04)
 
-## Issues Identified
+**Test Results Summary:**
+- **Total Tests Run**: 571
+- **Failures**: 46
+- **Errors**: 0
+- **Success Rate**: ~92%
 
-### 1. EntityExists Errors (66 errors)
-**Problem**: Tests are getting `EntityExists detached entity passed to persist` errors
-**Root Cause**: Tests are trying to persist entities with manually assigned UUIDs, but now the IDs are auto-generated
-**Affected Tests**: All ConsentLedger repository tests
+## Current Failing Tests
 
-### 2. ObjectOptimisticLockingFailure Errors (20 errors)
-**Problem**: `ObjectOptimisticLockingFailure Row was updated or deleted by another transaction`
-**Root Cause**: Concurrent access to entities during test setup
-**Affected Tests**: ConsentHistory integration tests
+### Integration Tests with HTTP 500 Errors (46 failures)
 
-### 3. 500 Errors in Integration Tests (46 failures)
-**Problem**: Integration tests returning 500 instead of expected 200/201 status codes
-**Root Cause**: Likely related to ID generation changes affecting entity creation
-**Affected Tests**: ConsentController and VerificationController integration tests
+#### 1. ConsentControllerIntegrationTest (32 failures)
+**Problem**: All grantConsent and withdrawConsent tests returning HTTP 500 instead of expected 200/201
+**Root Cause**: Entity creation issues in test setup after adding `@GeneratedValue(strategy = GenerationType.UUID)` to `ParentVerification` and `ConsentLedger` entities
+**Affected Methods**:
+- `grantConsent_ShouldReturnConsentIdInHeader`
+- `grantConsent_ValidRequest_ShouldReturnSuccess`
+- `grantConsent_WithAllConsentSources_ShouldReturnSuccess`
+- `grantConsent_WithAllConsentTypes_ShouldReturnSuccess`
+- `grantConsent_WithAllLawfulBasis_ShouldReturnSuccess`
+- `grantConsent_WithDifferentConsentTypes_ShouldCalculateDifferentRetention`
+- `grantConsent_WithDuplicateKids_ShouldDeduplicateAndSucceed`
+- `grantConsent_WithEmptyKidsList_ShouldReturnBadRequest`
+- `grantConsent_WithNonUKJurisdiction_ShouldUseDefaultRetention`
+- `grantConsent_WithNullKidsList_ShouldReturnBadRequest`
+- `grantConsent_WithNullVerificationId_ShouldReturnSuccess`
+- `grantConsent_WithParentalConsent_ShouldReturnSuccess`
+- `grantConsent_WithPrivacyPolicy_ShouldClearKidsList`
+- `grantConsent_WithSpecialCharactersInFields_ShouldReturnSuccess`
+- `grantConsent_WithSubdomainPolicyUrl_ShouldReturnSuccess`
+- `grantConsent_WithTermsOfService_ShouldClearKidsList`
+- `grantConsent_WithTermsOfService_ShouldReturnSuccess`
+- `grantConsent_WithUKJurisdiction_ShouldCalculateCorrectRetention`
+- `grantConsent_WithUppercaseHost_ShouldReturnSuccess`
+- `withdrawConsent_AllConsentTypes_ShouldSucceed`
+- `withdrawConsent_ControllerHeaderParity_ShouldReturnXConsentIdHeader`
+- `withdrawConsent_CrossTypeUnaffected_ShouldSucceed`
+- `withdrawConsent_CurrentActiveVersion_ShouldSucceed`
+- `withdrawConsent_GrantWithdrawGrantAgain_ShouldShowCorrectLineage`
+- `withdrawConsent_IdempotentRetrySameVersion_ShouldReturnExistingWithdrawalId`
+- `withdrawConsent_IpUaOverride_ShouldUseServerCapturedValues`
+- `withdrawConsent_MissingContentType_ShouldReturnUnsupportedMediaType`
+- `withdrawConsent_MultipleUsersIsolation_ShouldPreventCrosstalk`
+- `withdrawConsent_NoActiveGrantForVersion_ShouldReturnNotFound`
+- `withdrawConsent_NonCurrentVersion_ShouldReturnConflict`
+- `withdrawConsent_ReasonOmissionCases_ShouldOmitReasonFromReceipt`
+- `withdrawConsent_ResponseLatestByTypeReflectsWithdrawn`
+- `withdrawConsent_TimestampSanity_ShouldBeWithinAcceptableDelta`
+- `withdrawConsent_UnauthorizedForbidden_ShouldReturn401Or403`
 
-## Detailed Fix Plan
+#### 2. VerificationControllerIntegrationTest (14 failures)
+**Problem**: All initiateVerification tests returning HTTP 500 instead of expected 201
+**Root Cause**: Same entity creation issues in test setup
+**Affected Methods**:
+- `initiateVerification_combinedNormalization_producesIdenticalHash`
+- `initiateVerification_emailCaseInsensitivity_producesIdenticalHash`
+- `initiateVerification_emailValid_passes`
+- `initiateVerification_emailWithWhitespaceAndMixedCase_normalizationWorks`
+- `initiateVerification_newVerification_returns201WithProperHeaders`
+- `initiateVerification_phoneE164Trimming_hashedIdentically`
+- `initiateVerification_reuseExistingVerification_returns200WithSameHeaders`
+- `initiateVerification_smsValidE164_passes`
+- `initiateVerification_smsVerificationReuse_returns200WithSameHeaders`
+- `initiateVerification_smsVerification_returns201WithProperHeaders`
+- `initiateVerification_smsWithWhitespace_trimmingWorks`
+- `initiateVerification_whitespaceTrimming_ignoredBeforeHashing`
 
-### Phase 1: Fix EntityExists Errors in Repository Tests
+## Root Cause Analysis
 
-#### 1.1 ConsentLedger Repository Tests
-**Files to Update**:
-- `ConsentLedgerActiveGrantRepositoryTest.java`
-- `ConsentLedgerCountAndFilterRepositoryTest.java`
-- `ConsentLedgerEntityBehaviorRepositoryTest.java`
-- `ConsentLedgerExpiredConsentsRepositoryTest.java`
-- `ConsentLedgerFindFirstRepositoryTest.java`
-- `ConsentLedgerOrderingRepositoryTest.java`
-- `ConsentLedgerPaginationRepositoryTest.java`
-- `ConsentLedgerWithdrawalRepositoryTest.java`
+The failures are due to entity creation issues in test setup after adding `@GeneratedValue(strategy = GenerationType.UUID)` to `ParentVerification` and `ConsentLedger` entities. Tests are still trying to use manually assigned UUIDs instead of letting Hibernate auto-generate them.
 
-**Changes Required**:
-1. Remove manual UUID assignment in test setup
-2. Let Hibernate auto-generate IDs
-3. Update assertions to check for non-null IDs instead of specific UUIDs
-4. Use `entityManager.flush()` and `entityManager.clear()` to ensure proper persistence
+## Fix Plan
 
-**Example Fix Pattern**:
-```java
-// Before
-ConsentLedger ledger = ConsentLedger.builder()
-    .consentId(UUID.randomUUID()) // Remove this line
-    .userId(testUserId)
-    // ... other fields
-    .build();
+### For Each Failing Test:
+1. Remove all manual UUID assignments to entity IDs for affected entities
+2. Save referenced entities first and use their generated IDs in referencing entities
+3. Use `repository.save()` for persistence, not `entityManager.persist()`
+4. Update assertions to use the actual generated IDs
+5. Ensure all required fields are set properly
 
-// After
-ConsentLedger ledger = ConsentLedger.builder()
-    .userId(testUserId)
-    // ... other fields
-    .build();
+### Implementation Steps:
+1. **ConsentControllerIntegrationTest**: Update test data setup to use repository.save() and auto-generated IDs
+2. **VerificationControllerIntegrationTest**: Same approach - fix test data setup and ensure all required fields are set
 
-ConsentLedger savedLedger = consentLedgerRepository.save(ledger);
-assertNotNull(savedLedger.getConsentId()); // Check ID was generated
-```
-
-#### 1.2 ParentVerification Repository Tests
-**Files to Update**:
-- `ParentVerificationRepositoryTest.java`
-
-**Changes Required**:
-1. Remove manual UUID assignment for `verificationId`
-2. Update test assertions to verify auto-generated IDs
-3. Ensure proper entity lifecycle management
-
-### Phase 2: Fix ObjectOptimisticLockingFailure Errors
-
-#### 2.1 ConsentHistory Integration Tests
-**Files to Update**:
-- `ConsentHistoryCoverageDuplicatesIntegrationTest.java`
-- `ConsentHistoryNullFieldsIntegrationTest.java`
-- `ConsentHistoryOrderingIntegrationTest.java`
-- `ConsentHistoryPerformanceIntegrationTest.java`
-- `ConsentHistoryWithdrawnGrantedIntegrationTest.java`
-
-**Changes Required**:
-1. Add proper transaction management
-2. Use `@Transactional` annotations where missing
-3. Implement proper cleanup between tests
-4. Use `@DirtiesContext` if needed for test isolation
-
-**Example Fix Pattern**:
-```java
-@Test
-@Transactional
-@DirtiesContext
-void testMethod() {
-    // Test implementation
-}
-```
-
-### Phase 3: Fix Integration Test 500 Errors
-
-#### 3.1 ConsentController Integration Tests
-**Files to Update**:
-- `ConsentControllerIntegrationTest.java`
-
-**Changes Required**:
-1. Update test setup to not rely on specific UUIDs
-2. Ensure proper entity creation flow
-3. Update assertions to handle auto-generated IDs
-4. Check for proper error handling in service layer
-
-#### 3.2 VerificationController Integration Tests
-**Files to Update**:
-- `VerificationControllerIntegrationTest.java`
-
-**Changes Required**:
-1. Update ParentVerification creation to not set manual IDs
-2. Ensure proper verification flow with auto-generated IDs
-3. Update response assertions
-
-### Phase 4: Service Layer Updates
-
-#### 4.1 ConsentService Updates
-**Files to Update**:
-- `ConsentServiceImpl.java`
-
-**Changes Required**:
-1. Ensure proper handling of auto-generated IDs
-2. Update any logic that depends on specific UUID patterns
-3. Verify foreign key relationships work correctly
-
-#### 4.2 ParentVerificationService Updates
-**Files to Update**:
-- `ParentVerificationServiceImpl.java`
-
-**Changes Required**:
-1. Update verification creation logic
-2. Ensure proper ID handling in verification flow
-
-## Implementation Priority
-
-### High Priority (Fix First)
-1. **ConsentLedger Repository Tests** - EntityExists errors
-   - ✅ **ConsentLedgerActiveGrantRepositoryTest.java** - FIXED
-   - ✅ **ConsentLedgerWithdrawalRepositoryTest.java** - FIXED
-   - ✅ **ConsentLedgerPaginationRepositoryTest.java** - FIXED
-   - ✅ **ConsentLedgerOrderingRepositoryTest.java** - FIXED
-   - ✅ **ConsentLedgerFindFirstRepositoryTest.java** - FIXED
-   - ✅ **ConsentLedgerExpiredConsentsRepositoryTest.java** - FIXED
-   - ✅ **ConsentLedgerEntityBehaviorRepositoryTest.java** - FIXED
-   - ⏳ **ConsentLedgerCountAndFilterRepositoryTest.java** - PENDING
-2. **ParentVerification Repository Tests** - EntityExists errors
-
-### Medium Priority
-3. **ConsentHistory Integration Tests** - ObjectOptimisticLockingFailure errors
-4. **Service Layer Updates** - Ensure proper ID handling
-
-### Low Priority
-5. **Integration Test 500 Errors** - May resolve after repository fixes
-
-## Testing Strategy
-
-### Step 1: Fix Repository Tests
-- Run individual repository test classes
-- Verify each test passes in isolation
-- Use: `mvn test -Dtest=*RepositoryTest`
-
-### Step 2: Fix Integration Tests
-- Run integration tests after repository fixes
-- Use: `mvn test -Dtest=*IntegrationTest`
-
-### Step 3: Full Test Suite
-- Run complete test suite
-- Use: `mvn test`
-
-## Expected Outcomes
-
-After implementing these fixes:
-1. All EntityExists errors should be resolved
-2. ObjectOptimisticLockingFailure errors should be eliminated
-3. Integration tests should return proper status codes
-4. Auto-generated UUIDs should work correctly throughout the application
-
-## Rollback Plan
-
-If issues persist, consider:
-1. Reverting the `@GeneratedValue` annotations
-2. Implementing manual ID generation in service layer
-3. Using a different ID generation strategy
-
-## Notes
-
-- The `@GeneratedValue(strategy = GenerationType.UUID)` annotation is the correct approach for UUID primary keys
-- Test failures are expected when changing ID generation strategy
-- Most fixes involve removing manual ID assignment and letting Hibernate handle generation
-- Proper transaction management is crucial for test stability 
-
-## Current Status After Adding @GeneratedValue(strategy = GenerationType.UUID)
-
-After adding `@GeneratedValue(strategy = GenerationType.UUID)` to `ParentVerification` and `ConsentLedger` entities, multiple test failures occurred. This document outlines the issues and the plan to fix them.
-
-### Summary of Current Test Failures (from latest `mvn test`)
-
-- **ConsentControllerIntegrationTest** (many grantConsent/withdrawConsent tests): HTTP 500 errors
-- **VerificationControllerIntegrationTest** (initiateVerification tests): HTTP 500 errors
-- **ConsentLedgerCountAndFilterRepositoryTest**: ObjectOptimisticLockingFailure
-- **ConsentHistoryCoverageDuplicatesIntegrationTest**: ObjectOptimisticLockingFailure
-- **ConsentHistoryNullFieldsIntegrationTest**: ObjectOptimisticLockingFailure
-- **ConsentHistoryOrderingIntegrationTest**: ObjectOptimisticLockingFailure
-- **ConsentHistoryPerformanceIntegrationTest**: ObjectOptimisticLockingFailure
-- **ConsentHistoryWithdrawnGrantedIntegrationTest**: ObjectOptimisticLockingFailure
-
-#### Error Types
-- `ObjectOptimisticLockingFailureException`: Row was updated or deleted by another transaction (or unsaved-value mapping was incorrect)
-- HTTP 500 errors in controller/integration tests (likely due to repository/entity issues)
-- DataIntegrityViolationException: Foreign key constraint violation (in some withdrawal tests)
-
----
-
-## Plan to Fix Remaining Test Failures
-
-### 1. **Repository/Entity Layer**
-- [ ] **ConsentLedgerCountAndFilterRepositoryTest**: Fix all tests referencing other ConsentLedger records (e.g., withdrawnConsentId, parentVerificationId) to use the auto-generated ID from the saved entity. Save referenced entities first, then use their IDs in referencing entities.
-- [ ] **ConsentHistoryCoverageDuplicatesIntegrationTest**: Same pattern—ensure referenced ConsentLedger records are saved and IDs are used correctly.
-- [ ] **ConsentHistoryNullFieldsIntegrationTest**: Same as above.
-- [ ] **ConsentHistoryOrderingIntegrationTest**: Same as above.
-- [ ] **ConsentHistoryPerformanceIntegrationTest**: Same as above.
-- [ ] **ConsentHistoryWithdrawnGrantedIntegrationTest**: Same as above.
-
-### 2. **Controller/Integration Layer**
-- [ ] **ConsentControllerIntegrationTest**: Investigate root cause of HTTP 500 errors. Likely due to repository/entity changes. Fix by ensuring all test data setup uses repository.save() and auto-generated IDs, and that all required fields are set.
-- [ ] **VerificationControllerIntegrationTest**: Same as above—fix test data setup and ensure all required fields are set, using repository.save() and auto-generated IDs.
-
-### 3. **General Steps for Each Failing Test**
-1. Remove all manual UUID assignments to entity IDs for affected entities.
-2. Save referenced entities first and use their generated IDs in referencing entities.
-3. Use repository.save() for persistence, not entityManager.persist().
-4. Update assertions to use the actual generated IDs.
-5. For controller/integration tests, ensure all test data setup is compatible with the new entity ID generation.
-
----
-
-### Progress Tracking
-- [ ] ConsentLedgerCountAndFilterRepositoryTest - IN PROGRESS
-- [ ] ConsentHistoryCoverageDuplicatesIntegrationTest - PENDING
-- [ ] ConsentHistoryNullFieldsIntegrationTest - PENDING
-- [ ] ConsentHistoryOrderingIntegrationTest - PENDING
-- [ ] ConsentHistoryPerformanceIntegrationTest - PENDING
-- [ ] ConsentHistoryWithdrawnGrantedIntegrationTest - PENDING
-- [ ] ConsentControllerIntegrationTest - PENDING
-- [ ] VerificationControllerIntegrationTest - PENDING
-
----
-
-**Note:** All tests worked before the entity changes. The above plan will systematically restore test stability by aligning test data setup and persistence logic with the new auto-generated UUID strategy. 
+## Expected Outcome
+After implementing these fixes, all integration tests should return proper status codes (200/201) instead of HTTP 500 errors, bringing the test suite to 100% passing. 

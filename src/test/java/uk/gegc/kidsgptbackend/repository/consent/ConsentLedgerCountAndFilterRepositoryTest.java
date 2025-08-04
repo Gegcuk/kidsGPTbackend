@@ -750,11 +750,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByConsentTimestampBetween_ShouldIncludeBoundariesAndExcludeOutOfRangeRows() {
         // Arrange - Create records with different timestamps
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
-        UUID consentId5 = UUID.randomUUID();
 
         LocalDateTime baseTime = LocalDateTime.now().withNano(0); // Remove nanoseconds for consistent testing
         LocalDateTime fromDate = baseTime.minusDays(2);
@@ -762,7 +757,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record before the range (should be excluded)
         ConsentLedger beforeRangeRecord = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -784,7 +778,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record at the from boundary (should be included)
         ConsentLedger fromBoundaryRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -806,7 +799,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record within the range (should be included)
         ConsentLedger withinRangeRecord = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -828,7 +820,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record at the to boundary (should be included)
         ConsentLedger toBoundaryRecord = ConsentLedger.builder()
-                .consentId(consentId4)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -850,7 +841,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record after the range (should be excluded)
         ConsentLedger afterRangeRecord = ConsentLedger.builder()
-                .consentId(consentId5)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -908,8 +898,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByConsentTimestampBetween_ShouldReturnEmptyWhenNoRecordsInRange() {
         // Arrange - Create records outside the range
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
 
         LocalDateTime baseTime = LocalDateTime.now().withNano(0);
         LocalDateTime fromDate = baseTime.minusDays(1);
@@ -917,7 +905,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record before the range
         ConsentLedger beforeRangeRecord = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -939,7 +926,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record after the range
         ConsentLedger afterRangeRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -987,14 +973,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByConsentTimestampBetween_ShouldHandleSameFromAndToDate() {
         // Arrange - Create records with the same timestamp
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
 
         LocalDateTime exactTime = LocalDateTime.now().withNano(0);
 
         // Create a record at the exact time
         ConsentLedger exactTimeRecord = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1016,7 +999,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record at a different time
         ConsentLedger differentTimeRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1053,9 +1035,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByConsentTimestampBetween_ShouldHandleDifferentConsentStatuses() {
         // Arrange - Create records with different statuses within the range
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
 
         LocalDateTime baseTime = LocalDateTime.now().withNano(0);
         LocalDateTime fromDate = baseTime.minusDays(1);
@@ -1063,7 +1042,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a GRANTED record within range
         ConsentLedger grantedRecord = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1083,9 +1061,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        // Create a WITHDRAWN record within range
+        // Save the granted record first to get its auto-generated ID
+        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
+
+        // Create a WITHDRAWN record within range that references the granted record
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1103,12 +1083,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
                 .receiptJson("{\"test\":\"withdrawn\"}")
                 .recordSignature(new byte[]{4, 5, 6})
-                .withdrawnConsentId(consentId1)
+                .withdrawnConsentId(savedGrantedRecord.getConsentId())
                 .build();
 
         // Create an EXPIRED record within range
         ConsentLedger expiredRecord = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1128,7 +1107,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .recordSignature(new byte[]{7, 8, 9})
                 .build();
 
-        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
         ConsentLedger savedWithdrawnRecord = consentLedgerRepository.save(withdrawnRecord);
         ConsentLedger savedExpiredRecord = consentLedgerRepository.save(expiredRecord);
         entityManager.flush();
@@ -1153,18 +1131,12 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByParentVerificationId_ShouldReturnRowsMatchingVerificationId() {
         // Arrange - Create records with different parent verification IDs
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
-        UUID consentId5 = UUID.randomUUID();
 
         UUID targetVerificationId = UUID.randomUUID();
         UUID differentVerificationId = UUID.randomUUID();
 
         // Create a record with the target verification ID
         ConsentLedger targetRecord1 = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1185,9 +1157,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .parentVerificationId(targetVerificationId)
                 .build();
 
+        // Save the first target record to get its auto-generated ID
+        ConsentLedger savedTargetRecord1 = consentLedgerRepository.save(targetRecord1);
+
         // Create another record with the same target verification ID
         ConsentLedger targetRecord2 = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1206,12 +1180,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .receiptJson("{\"test\":\"target2\"}")
                 .recordSignature(new byte[]{4, 5, 6})
                 .parentVerificationId(targetVerificationId)
-                .withdrawnConsentId(consentId1)
+                .withdrawnConsentId(savedTargetRecord1.getConsentId())
                 .build();
 
         // Create a record with a different verification ID
         ConsentLedger differentRecord = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1234,7 +1207,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record with null verification ID
         ConsentLedger nullRecord = ConsentLedger.builder()
-                .consentId(consentId4)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1257,7 +1229,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record with no verification ID field set
         ConsentLedger noVerificationRecord = ConsentLedger.builder()
-                .consentId(consentId5)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1278,7 +1249,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .build();
 
         // Persist all records
-        ConsentLedger savedTargetRecord1 = consentLedgerRepository.save(targetRecord1);
         ConsentLedger savedTargetRecord2 = consentLedgerRepository.save(targetRecord2);
         ConsentLedger savedDifferentRecord = consentLedgerRepository.save(differentRecord);
         ConsentLedger savedNullRecord = consentLedgerRepository.save(nullRecord);
@@ -1313,8 +1283,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByParentVerificationId_ShouldReturnEmptyWhenNoMatchingRecords() {
         // Arrange - Create records with different verification IDs
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
 
         UUID existingVerificationId1 = UUID.randomUUID();
         UUID existingVerificationId2 = UUID.randomUUID();
@@ -1322,7 +1290,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record with first verification ID
         ConsentLedger record1 = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1345,7 +1312,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
 
         // Create a record with second verification ID
         ConsentLedger record2 = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1393,15 +1359,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByParentVerificationId_ShouldHandleDifferentConsentStatuses() {
         // Arrange - Create records with different statuses but same verification ID
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
 
         UUID targetVerificationId = UUID.randomUUID();
 
         // Create a GRANTED record with target verification ID
         ConsentLedger grantedRecord = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1422,9 +1384,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .parentVerificationId(targetVerificationId)
                 .build();
 
+        // Save the granted record first to get its auto-generated ID
+        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
+
         // Create a WITHDRAWN record with target verification ID
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1443,12 +1407,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .receiptJson("{\"test\":\"withdrawn\"}")
                 .recordSignature(new byte[]{4, 5, 6})
                 .parentVerificationId(targetVerificationId)
-                .withdrawnConsentId(consentId1)
+                .withdrawnConsentId(savedGrantedRecord.getConsentId())
                 .build();
 
         // Create an EXPIRED record with target verification ID
         ConsentLedger expiredRecord = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1469,7 +1432,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .parentVerificationId(targetVerificationId)
                 .build();
 
-        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
         ConsentLedger savedWithdrawnRecord = consentLedgerRepository.save(withdrawnRecord);
         ConsentLedger savedExpiredRecord = consentLedgerRepository.save(expiredRecord);
         entityManager.flush();
@@ -1494,16 +1456,11 @@ class ConsentLedgerCountAndFilterRepositoryTest {
     @Test
     void findByParentVerificationId_ShouldHandleMultipleRecordsWithSameVerificationId() {
         // Arrange - Create multiple records with the same verification ID
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
 
         UUID targetVerificationId = UUID.randomUUID();
 
         // Create multiple records with the same verification ID
         ConsentLedger record1 = ConsentLedger.builder()
-                .consentId(consentId1)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1525,7 +1482,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .build();
 
         ConsentLedger record2 = ConsentLedger.builder()
-                .consentId(consentId2)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1547,7 +1503,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .build();
 
         ConsentLedger record3 = ConsentLedger.builder()
-                .consentId(consentId3)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
@@ -1569,7 +1524,6 @@ class ConsentLedgerCountAndFilterRepositoryTest {
                 .build();
 
         ConsentLedger record4 = ConsentLedger.builder()
-                .consentId(consentId4)
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
