@@ -33,6 +33,14 @@ public class PasswordResetServiceImpl implements PasswordResetService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final Clock clock;
+    
+    private String maskEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return "***@unknown";
+        }
+        int at = email.indexOf('@');
+        return at > 0 ? "***@" + email.substring(at + 1) : "***@unknown";
+    }
 
     @Override
     @Transactional
@@ -42,7 +50,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         if (userOpt.isEmpty()) {
             // Don't reveal if email exists or not for security
-            log.info("Password reset requested for non-existent email: {}", request.email());
+            log.info("Password reset requested for non-existent email: {}", maskEmail(request.email()));
             return new PasswordResetResponse(
                     "If an account with this email exists, a password reset link has been sent.",
                     LocalDateTime.now(clock).plusHours(1)
@@ -53,7 +61,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
 
         // Check if user is active
         if (!user.isActive()) {
-            log.warn("Password reset requested for inactive user: {}", request.email());
+            log.warn("Password reset requested for inactive user: {}", maskEmail(request.email()));
             return new PasswordResetResponse(
                     "If an account with this email exists, a password reset link has been sent.",
                     LocalDateTime.now(clock).plusHours(1)
@@ -79,7 +87,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         try {
             emailService.sendPasswordResetEmail(user.getEmail(), resetToken, user.getUsername());
         } catch (Exception e) {
-            log.error("Failed to send password reset email to: {}", user.getEmail(), e);
+            log.error("Failed to send password reset email to: {}", maskEmail(user.getEmail()), e);
             // Delete the token if email fails
             tokenRepository.delete(token);
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to send password reset email");
@@ -136,7 +144,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         try {
             emailService.sendPasswordResetConfirmation(user.getEmail(), user.getUsername());
         } catch (Exception e) {
-            log.error("Failed to send password reset confirmation email to: {}", user.getEmail(), e);
+            log.error("Failed to send password reset confirmation email to: {}", maskEmail(user.getEmail()), e);
             // Don't throw exception as password is already reset
         }
 
