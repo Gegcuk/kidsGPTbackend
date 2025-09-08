@@ -23,7 +23,7 @@ public interface SubscriptionUsageRepository extends JpaRepository<SubscriptionU
     @Query("SELECT su FROM SubscriptionUsage su WHERE su.periodEnd < :now")
     List<SubscriptionUsage> findExpiredUsagePeriods(@Param("now") Instant now);
 
-    @Modifying
+    @Modifying(clearAutomatically = true)
     @Query("UPDATE SubscriptionUsage su SET su.usedCount = su.usedCount + 1, su.updatedAt = :now " +
            "WHERE su.user = :user AND su.feature = :feature AND su.periodKey = :periodKey")
     int incrementUsage(@Param("user") User user, 
