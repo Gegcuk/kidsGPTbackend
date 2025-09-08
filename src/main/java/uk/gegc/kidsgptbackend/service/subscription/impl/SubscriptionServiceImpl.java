@@ -316,7 +316,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         };
     }
     
-    private UserSubscription.SubscriptionStatus mapGooglePlayStatus(GooglePlaySubscriptionPurchase purchase) {
+    UserSubscription.SubscriptionStatus mapGooglePlayStatus(GooglePlaySubscriptionPurchase purchase) {
         if (purchase.isPurchased() && !purchase.isExpired()) {
             return UserSubscription.SubscriptionStatus.ACTIVE;
         } else if (purchase.isCanceled()) {
@@ -328,7 +328,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
     }
 
-    private UserSubscription.SubscriptionStatus mapPaymentProviderStatus(String providerStatus) {
+    UserSubscription.SubscriptionStatus mapPaymentProviderStatus(String providerStatus) {
         return switch (providerStatus.toLowerCase()) {
             case "active", "paid" -> UserSubscription.SubscriptionStatus.ACTIVE;
             case "cancelled", "canceled" -> UserSubscription.SubscriptionStatus.CANCELLED;
