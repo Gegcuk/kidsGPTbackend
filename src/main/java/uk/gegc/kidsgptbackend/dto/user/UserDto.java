@@ -3,7 +3,7 @@ package uk.gegc.kidsgptbackend.dto.user;
 
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
@@ -18,10 +18,10 @@ public record UserDto(
 
         Set<RoleName> roles,
 
-        LocalDateTime createdAt,
+        Instant createdAt,
 
-        LocalDateTime lastLoginDate,
+        Instant lastLoginDate,
 
-        LocalDateTime updatedAt
+        Instant updatedAt
 ) {
 }

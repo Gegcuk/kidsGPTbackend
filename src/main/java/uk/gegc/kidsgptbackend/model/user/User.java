@@ -10,6 +10,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.domain.Persistable;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
@@ -43,14 +44,14 @@ public class User implements Persistable<UUID> {
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "last_login")
-    private LocalDateTime lastLoginDate;
+    private Instant lastLoginDate;
 
     @LastModifiedDate
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
@@ -59,7 +60,7 @@ public class User implements Persistable<UUID> {
     private boolean isDeleted;
 
     @Column(name = "deleted_at")
-    private LocalDateTime deletedAt;
+    private Instant deletedAt;
 
     @ManyToMany
     @JoinTable(
@@ -86,16 +87,16 @@ public class User implements Persistable<UUID> {
 
     @PrePersist
     void prePersist() {
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = Instant.now();
         this.isNew = true;
     }
 
     @PreUpdate
     void preUpdate() {
         if (!this.isDeleted) {
-            this.updatedAt = LocalDateTime.now();
+            this.updatedAt = Instant.now();
         } else {
-            this.deletedAt = LocalDateTime.now();
+            this.deletedAt = Instant.now();
         }
     }
 }

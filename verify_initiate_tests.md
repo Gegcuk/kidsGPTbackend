@@ -82,27 +82,27 @@ All verification-related tests and the entire test suite are currently passing. 
 - **When** initiate  
 - **Then**: record reused, **code rotated**, `expiresAt` extended, `newlyCreated=false`.
 
-### 3.3 No pending for same method but other pending exists ❌
+### 3.3 No pending for same method but other pending exists ✅
 - **Given** pending exists for different contact/method  
 - **When** initiate  
 - **Then**: **new** record created for the current contact/method.
 
-### 3.4 Race condition: unique constraint / save conflict ❌
+### 3.4 Race condition: unique constraint / save conflict ✅
 - **Given** concurrent creation leads to `DataIntegrityViolationException`  
 - **When** service catches and finds existing pending via repository method  
 - **Then**: reuse that record, rotate code, extend expiry, return success.
 
-### 3.5 Email scheduling ❌
+### 3.5 Email scheduling ✅
 - **Given** email method and generated code  
 - **When** initiate  
 - **Then**: `TransactionSynchronization.afterCommit` enqueues `emailService.sendVerificationEmail(normalizedEmail, code)`.
 
-### 3.6 Email disabled ❌
+### 3.6 Email disabled ✅
 - **Given** `emailConfig.enabled=false`  
 - **When** initiate  
 - **Then**: no exception thrown; service still returns success; log warning.
 
-### 3.7 Parent not found ❌
+### 3.7 Parent not found ✅
 - **Given** repository reports no user  
 - **When** initiate  
 - **Then**: `ResponseStatusException 404`.
