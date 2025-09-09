@@ -58,11 +58,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleBadRequest(RuntimeException ex) {
+        // Sanitize error message to avoid exposing internal details
+        String sanitizedMessage = sanitizeErrorMessage(ex.getMessage());
         return new ErrorResponse(
                 LocalDateTime.now(clock),
                 HttpStatus.BAD_REQUEST.value(),
                 "Bad Request",
-                List.of(ex.getMessage() != null ? ex.getMessage() : "Invalid request")
+                List.of(sanitizedMessage)
         );
     }
 
@@ -389,6 +391,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 "Internal Server Error",
                 List.of("An unexpected error occurred")
         );
+    }
+
+    /**
+     * Sanitizes error messages to avoid exposing internal implementation details.
+     * Replaces sensitive internal details with generic messages.
+     */
+    private String sanitizeErrorMessage(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            return "Invalid request";
+        }
+        
+        // List of sensitive terms that should be replaced
+        String[] sensitiveTerms = {
+            "database", "connection", "sql", "jdbc", "hibernate", "jpa",
+            "internal", "stack", "trace", "exception", "timeout", "deadlock", 
+            "constraint", "violation", "duplicate"
+        };
+        
+        String sanitized = message.toLowerCase();
+        for (String term : sensitiveTerms) {
+            if (sanitized.contains(term)) {
+                return "Invalid request";
+            }
+        }
+        
+        return message;
     }
 
     // Ensure this record is complete and properly formatted
