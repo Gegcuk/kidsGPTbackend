@@ -239,18 +239,18 @@ class SubscriptionAccessServiceSerializationTest {
     }
 
     @Test
-    @DisplayName("Malformed JSON - null features should throw exception")
-    void malformedJson_nullFeatures_shouldThrowException() {
+    @DisplayName("Malformed JSON - null features should log warning and deny access")
+    void malformedJson_nullFeatures_shouldLogWarningAndDenyAccess() {
         // Given - plan with null features
         testPlan.setFeatures(null);
         when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser))
                 .thenReturn(Optional.of(testSubscription));
 
-        // When/Then - should throw exception when trying to parse null features
-        assertThat(org.junit.jupiter.api.Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> subscriptionAccessService.hasFeatureAccess(testUser, "chat_limit")
-        )).isNotNull();
+        // When
+        boolean hasAccess = subscriptionAccessService.hasFeatureAccess(testUser, "chat_limit");
+
+        // Then - should NOT have access (null features results in 0 limit)
+        assertThat(hasAccess).isFalse();
     }
 
     @Test

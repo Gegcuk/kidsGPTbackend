@@ -100,11 +100,16 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         }
 
         // Get or create usage record
-        SubscriptionUsage usage = subscriptionUsageRepository
-                .findByUserAndFeatureAndPeriodKey(user, feature, periodKey)
-                .orElseGet(() -> createUsageRecord(user, feature, periodKey, limit, periodStart, periodEnd));
+        try {
+            SubscriptionUsage usage = subscriptionUsageRepository
+                    .findByUserAndFeatureAndPeriodKey(user, feature, periodKey)
+                    .orElseGet(() -> createUsageRecord(user, feature, periodKey, limit, periodStart, periodEnd));
 
-        return usage.getRemainingUsage();
+            return usage.getRemainingUsage();
+        } catch (Exception e) {
+            log.error("Error getting usage for user {} feature {} period {}", user.getId(), feature, periodKey, e);
+            return 0; // Safe fallback
+        }
     }
 
     @Override
@@ -213,7 +218,18 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
     
     private int getSubscriptionLimit(UserSubscription subscription, String feature) {
         try {
-            JsonNode features = objectMapper.readTree(subscription.getSubscriptionPlan().getFeatures());
+            if (subscription.getSubscriptionPlan() == null) {
+                log.warn("Subscription {} has null plan", subscription.getId());
+                return 0;
+            }
+            
+            String featuresJson = subscription.getSubscriptionPlan().getFeatures();
+            if (featuresJson == null || featuresJson.trim().isEmpty()) {
+                log.warn("Subscription {} has null or empty features JSON", subscription.getId());
+                return 0;
+            }
+            
+            JsonNode features = objectMapper.readTree(featuresJson);
             JsonNode featureNode = features.get(feature);
             
             if (featureNode == null || !featureNode.isNumber()) {
