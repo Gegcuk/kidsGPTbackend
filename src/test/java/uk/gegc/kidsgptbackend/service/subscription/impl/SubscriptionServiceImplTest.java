@@ -21,6 +21,8 @@ import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.service.family.KidCountingService;
+import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAcknowledger;
+import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionSaver;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -51,6 +53,12 @@ class SubscriptionServiceImplTest {
 
     @Mock
     private KidCountingService kidCountingService;
+
+    @Mock
+    private SubscriptionSaver subscriptionSaver;
+
+    @Mock
+    private SubscriptionAcknowledger subscriptionAcknowledger;
 
     @InjectMocks
     private SubscriptionServiceImpl subscriptionService;
@@ -97,7 +105,7 @@ class SubscriptionServiceImplTest {
         googlePurchase.setExpiryTimeMillis(Instant.now().plusSeconds(2592000).toEpochMilli()); // 30 days from now
         googlePurchase.setAutoRenewing(true);
         googlePurchase.setPurchaseState("PURCHASED");
-        googlePurchase.setAcknowledgementState("PENDING");
+        googlePurchase.setAcknowledgementState("NOT_ACKNOWLEDGED");
 
         // Create existing subscription for upsert tests
         existingSubscription = new UserSubscription();
@@ -121,10 +129,8 @@ class SubscriptionServiceImplTest {
         when(subscriptionPlanRepository.findById(createRequest.planId())).thenReturn(Optional.of(plusMonthlyPlan));
         when(googlePlayClient.getSubscriptionPurchase(createRequest.googleProductId(), createRequest.purchaseToken()))
                 .thenReturn(googlePurchase);
-        when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
-                UserSubscription.PaymentProvider.GOOGLE_PLAY, createRequest.purchaseToken()))
-                .thenReturn(Optional.empty());
-        when(userSubscriptionRepository.save(any(UserSubscription.class))).thenReturn(existingSubscription);
+        when(subscriptionSaver.saveFromGoogle(testUser, createRequest, googlePurchase)).thenReturn(existingSubscription);
+        doNothing().when(subscriptionAcknowledger).acknowledge("plus_monthly", "purchase_token_123");
 
         // When
         UserSubscription result = subscriptionService.createSubscription(testUser, createRequest);
@@ -140,14 +146,12 @@ class SubscriptionServiceImplTest {
 
         // Verify Google Play client calls
         verify(googlePlayClient).getSubscriptionPurchase("plus_monthly", "purchase_token_123");
-        verify(googlePlayClient).acknowledgeSubscription("plus_monthly", "purchase_token_123", null);
+        verify(subscriptionAcknowledger).acknowledge("plus_monthly", "purchase_token_123");
 
         // Verify repository calls
         verify(userSubscriptionRepository).findActiveSubscriptionsWithLock(testUser);
         verify(subscriptionPlanRepository).findById(createRequest.planId());
-        verify(userSubscriptionRepository).findByPaymentProviderAndExternalSubscriptionId(
-                UserSubscription.PaymentProvider.GOOGLE_PLAY, "purchase_token_123");
-        verify(userSubscriptionRepository).save(any(UserSubscription.class));
+        verify(subscriptionSaver).saveFromGoogle(testUser, createRequest, googlePurchase);
     }
 
     @Test
@@ -241,12 +245,9 @@ class SubscriptionServiceImplTest {
         when(subscriptionPlanRepository.findById(createRequest.planId())).thenReturn(Optional.of(plusMonthlyPlan));
         when(googlePlayClient.getSubscriptionPurchase(createRequest.googleProductId(), createRequest.purchaseToken()))
                 .thenReturn(googlePurchase);
-        doThrow(new RuntimeException("Google API error")).when(googlePlayClient)
-                .acknowledgeSubscription(anyString(), anyString(), any());
-        when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
-                UserSubscription.PaymentProvider.GOOGLE_PLAY, createRequest.purchaseToken()))
-                .thenReturn(Optional.empty());
-        when(userSubscriptionRepository.save(any(UserSubscription.class))).thenReturn(existingSubscription);
+        doThrow(new RuntimeException("Google API error")).when(subscriptionAcknowledger)
+                .acknowledge(anyString(), anyString());
+        when(subscriptionSaver.saveFromGoogle(testUser, createRequest, googlePurchase)).thenReturn(existingSubscription);
 
         // When
         UserSubscription result = subscriptionService.createSubscription(testUser, createRequest);
@@ -255,9 +256,9 @@ class SubscriptionServiceImplTest {
         assertThat(result).isNotNull();
         assertThat(result.getStatus()).isEqualTo(UserSubscription.SubscriptionStatus.ACTIVE);
 
-        // Verify acknowledge was attempted 3 times
-        verify(googlePlayClient, times(3)).acknowledgeSubscription("plus_monthly", "purchase_token_123", null);
-        verify(userSubscriptionRepository).save(any(UserSubscription.class));
+        // Verify acknowledge was attempted
+        verify(subscriptionAcknowledger).acknowledge("plus_monthly", "purchase_token_123");
+        verify(subscriptionSaver).saveFromGoogle(testUser, createRequest, googlePurchase);
     }
 
     @Test
@@ -268,10 +269,7 @@ class SubscriptionServiceImplTest {
         when(subscriptionPlanRepository.findById(createRequest.planId())).thenReturn(Optional.of(plusMonthlyPlan));
         when(googlePlayClient.getSubscriptionPurchase(createRequest.googleProductId(), createRequest.purchaseToken()))
                 .thenReturn(googlePurchase);
-        when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
-                UserSubscription.PaymentProvider.GOOGLE_PLAY, createRequest.purchaseToken()))
-                .thenReturn(Optional.of(existingSubscription));
-        when(userSubscriptionRepository.save(any(UserSubscription.class))).thenReturn(existingSubscription);
+        when(subscriptionSaver.saveFromGoogle(testUser, createRequest, googlePurchase)).thenReturn(existingSubscription);
 
         // When
         UserSubscription result = subscriptionService.createSubscription(testUser, createRequest);
@@ -280,13 +278,7 @@ class SubscriptionServiceImplTest {
         assertThat(result).isEqualTo(existingSubscription);
 
         // Verify the existing subscription was updated, not a new one created
-        ArgumentCaptor<UserSubscription> captor = ArgumentCaptor.forClass(UserSubscription.class);
-        verify(userSubscriptionRepository).save(captor.capture());
-        UserSubscription savedSubscription = captor.getValue();
-        assertThat(savedSubscription.getId()).isEqualTo(existingSubscription.getId());
-        assertThat(savedSubscription.getStatus()).isEqualTo(UserSubscription.SubscriptionStatus.ACTIVE);
-        assertThat(savedSubscription.getCurrentPeriodStart()).isNotNull();
-        assertThat(savedSubscription.getCurrentPeriodEnd()).isNotNull();
+        verify(subscriptionSaver).saveFromGoogle(testUser, createRequest, googlePurchase);
     }
 
     @Test
@@ -384,6 +376,8 @@ class SubscriptionServiceImplTest {
         // Given
         when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser))
                 .thenReturn(Optional.empty());
+        when(kidCountingService.countKidsForParent(testUser)).thenReturn(0);
+        when(kidCountingService.canAddMoreKids(testUser)).thenReturn(true);
 
         // When
         SubscriptionStatusDto result = subscriptionService.getUserSubscriptionStatus(testUser);
@@ -408,6 +402,8 @@ class SubscriptionServiceImplTest {
         // Given
         when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser))
                 .thenReturn(Optional.of(existingSubscription));
+        when(kidCountingService.countKidsForParent(testUser)).thenReturn(0);
+        when(kidCountingService.canAddMoreKids(testUser)).thenReturn(true);
 
         // When
         SubscriptionStatusDto result = subscriptionService.getUserSubscriptionStatus(testUser);
@@ -650,7 +646,7 @@ class SubscriptionServiceImplTest {
         assertThat(subscriptionService.mapPaymentProviderStatus("incomplete_expired"))
                 .isEqualTo(UserSubscription.SubscriptionStatus.INCOMPLETE_EXPIRED);
         assertThat(subscriptionService.mapPaymentProviderStatus("unknown_status"))
-                .isEqualTo(UserSubscription.SubscriptionStatus.ACTIVE); // Default
+                .isEqualTo(UserSubscription.SubscriptionStatus.INCOMPLETE); // Default
     }
 
     @Test

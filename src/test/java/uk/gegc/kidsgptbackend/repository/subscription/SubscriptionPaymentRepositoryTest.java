@@ -193,9 +193,10 @@ class SubscriptionPaymentRepositoryTest {
         anotherSuccessful.setStatus(SubscriptionPayment.PaymentStatus.SUCCEEDED);
         anotherSuccessful.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
         anotherSuccessful.setExternalPaymentId("payment_id_new");
-        anotherSuccessful.setBillingPeriodStart(Instant.now());
-        anotherSuccessful.setBillingPeriodEnd(Instant.now().plusSeconds(2592000));
-        anotherSuccessful.setCreatedAt(Instant.now().minusSeconds(900)); // 15 minutes ago (newer)
+        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
+        anotherSuccessful.setBillingPeriodStart(baseTime);
+        anotherSuccessful.setBillingPeriodEnd(baseTime.plusSeconds(2592000));
+        anotherSuccessful.setCreatedAt(baseTime.minusSeconds(900)); // 15 minutes before base (newer)
         entityManager.persistAndFlush(anotherSuccessful);
         entityManager.clear();
 
@@ -316,8 +317,9 @@ class SubscriptionPaymentRepositoryTest {
     @Test
     @DisplayName("findPendingPaymentsOlderThan returns empty when no old pending payments")
     void findPendingPaymentsOlderThan_returnsEmptyWhenNoOldPendingPayments() {
-        // Given
-        Instant cutoffTime = Instant.now().minusSeconds(14400); // 4 hours ago (older than all payments)
+        // Given - use same base time as test data setup
+        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
+        Instant cutoffTime = baseTime.minusSeconds(14400); // 4 hours before base time (older than all payments)
 
         // When
         List<SubscriptionPayment> result = subscriptionPaymentRepository.findPendingPaymentsOlderThan(cutoffTime);

@@ -50,7 +50,12 @@ class WebhookProcessingServiceImplTest {
     private String testEventType;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws Exception {
+        // Set packageName field using reflection
+        java.lang.reflect.Field packageNameField = WebhookProcessingServiceImpl.class.getDeclaredField("packageName");
+        packageNameField.setAccessible(true);
+        packageNameField.set(webhookProcessingService, "uk.gegc.kidsgpt");
+        
         // Setup test subscription
         testPlan = new SubscriptionPlan();
         testPlan.setId(UUID.randomUUID());
@@ -82,6 +87,7 @@ class WebhookProcessingServiceImplTest {
         
         String notificationData = """
             {
+                "packageName": "uk.gegc.kidsgpt",
                 "subscriptionNotification": {
                     "version": "1.0",
                     "notificationType": 2,
@@ -276,7 +282,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);
@@ -326,7 +335,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);
@@ -371,7 +383,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);
@@ -416,7 +431,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);
@@ -460,7 +478,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);
@@ -504,7 +525,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);
@@ -515,13 +539,16 @@ class WebhookProcessingServiceImplTest {
         when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
                 eq(UserSubscription.PaymentProvider.GOOGLE_PLAY), eq("test_purchase_token")))
                 .thenReturn(Optional.empty());
+        
+        when(googlePlayClient.getSubscriptionPurchase("plus_monthly", "test_purchase_token"))
+                .thenReturn(testPurchase);
 
         // When
         webhookProcessingService.processGooglePlayWebhook(testEventId, testEventType, testPayload);
 
         // Then
         verify(userSubscriptionRepository, never()).save(any(UserSubscription.class));
-        verify(googlePlayClient, never()).getSubscriptionPurchase(anyString(), anyString());
+        verify(googlePlayClient).getSubscriptionPurchase("plus_monthly", "test_purchase_token");
     }
 
     @Test
@@ -542,7 +569,10 @@ class WebhookProcessingServiceImplTest {
         when(dataNode.asText()).thenReturn(Base64.getEncoder().encodeToString("test data".getBytes()));
         
         JsonNode decodedDataNode = mock(JsonNode.class);
+        JsonNode packageNameNode = mock(JsonNode.class);
         when(objectMapper.readTree(any(byte[].class))).thenReturn(decodedDataNode);
+        when(decodedDataNode.path("packageName")).thenReturn(packageNameNode);
+        when(packageNameNode.asText()).thenReturn("uk.gegc.kidsgpt");
         when(decodedDataNode.has("subscriptionNotification")).thenReturn(true);
         when(decodedDataNode.get("subscriptionNotification")).thenReturn(notificationNode);
         when(notificationNode.get("subscriptionId")).thenReturn(subscriptionIdNode);

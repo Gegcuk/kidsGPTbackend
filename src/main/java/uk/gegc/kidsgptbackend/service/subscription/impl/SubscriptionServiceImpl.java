@@ -4,6 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 import uk.gegc.kidsgptbackend.dto.subscription.*;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
@@ -53,7 +55,22 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     // Remove @Transactional from this method - orchestration should not be transactional
     public UserSubscription createSubscription(User user, CreateSubscriptionRequest request) {
-        // 1) Verify purchase with Google Play (network call outside transaction)
+        // 1) Check if user already has an active subscription
+        List<UserSubscription> existingSubscriptions = userSubscriptionRepository.findActiveSubscriptionsWithLock(user);
+        if (!existingSubscriptions.isEmpty()) {
+            throw new IllegalStateException("User already has an active subscription");
+        }
+
+        // 2) Validate subscription plan exists
+        SubscriptionPlan plan = subscriptionPlanRepository.findById(request.planId())
+                .orElseThrow(() -> new IllegalArgumentException("Subscription plan not found"));
+
+        // 3) Validate product ID matches plan
+        if (!plan.getGooglePlayProductId().equals(request.googleProductId())) {
+            throw new IllegalArgumentException("Product/plan mismatch");
+        }
+
+        // 4) Verify purchase with Google Play (network call outside transaction)
         GooglePlaySubscriptionPurchase googlePurchase = googlePlayClient.getSubscriptionPurchase(
                 request.googleProductId(), request.purchaseToken());
         
@@ -61,12 +78,18 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new IllegalStateException("Purchase not active");
         }
 
-        // 2) Acknowledge the purchase with Google Play if needed (network call outside transaction)
+        // 5) Acknowledge the purchase with Google Play if needed (network call outside transaction)
         if ("NOT_ACKNOWLEDGED".equals(googlePurchase.getAcknowledgementState())) {
-            subscriptionAcknowledger.acknowledge(request.googleProductId(), request.purchaseToken());
+            try {
+                subscriptionAcknowledger.acknowledge(request.googleProductId(), request.purchaseToken());
+            } catch (Exception e) {
+                log.warn("Failed to acknowledge subscription {} for user {}: {}", 
+                        request.googleProductId(), user.getId(), e.getMessage());
+                // Continue with subscription creation even if acknowledge fails
+            }
         }
 
-        // 3) Persist in short transaction
+        // 6) Persist in short transaction
         return subscriptionSaver.saveFromGoogle(user, request, googlePurchase);
     }
 
@@ -264,7 +287,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
     }
 
-    UserSubscription.SubscriptionStatus mapPaymentProviderStatus(String providerStatus) {
+    public UserSubscription.SubscriptionStatus mapPaymentProviderStatus(String providerStatus) {
         return switch (providerStatus.toLowerCase()) {
             case "active", "paid" -> UserSubscription.SubscriptionStatus.ACTIVE;
             case "cancelled", "canceled" -> UserSubscription.SubscriptionStatus.CANCELLED;

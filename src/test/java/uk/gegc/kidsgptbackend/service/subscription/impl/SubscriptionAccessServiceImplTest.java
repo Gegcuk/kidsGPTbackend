@@ -17,6 +17,7 @@ import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.service.family.KidCountingService;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -42,6 +43,9 @@ class SubscriptionAccessServiceImplTest {
 
     @Mock
     private ObjectMapper objectMapper;
+
+    @Mock
+    private KidCountingService kidCountingService;
 
     @InjectMocks
     private SubscriptionAccessServiceImpl subscriptionAccessService;
@@ -372,6 +376,7 @@ class SubscriptionAccessServiceImplTest {
         when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(
                 testUser, "chat_limit", "FREE_" + testUser.getId() + "_" + testUser.getCreatedAt().getEpochSecond()))
                 .thenReturn(Optional.of(existingUsage));
+        when(kidCountingService.canAddMoreKids(testUser)).thenReturn(true);
 
         // When & Then
         assertThat(subscriptionAccessService.canPerformAction(testUser, "chat")).isTrue();

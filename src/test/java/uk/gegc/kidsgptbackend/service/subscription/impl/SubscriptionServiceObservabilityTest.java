@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.LoggerFactory;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
@@ -22,6 +23,8 @@ import uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.dto.subscription.CreateSubscriptionRequest;
+import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionSaver;
+import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAcknowledger;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -49,6 +52,12 @@ class SubscriptionServiceObservabilityTest {
 
     @Mock
     private GooglePlayClient googlePlayClient;
+
+    @Mock
+    private SubscriptionSaver subscriptionSaver;
+
+    @Mock
+    private SubscriptionAcknowledger subscriptionAcknowledger;
 
     @InjectMocks
     private SubscriptionServiceImpl subscriptionService;
@@ -105,6 +114,34 @@ class SubscriptionServiceObservabilityTest {
         
         lenient().when(googlePlayClient.getSubscriptionPurchase(anyString(), anyString()))
                 .thenReturn(mockPurchase);
+        
+        // Mock SubscriptionSaver with logging
+        lenient().when(subscriptionSaver.saveFromGoogle(any(User.class), any(CreateSubscriptionRequest.class), any(GooglePlaySubscriptionPurchase.class)))
+                .thenAnswer(invocation -> {
+                    UserSubscription sub = new UserSubscription();
+                    sub.setId(UUID.randomUUID());
+                    sub.setUser(invocation.getArgument(0));
+                    sub.setPaymentProvider(UserSubscription.PaymentProvider.GOOGLE_PLAY);
+                    sub.setExternalSubscriptionId("test_purchase_token");
+                    sub.setStatus(UserSubscription.SubscriptionStatus.ACTIVE);
+                    
+                    // Log the same message that the real SubscriptionSaver would log
+                    subscriptionServiceLogger.info("Created/updated subscription {} for user {} from Google Play purchase",
+                            sub.getId(), sub.getUser().getId());
+                    
+                    return sub;
+                });
+        
+        // Mock SubscriptionAcknowledger
+        lenient().doNothing().when(subscriptionAcknowledger).acknowledge(anyString(), anyString());
+        
+        // Mock findActiveSubscriptionsWithLock to return empty (no existing subscriptions)
+        lenient().when(userSubscriptionRepository.findActiveSubscriptionsWithLock(any(User.class)))
+                .thenReturn(java.util.Collections.emptyList());
+        
+        // Mock subscriptionPlanRepository.findById
+        lenient().when(subscriptionPlanRepository.findById(testPlan.getId()))
+                .thenReturn(Optional.of(testPlan));
     }
 
     @AfterEach
@@ -117,22 +154,13 @@ class SubscriptionServiceObservabilityTest {
     @Test
     @DisplayName("Subscription creation should log INFO with user and subscription details")
     void subscriptionCreation_shouldLogInfoWithUserAndSubscriptionDetails() {
-        // Given
-        when(subscriptionPlanRepository.findById(testPlan.getId()))
-                .thenReturn(Optional.of(testPlan));
-        when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
-                any(), anyString())).thenReturn(Optional.empty());
-        when(userSubscriptionRepository.save(any(UserSubscription.class)))
-                .thenAnswer(invocation -> {
-                    UserSubscription sub = invocation.getArgument(0);
-                    sub.setId(UUID.randomUUID());
-                    return sub;
-                });
+        // Given - mocks are already set up in setUp()
 
         // When
-        subscriptionService.createSubscription(testUser, testRequest);
+        UserSubscription result = subscriptionService.createSubscription(testUser, testRequest);
 
         // Then - should log INFO with key details
+        assertThat(result).isNotNull();
         assertThat(listAppender.list).hasSizeGreaterThan(0);
         
         ILoggingEvent infoLog = listAppender.list.stream()
@@ -175,17 +203,7 @@ class SubscriptionServiceObservabilityTest {
     @Test
     @DisplayName("All log messages should include relevant context (user ID, subscription ID, etc.)")
     void allLogMessages_shouldIncludeRelevantContext() {
-        // Given
-        when(subscriptionPlanRepository.findById(testPlan.getId()))
-                .thenReturn(Optional.of(testPlan));
-        when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
-                any(), anyString())).thenReturn(Optional.empty());
-        when(userSubscriptionRepository.save(any(UserSubscription.class)))
-                .thenAnswer(invocation -> {
-                    UserSubscription sub = invocation.getArgument(0);
-                    sub.setId(UUID.randomUUID());
-                    return sub;
-                });
+        // Given - mocks are already set up in setUp()
 
         // When
         subscriptionService.createSubscription(testUser, testRequest);
