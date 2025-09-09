@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.data.jpa.repository.config.EnableJpaAuditing;
 import org.springframework.test.context.ActiveProfiles;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPayment;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
@@ -20,6 +21,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
+@EnableJpaAuditing
 @ActiveProfiles("test")
 class SubscriptionPaymentRepositoryTest {
 
@@ -212,7 +214,7 @@ class SubscriptionPaymentRepositoryTest {
     @Test
     @DisplayName("findSuccessfulPaymentsBySubscription orders by createdAt DESC")
     void findSuccessfulPaymentsBySubscription_ordersByCreatedAtDesc() {
-        // Given - Create another successful payment
+        // Given - Create another successful payment (will be newer due to JPA auditing)
         SubscriptionPayment anotherSuccessful = new SubscriptionPayment();
         anotherSuccessful.setUserSubscription(userSubscription);
         anotherSuccessful.setAmount(new BigDecimal("4.99"));
@@ -220,10 +222,8 @@ class SubscriptionPaymentRepositoryTest {
         anotherSuccessful.setStatus(SubscriptionPayment.PaymentStatus.SUCCEEDED);
         anotherSuccessful.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
         anotherSuccessful.setExternalPaymentId("payment_id_new");
-        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
-        anotherSuccessful.setBillingPeriodStart(baseTime);
-        anotherSuccessful.setBillingPeriodEnd(baseTime.plusSeconds(2592000));
-        anotherSuccessful.setCreatedAt(baseTime.minusSeconds(900)); // 15 minutes before base (newer)
+        anotherSuccessful.setBillingPeriodStart(Instant.now());
+        anotherSuccessful.setBillingPeriodEnd(Instant.now().plusSeconds(2592000));
         entityManager.persistAndFlush(anotherSuccessful);
         entityManager.clear();
 
@@ -239,10 +239,9 @@ class SubscriptionPaymentRepositoryTest {
     @Test
     @DisplayName("findPaymentsInBillingPeriod returns payments within date range")
     void findPaymentsInBillingPeriod_returnsPaymentsWithinDateRange() {
-        // Given - use same base time as test data setup
-        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
-        Instant startDate = baseTime.minusSeconds(3600); // 1 hour before base
-        Instant endDate = baseTime.plusSeconds(3600); // 1 hour after base
+        // Given - use the actual billing period dates from the successful payment
+        Instant startDate = successfulPayment.getBillingPeriodStart().minusSeconds(1800); // 30 minutes before
+        Instant endDate = successfulPayment.getBillingPeriodEnd().plusSeconds(1800); // 30 minutes after
 
         // When
         List<SubscriptionPayment> result = subscriptionPaymentRepository.findPaymentsInBillingPeriod(
@@ -253,6 +252,7 @@ class SubscriptionPaymentRepositoryTest {
         assertThat(result.get(0).getStatus()).isEqualTo(SubscriptionPayment.PaymentStatus.SUCCEEDED);
         assertThat(result.get(0).getBillingPeriodStart()).isAfterOrEqualTo(startDate);
         assertThat(result.get(0).getBillingPeriodEnd()).isBeforeOrEqualTo(endDate);
+        assertThat(result.get(0).getExternalPaymentId()).isEqualTo("payment_id_123");
     }
 
     @Test
