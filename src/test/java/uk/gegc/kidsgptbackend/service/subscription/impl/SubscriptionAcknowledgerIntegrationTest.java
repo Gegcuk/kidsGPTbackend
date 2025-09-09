@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.test.context.TestPropertySource;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
@@ -16,13 +18,24 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
-@SpringBootTest
-@EnableRetry
+@SpringBootTest(classes = {
+    SubscriptionAcknowledgerIntegrationTest.TestConfig.class,
+    SubscriptionAcknowledger.class
+})
 @TestPropertySource(properties = {
-    "spring.retry.enabled=true"
+    "spring.retry.enabled=true",
+    "google.play.service-account-key=",
+    "google.play.package-name=test.package",
+    "google.play.application-name=TestApp"
 })
 @DisplayName("SubscriptionAcknowledger Integration Tests")
 class SubscriptionAcknowledgerIntegrationTest {
+
+    @Configuration
+    @EnableRetry
+    @Import(SubscriptionAcknowledger.class)
+    static class TestConfig {
+    }
 
     @MockBean
     private GooglePlayClient googlePlayClient;
