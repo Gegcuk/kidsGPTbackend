@@ -213,7 +213,10 @@ public class GooglePlayClientImpl implements GooglePlayClient {
         purchase.setPurchaseState("PURCHASED");
         purchase.setAcknowledgementState("ACKNOWLEDGED");
         purchase.setPackageName(packageName);
-        purchase.setOrderId("GPA.MOCK-" + System.currentTimeMillis());
+        // Generate deterministic order ID based on productId and purchaseToken
+        String orderIdInput = productId + ":" + purchaseToken;
+        int hashCode = Math.abs(orderIdInput.hashCode());
+        purchase.setOrderId("GPA.MOCK-" + hashCode);
         purchase.setPriceCurrencyCode("GBP");
         purchase.setPriceAmountMicros("4990000"); // £4.99 in micros
         

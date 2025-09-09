@@ -248,7 +248,7 @@ class GooglePlayClientImplTest {
         // Then
         assertThat(result.getOrderId()).isNotNull();
         assertThat(result.getOrderId()).startsWith("GPA.");
-        assertThat(result.getOrderId()).hasSizeGreaterThan(20); // GPA.MOCK-{timestamp} format
+        assertThat(result.getOrderId()).hasSizeGreaterThan(15); // GPA.MOCK-{hash} format
     }
 
     @Test
