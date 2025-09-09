@@ -50,7 +50,7 @@ class GooglePlayClientImplTest {
         assertThat(result.getPriceCurrencyCode()).isEqualTo("GBP");
         assertThat(result.getPriceAmountMicros()).isEqualTo("4990000"); // £4.99 in micros
         assertThat(result.getAutoRenewing()).isTrue();
-        assertThat(result.getOrderId()).isEqualTo("GPA.1234-5678-9012-34567");
+        assertThat(result.getOrderId()).startsWith("GPA.MOCK-");
         
         // Verify non-expired
         assertThat(result.getStartTimeMillis()).isLessThan(System.currentTimeMillis());
@@ -248,7 +248,7 @@ class GooglePlayClientImplTest {
         // Then
         assertThat(result.getOrderId()).isNotNull();
         assertThat(result.getOrderId()).startsWith("GPA.");
-        assertThat(result.getOrderId()).hasSize(24); // GPA.1234-5678-9012-34567
+        assertThat(result.getOrderId()).hasSizeGreaterThan(20); // GPA.MOCK-{timestamp} format
     }
 
     @Test

@@ -20,6 +20,7 @@ import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
+import uk.gegc.kidsgptbackend.service.family.KidCountingService;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -47,6 +48,9 @@ class SubscriptionServiceImplTest {
 
     @Mock
     private GooglePlayClient googlePlayClient;
+
+    @Mock
+    private KidCountingService kidCountingService;
 
     @InjectMocks
     private SubscriptionServiceImpl subscriptionService;

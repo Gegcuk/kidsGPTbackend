@@ -124,13 +124,13 @@ class WebhookProcessingServiceImplTest {
     }
 
     @Test
-    @DisplayName("verifyGooglePlaySignature - returns true when Bearer token is present")
-    void verifyGooglePlaySignature_returnsTrueWhenBearerTokenIsPresent() {
+    @DisplayName("verifyGooglePlaySignature - returns false when Bearer token is invalid JWT")
+    void verifyGooglePlaySignature_returnsFalseWhenBearerTokenIsInvalidJWT() {
         // When
-        boolean result = webhookProcessingService.verifyGooglePlaySignature("Bearer valid_token", testPayload);
+        boolean result = webhookProcessingService.verifyGooglePlaySignature("Bearer invalid_jwt_token", testPayload);
 
         // Then
-        assertThat(result).isTrue();
+        assertThat(result).isFalse();
     }
 
     @Test

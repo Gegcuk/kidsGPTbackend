@@ -74,20 +74,10 @@ class SubscriptionPaymentRepositoryTest {
         userSubscription.setUpdatedAt(Instant.now());
         entityManager.persistAndFlush(userSubscription);
 
-        // Create successful payment
-        successfulPayment = new SubscriptionPayment();
-        successfulPayment.setUserSubscription(userSubscription);
-        successfulPayment.setAmount(new BigDecimal("4.99"));
-        successfulPayment.setCurrency("GBP");
-        successfulPayment.setStatus(SubscriptionPayment.PaymentStatus.SUCCEEDED);
-        successfulPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
-        successfulPayment.setExternalPaymentId("payment_id_123");
-        successfulPayment.setBillingPeriodStart(Instant.now().minusSeconds(1800)); // 30 minutes ago
-        successfulPayment.setBillingPeriodEnd(Instant.now().plusSeconds(1800)); // 30 minutes from now
-        successfulPayment.setCreatedAt(Instant.now().minusSeconds(3600)); // 1 hour ago
-        entityManager.persistAndFlush(successfulPayment);
-
-        // Create pending payment
+        // Use fixed base time to ensure consistent ordering across test runs
+        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
+        
+        // Create pending payment (30 minutes ago - newest)
         pendingPayment = new SubscriptionPayment();
         pendingPayment.setUserSubscription(userSubscription);
         pendingPayment.setAmount(new BigDecimal("4.99"));
@@ -95,12 +85,25 @@ class SubscriptionPaymentRepositoryTest {
         pendingPayment.setStatus(SubscriptionPayment.PaymentStatus.PENDING);
         pendingPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
         pendingPayment.setExternalPaymentId("payment_id_456");
-        pendingPayment.setBillingPeriodStart(Instant.now());
-        pendingPayment.setBillingPeriodEnd(Instant.now().plusSeconds(2592000)); // 30 days from now
-        pendingPayment.setCreatedAt(Instant.now().minusSeconds(1800)); // 30 minutes ago
+        pendingPayment.setBillingPeriodStart(baseTime);
+        pendingPayment.setBillingPeriodEnd(baseTime.plusSeconds(2592000)); // 30 days from base
+        pendingPayment.setCreatedAt(baseTime.minusSeconds(1800)); // 30 minutes before base (newest)
         entityManager.persistAndFlush(pendingPayment);
 
-        // Create failed payment
+        // Create successful payment (1 hour ago)
+        successfulPayment = new SubscriptionPayment();
+        successfulPayment.setUserSubscription(userSubscription);
+        successfulPayment.setAmount(new BigDecimal("4.99"));
+        successfulPayment.setCurrency("GBP");
+        successfulPayment.setStatus(SubscriptionPayment.PaymentStatus.SUCCEEDED);
+        successfulPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
+        successfulPayment.setExternalPaymentId("payment_id_123");
+        successfulPayment.setBillingPeriodStart(baseTime.minusSeconds(1800)); // 30 minutes before base
+        successfulPayment.setBillingPeriodEnd(baseTime.plusSeconds(1800)); // 30 minutes after base
+        successfulPayment.setCreatedAt(baseTime.minusSeconds(3600)); // 1 hour before base
+        entityManager.persistAndFlush(successfulPayment);
+
+        // Create failed payment (2 hours ago)
         failedPayment = new SubscriptionPayment();
         failedPayment.setUserSubscription(userSubscription);
         failedPayment.setAmount(new BigDecimal("4.99"));
@@ -108,12 +111,12 @@ class SubscriptionPaymentRepositoryTest {
         failedPayment.setStatus(SubscriptionPayment.PaymentStatus.FAILED);
         failedPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
         failedPayment.setExternalPaymentId("payment_id_789");
-        failedPayment.setBillingPeriodStart(Instant.now().minusSeconds(2592000)); // 30 days ago
-        failedPayment.setBillingPeriodEnd(Instant.now()); // now
-        failedPayment.setCreatedAt(Instant.now().minusSeconds(7200)); // 2 hours ago
+        failedPayment.setBillingPeriodStart(baseTime.minusSeconds(2592000)); // 30 days before base
+        failedPayment.setBillingPeriodEnd(baseTime); // at base time
+        failedPayment.setCreatedAt(baseTime.minusSeconds(7200)); // 2 hours before base
         entityManager.persistAndFlush(failedPayment);
 
-        // Create old pending payment (for testing pending older than query)
+        // Create old pending payment (3 hours ago - oldest, for testing pending older than query)
         oldPendingPayment = new SubscriptionPayment();
         oldPendingPayment.setUserSubscription(userSubscription);
         oldPendingPayment.setAmount(new BigDecimal("4.99"));
@@ -121,9 +124,9 @@ class SubscriptionPaymentRepositoryTest {
         oldPendingPayment.setStatus(SubscriptionPayment.PaymentStatus.PENDING);
         oldPendingPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
         oldPendingPayment.setExternalPaymentId("payment_id_old");
-        oldPendingPayment.setBillingPeriodStart(Instant.now().minusSeconds(2592000)); // 30 days ago
-        oldPendingPayment.setBillingPeriodEnd(Instant.now()); // now
-        oldPendingPayment.setCreatedAt(Instant.now().minusSeconds(10800)); // 3 hours ago (older than failed payment)
+        oldPendingPayment.setBillingPeriodStart(baseTime.minusSeconds(2592000)); // 30 days before base
+        oldPendingPayment.setBillingPeriodEnd(baseTime); // at base time
+        oldPendingPayment.setCreatedAt(baseTime.minusSeconds(10800)); // 3 hours before base (oldest)
         entityManager.persistAndFlush(oldPendingPayment);
 
         entityManager.clear();
@@ -208,9 +211,10 @@ class SubscriptionPaymentRepositoryTest {
     @Test
     @DisplayName("findPaymentsInBillingPeriod returns payments within date range")
     void findPaymentsInBillingPeriod_returnsPaymentsWithinDateRange() {
-        // Given
-        Instant startDate = Instant.now().minusSeconds(3600); // 1 hour ago
-        Instant endDate = Instant.now().plusSeconds(3600); // 1 hour from now
+        // Given - use same base time as test data setup
+        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
+        Instant startDate = baseTime.minusSeconds(3600); // 1 hour before base
+        Instant endDate = baseTime.plusSeconds(3600); // 1 hour after base
 
         // When
         List<SubscriptionPayment> result = subscriptionPaymentRepository.findPaymentsInBillingPeriod(
@@ -266,8 +270,9 @@ class SubscriptionPaymentRepositoryTest {
     @Test
     @DisplayName("findPendingPaymentsOlderThan returns only PENDING payments older than cutoff")
     void findPendingPaymentsOlderThan_returnsOnlyPendingPaymentsOlderThanCutoff() {
-        // Given
-        Instant cutoffTime = Instant.now().minusSeconds(3600); // 1 hour ago
+        // Given - use same base time as test data setup
+        Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
+        Instant cutoffTime = baseTime.minusSeconds(3600); // 1 hour before base time
 
         // When
         List<SubscriptionPayment> result = subscriptionPaymentRepository.findPendingPaymentsOlderThan(cutoffTime);

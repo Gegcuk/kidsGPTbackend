@@ -5,17 +5,26 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
+import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("GooglePlayPaymentService Tests")
 class GooglePlayPaymentServiceTest {
+
+    @Mock
+    private GooglePlayClient googlePlayClient;
 
     @InjectMocks
     private GooglePlayPaymentService googlePlayPaymentService;
@@ -43,22 +52,28 @@ class GooglePlayPaymentServiceTest {
         // Set up test configuration
         ReflectionTestUtils.setField(googlePlayPaymentService, "packageName", testPackageName);
         ReflectionTestUtils.setField(googlePlayPaymentService, "serviceAccountKey", "test_service_account_key");
+        
+        // Mock GooglePlayClient to return a valid subscription purchase with dynamic order IDs
+        lenient().when(googlePlayClient.getSubscriptionPurchase(anyString(), anyString())).thenAnswer(invocation -> {
+            GooglePlaySubscriptionPurchase mockPurchase = new GooglePlaySubscriptionPurchase();
+            mockPurchase.setOrderId("GPA." + System.currentTimeMillis()); // Dynamic order ID
+            mockPurchase.setPurchaseToken(testPurchaseToken);
+            mockPurchase.setPurchaseState("PURCHASED"); // Active
+            mockPurchase.setExpiryTimeMillis(System.currentTimeMillis() + 86400000L); // 24 hours from now
+            return mockPurchase;
+        });
     }
 
     @Test
-    @DisplayName("createGooglePlaySubscription - returns placeholder ID and logs")
-    void createGooglePlaySubscription_returnsPlaceholderIdAndLogs() {
+    @DisplayName("createGooglePlaySubscription - returns order ID with gp prefix")
+    void createGooglePlaySubscription_returnsOrderIdWithGpPrefix() {
         // When
         String result = googlePlayPaymentService.createGooglePlaySubscription(testUser, testProductId, testPurchaseToken);
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result).startsWith("google_play_sub_");
-        assertThat(result).hasSizeGreaterThan("google_play_sub_".length());
-        
-        // Verify it contains a timestamp (should be numeric)
-        String timestampPart = result.substring("google_play_sub_".length());
-        assertThat(timestampPart).matches("\\d+");
+        assertThat(result).startsWith("gp_");
+        assertThat(result).matches("gp_GPA\\.\\d+"); // Should match gp_GPA.{timestamp}
     }
 
     @Test
@@ -78,8 +93,8 @@ class GooglePlayPaymentServiceTest {
 
         // Then
         assertThat(result1).isNotEqualTo(result2);
-        assertThat(result1).startsWith("google_play_sub_");
-        assertThat(result2).startsWith("google_play_sub_");
+        assertThat(result1).startsWith("gp_");
+        assertThat(result2).startsWith("gp_");
     }
 
     @Test
@@ -98,8 +113,8 @@ class GooglePlayPaymentServiceTest {
         // Then
         assertThat(result1).isNotNull();
         assertThat(result2).isNotNull();
-        assertThat(result1).startsWith("google_play_sub_");
-        assertThat(result2).startsWith("google_play_sub_");
+        assertThat(result1).startsWith("gp_");
+        assertThat(result2).startsWith("gp_");
     }
 
     @Test
@@ -115,8 +130,8 @@ class GooglePlayPaymentServiceTest {
         // Then
         assertThat(result1).isNotNull();
         assertThat(result2).isNotNull();
-        assertThat(result1).startsWith("google_play_sub_");
-        assertThat(result2).startsWith("google_play_sub_");
+        assertThat(result1).startsWith("gp_");
+        assertThat(result2).startsWith("gp_");
     }
 
     @Test
@@ -132,8 +147,8 @@ class GooglePlayPaymentServiceTest {
         // Then
         assertThat(result1).isNotNull();
         assertThat(result2).isNotNull();
-        assertThat(result1).startsWith("google_play_sub_");
-        assertThat(result2).startsWith("google_play_sub_");
+        assertThat(result1).startsWith("gp_");
+        assertThat(result2).startsWith("gp_");
     }
 
     @Test
@@ -269,7 +284,7 @@ class GooglePlayPaymentServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result).startsWith("google_play_sub_");
+        assertThat(result).startsWith("gp_");
         
         // The service should use the configured package name internally
         // This test verifies the service is properly configured
@@ -287,7 +302,9 @@ class GooglePlayPaymentServiceTest {
         // Then
         long afterCall = System.currentTimeMillis();
         
-        String timestampPart = result.substring("google_play_sub_".length());
+        // Extract timestamp from order ID format: gp_GPA.{timestamp}
+        String orderIdPart = result.substring("gp_".length()); // Remove "gp_" prefix
+        String timestampPart = orderIdPart.substring("GPA.".length()); // Remove "GPA." prefix
         long timestamp = Long.parseLong(timestampPart);
         
         assertThat(timestamp).isBetween(beforeCall, afterCall);
@@ -307,7 +324,7 @@ class GooglePlayPaymentServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result).startsWith("google_play_sub_");
+        assertThat(result).startsWith("gp_");
     }
 
     @Test
@@ -324,7 +341,7 @@ class GooglePlayPaymentServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result).startsWith("google_play_sub_");
+        assertThat(result).startsWith("gp_");
     }
 
     @Test
@@ -341,6 +358,6 @@ class GooglePlayPaymentServiceTest {
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result).startsWith("google_play_sub_");
+        assertThat(result).startsWith("gp_");
     }
 }

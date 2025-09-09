@@ -14,6 +14,7 @@ import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
+import uk.gegc.kidsgptbackend.service.family.KidCountingService;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -35,6 +36,9 @@ class SubscriptionAccessServiceSerializationTest {
     @Mock
     private SubscriptionUsageRepository subscriptionUsageRepository;
 
+    @Mock
+    private KidCountingService kidCountingService;
+
     private SubscriptionAccessServiceImpl subscriptionAccessService;
     private ObjectMapper objectMapper;
 
@@ -51,7 +55,8 @@ class SubscriptionAccessServiceSerializationTest {
         subscriptionAccessService = new SubscriptionAccessServiceImpl(
                 userSubscriptionRepository,
                 subscriptionUsageRepository,
-                objectMapper
+                objectMapper,
+                kidCountingService
         );
         
         // Create test user
