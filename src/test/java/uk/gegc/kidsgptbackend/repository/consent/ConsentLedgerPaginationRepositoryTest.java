@@ -38,11 +38,6 @@ class ConsentLedgerPaginationRepositoryTest {
     @Test
     void findByUserIdOrderByConsentTimestampDescCreatedAtDesc_ShouldHonorCompositeSort() {
         // Arrange - Create multiple records with same consentTimestamp but different createdAt
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
-
         LocalDateTime sameConsentTimestamp = LocalDateTime.now().minusHours(1);
         LocalDateTime createdAt1 = LocalDateTime.now().minusMinutes(30);
         LocalDateTime createdAt2 = LocalDateTime.now().minusMinutes(20);
@@ -50,9 +45,7 @@ class ConsentLedgerPaginationRepositoryTest {
         LocalDateTime createdAt4 = LocalDateTime.now().minusMinutes(5);
 
         // Create records with same consentTimestamp but different createdAt values
-        ConsentLedger record1 = ConsentLedger.builder()
-                .consentId(consentId1)
-                .userId(testUserId)
+        ConsentLedger record1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PARENTAL_CONSENT)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -72,9 +65,7 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger record2 = ConsentLedger.builder()
-                .consentId(consentId2)
-                .userId(testUserId)
+        ConsentLedger record2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -94,9 +85,7 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        ConsentLedger record3 = ConsentLedger.builder()
-                .consentId(consentId3)
-                .userId(testUserId)
+        ConsentLedger record3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -116,9 +105,7 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{7, 8, 9})
                 .build();
 
-        ConsentLedger record4 = ConsentLedger.builder()
-                .consentId(consentId4)
-                .userId(testUserId)
+        ConsentLedger record4 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.DATA_PROCESSING)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -138,11 +125,12 @@ class ConsentLedgerPaginationRepositoryTest {
                 .recordSignature(new byte[]{10, 11, 12})
                 .build();
 
-        // Persist records in non-chronological order
-        entityManager.persistAndFlush(record3); // createdAt3 (3rd)
-        entityManager.persistAndFlush(record1); // createdAt1 (1st)
-        entityManager.persistAndFlush(record4); // createdAt4 (4th)
-        entityManager.persistAndFlush(record2); // createdAt2 (2nd)
+        // Save records in non-chronological order and get their auto-generated IDs
+        ConsentLedger savedRecord3 = consentLedgerRepository.save(record3); // createdAt3 (3rd)
+        ConsentLedger savedRecord1 = consentLedgerRepository.save(record1); // createdAt1 (1st)
+        ConsentLedger savedRecord4 = consentLedgerRepository.save(record4); // createdAt4 (4th)
+        ConsentLedger savedRecord2 = consentLedgerRepository.save(record2); // createdAt2 (2nd)
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -156,10 +144,10 @@ class ConsentLedgerPaginationRepositoryTest {
 
         // Verify order: consentTimestamp DESC, then createdAt DESC
         // Since all have same consentTimestamp, order should be by createdAt DESC
-        assertEquals(consentId4, content.get(0).getConsentId(), "First record should be the one with latest createdAt");
-        assertEquals(consentId3, content.get(1).getConsentId(), "Second record should be the one with second latest createdAt");
-        assertEquals(consentId2, content.get(2).getConsentId(), "Third record should be the one with third latest createdAt");
-        assertEquals(consentId1, content.get(3).getConsentId(), "Fourth record should be the one with earliest createdAt");
+        assertEquals(savedRecord4.getConsentId(), content.get(0).getConsentId(), "First record should be the one with latest createdAt");
+        assertEquals(savedRecord3.getConsentId(), content.get(1).getConsentId(), "Second record should be the one with second latest createdAt");
+        assertEquals(savedRecord2.getConsentId(), content.get(2).getConsentId(), "Third record should be the one with third latest createdAt");
+        assertEquals(savedRecord1.getConsentId(), content.get(3).getConsentId(), "Fourth record should be the one with earliest createdAt");
 
         // Verify all records have the same consentTimestamp (with tolerance for precision differences)
         content.forEach(record -> {

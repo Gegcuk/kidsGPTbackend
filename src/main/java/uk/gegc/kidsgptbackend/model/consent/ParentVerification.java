@@ -12,7 +12,16 @@ import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Entity
-@Table(name = "parent_verification")
+@Table(name = "parent_verification", 
+    uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"parent_id", "verification_method", "contact_info_hash", "verification_status"}, 
+                         name = "uk_parent_verification_unique_pending")
+    },
+    indexes = {
+        @Index(columnList = "parent_id, verification_status, expires_at", 
+               name = "idx_parent_verification_pending_expiry")
+    }
+)
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -35,10 +44,10 @@ public class ParentVerification {
     @Column(name = "verification_status", nullable = false)
     private VerificationStatus verificationStatus;
     
-    @Column(name = "contact_info_hash", nullable = false, columnDefinition = "VARBINARY(64)")
+    @Column(name = "contact_info_hash", nullable = false, columnDefinition = "VARBINARY(32)")
     private byte[] contactInfoHash;
     
-    @Column(name = "verification_code_hash", nullable = false, columnDefinition = "VARBINARY(64)")
+    @Column(name = "verification_code_hash", nullable = false, columnDefinition = "VARBINARY(32)")
     private byte[] verificationCodeHash;
     
     @Column(name = "attempt_count", nullable = false)

@@ -16,7 +16,7 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 
@@ -45,8 +45,8 @@ public class UserMapperTest {
         user.setUsername("alice");
         user.setEmail("alice@example.com");
         user.setActive(true);
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
+        user.setCreatedAt(Instant.now());
+        user.setUpdatedAt(Instant.now());
         user.setRoles(Set.of(new Role(1L, RoleName.ROLE_PARENT.name(), null)));
 
         UserDto dto = mapper.toDto(user);
@@ -67,7 +67,7 @@ public class UserMapperTest {
         user.setUsername("alice");
         user.setEmail("alice@example.com");
         user.setActive(true);
-        user.setCreatedAt(LocalDateTime.now());
+        user.setCreatedAt(Instant.now());
         user.setRoles(Set.of(new Role(1L, RoleName.ROLE_PARENT.name(), null)));
 
         UserProfileDto dto = mapper.toProfileDto(user);
@@ -83,7 +83,7 @@ public class UserMapperTest {
         User user = new User();
         user.setId(UUID.randomUUID());
         user.setUsername("alice");
-        user.setCreatedAt(LocalDateTime.now());
+        user.setCreatedAt(Instant.now());
         user.setRoles(Set.of());
 
         UserProfileDto dto = mapper.toProfileDto(user);

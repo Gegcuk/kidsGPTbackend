@@ -39,11 +39,6 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
     @Test
     void findExpiredConsents_ShouldReturnOnlyRowsWithRetentionExpiresAtLessThanOrEqualToNow() {
         // Arrange - Create records with different retention expiration dates
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
-
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expired1 = now.minusDays(1); // Expired yesterday
         LocalDateTime expired2 = now.minusHours(1); // Expired 1 hour ago
@@ -51,9 +46,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
         LocalDateTime expiresLater = now.plusDays(1); // Expires tomorrow (should not be included)
 
         // Create an expired record (expired yesterday)
-        ConsentLedger expiredRecord1 = ConsentLedger.builder()
-                .consentId(consentId1)
-                .userId(testUserId)
+        ConsentLedger expiredRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -73,9 +66,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create another expired record (expired 1 hour ago)
-        ConsentLedger expiredRecord2 = ConsentLedger.builder()
-                .consentId(consentId2)
-                .userId(testUserId)
+        ConsentLedger expiredRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -95,9 +86,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create a record that expires now (should be included)
-        ConsentLedger expiresNowRecord = ConsentLedger.builder()
-                .consentId(consentId3)
-                .userId(testUserId)
+        ConsentLedger expiresNowRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -117,9 +106,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create a record that expires later (should not be included)
-        ConsentLedger expiresLaterRecord = ConsentLedger.builder()
-                .consentId(consentId4)
-                .userId(testUserId)
+        ConsentLedger expiresLaterRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.DATA_PROCESSING)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -138,11 +125,12 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .recordSignature(new byte[]{10, 11, 12})
                 .build();
 
-        // Persist all records
-        entityManager.persistAndFlush(expiredRecord1);
-        entityManager.persistAndFlush(expiredRecord2);
-        entityManager.persistAndFlush(expiresNowRecord);
-        entityManager.persistAndFlush(expiresLaterRecord);
+        // Save all records and get their auto-generated IDs
+        ConsentLedger savedExpiredRecord1 = consentLedgerRepository.save(expiredRecord1);
+        ConsentLedger savedExpiredRecord2 = consentLedgerRepository.save(expiredRecord2);
+        ConsentLedger savedExpiresNowRecord = consentLedgerRepository.save(expiresNowRecord);
+        ConsentLedger savedExpiresLaterRecord = consentLedgerRepository.save(expiresLaterRecord);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -162,26 +150,21 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .map(ConsentLedger::getConsentId)
                 .toList();
 
-        assertTrue(returnedConsentIds.contains(consentId1), "Should include record that expired yesterday");
-        assertTrue(returnedConsentIds.contains(consentId2), "Should include record that expired 1 hour ago");
-        assertTrue(returnedConsentIds.contains(consentId3), "Should include record that expires now");
-        assertFalse(returnedConsentIds.contains(consentId4), "Should not include record that expires later");
+        assertTrue(returnedConsentIds.contains(savedExpiredRecord1.getConsentId()), "Should include record that expired yesterday");
+        assertTrue(returnedConsentIds.contains(savedExpiredRecord2.getConsentId()), "Should include record that expired 1 hour ago");
+        assertTrue(returnedConsentIds.contains(savedExpiresNowRecord.getConsentId()), "Should include record that expires now");
+        assertFalse(returnedConsentIds.contains(savedExpiresLaterRecord.getConsentId()), "Should not include record that expires later");
     }
 
     @Test
     void findExpiredConsents_ShouldReturnEmptyWhenNoExpiredRecordsExist() {
         // Arrange - Create only records that expire in the future
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expiresLater1 = now.plusDays(1);
         LocalDateTime expiresLater2 = now.plusDays(30);
 
         // Create records that expire in the future
-        ConsentLedger futureRecord1 = ConsentLedger.builder()
-                .consentId(consentId1)
-                .userId(testUserId)
+        ConsentLedger futureRecord1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -200,9 +183,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        ConsentLedger futureRecord2 = ConsentLedger.builder()
-                .consentId(consentId2)
-                .userId(testUserId)
+        ConsentLedger futureRecord2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -221,8 +202,9 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .recordSignature(new byte[]{4, 5, 6})
                 .build();
 
-        entityManager.persistAndFlush(futureRecord1);
-        entityManager.persistAndFlush(futureRecord2);
+        consentLedgerRepository.save(futureRecord1);
+        consentLedgerRepository.save(futureRecord2);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -244,12 +226,9 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
     @Test
     void findExpiredConsents_ShouldIncludeRecordsWithExactExpirationTime() {
         // Arrange - Create a record that expires exactly at the specified time
-        UUID consentId = UUID.randomUUID();
         LocalDateTime exactExpirationTime = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS).plusMinutes(5); // Set to a specific time
 
-        ConsentLedger exactExpirationRecord = ConsentLedger.builder()
-                .consentId(consentId)
-                .userId(testUserId)
+        ConsentLedger exactExpirationRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -268,7 +247,8 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(exactExpirationRecord);
+        ConsentLedger savedExactExpirationRecord = consentLedgerRepository.save(exactExpirationRecord);
+        entityManager.flush();
         entityManager.clear();
 
         // Act - Query with the exact expiration time
@@ -276,7 +256,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
 
         // Assert
         assertEquals(1, result.size(), "Should include record with exact expiration time");
-        assertEquals(consentId, result.get(0).getConsentId(), "Should return the correct record");
+        assertEquals(savedExactExpirationRecord.getConsentId(), result.get(0).getConsentId(), "Should return the correct record");
 
         // Compare with tolerance for precision differences (database may truncate nanoseconds)
         LocalDateTime actualExpirationTime = result.get(0).getRetentionExpiresAt();
@@ -290,16 +270,11 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
     @Test
     void findExpiredConsents_ShouldHandleDifferentConsentStatuses() {
         // Arrange - Create expired records with different statuses
-        UUID grantedConsentId = UUID.randomUUID();
-        UUID withdrawnConsentId = UUID.randomUUID();
-
         LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MICROS);
         LocalDateTime expiredTime = now.minusDays(1);
 
         // Create an expired GRANTED record
-        ConsentLedger grantedRecord = ConsentLedger.builder()
-                .consentId(grantedConsentId)
-                .userId(testUserId)
+        ConsentLedger grantedRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -319,9 +294,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .build();
 
         // Create an expired WITHDRAWN record
-        ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(withdrawnConsentId)
-                .userId(testUserId)
+        ConsentLedger withdrawnRecord = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -338,11 +311,12 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .retentionExpiresAt(expiredTime)
                 .receiptJson("{\"test\":\"withdrawn\"}")
                 .recordSignature(new byte[]{4, 5, 6})
-                .withdrawnConsentId(grantedConsentId)
                 .build();
 
-        entityManager.persistAndFlush(grantedRecord);
-        entityManager.persistAndFlush(withdrawnRecord);
+        // Save records and get their auto-generated IDs
+        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
+        ConsentLedger savedWithdrawnRecord = consentLedgerRepository.save(withdrawnRecord);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -355,7 +329,7 @@ class ConsentLedgerExpiredConsentsRepositoryTest {
                 .map(ConsentLedger::getConsentId)
                 .toList();
 
-        assertTrue(returnedConsentIds.contains(grantedConsentId), "Should include expired GRANTED record");
-        assertTrue(returnedConsentIds.contains(withdrawnConsentId), "Should include expired WITHDRAWN record");
+        assertTrue(returnedConsentIds.contains(savedGrantedRecord.getConsentId()), "Should include expired GRANTED record");
+        assertTrue(returnedConsentIds.contains(savedWithdrawnRecord.getConsentId()), "Should include expired WITHDRAWN record");
     }
 } 

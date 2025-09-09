@@ -1,23 +1,16 @@
 package uk.gegc.kidsgptbackend.mapper;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import uk.gegc.kidsgptbackend.dto.user.*;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 
 import java.util.stream.Collectors;
 
 @Component
-@RequiredArgsConstructor
 public class UserMapper {
-
-    private final RoleRepository roleRepository;
-    private final UserRepository userRepository;
 
     public UserDto toDto(User user) {
         return new UserDto(
@@ -37,11 +30,11 @@ public class UserMapper {
     }
 
     public UserProfileDto toProfileDto(User user) {
-        RoleName role = user.getRoles().stream()
+        RoleName role = user.getRoles() != null ? user.getRoles().stream()
                 .findFirst()
                 .map(Role::getRole)
                 .map(RoleName::valueOf)
-                .orElse(null);
+                .orElse(null) : null;
         return new UserProfileDto(
                 user.getId(),
                 user.getUsername(),
@@ -52,10 +45,13 @@ public class UserMapper {
     }
 
     public static KidDto toKidDto(Kid kid) {
+        // Guard against null/lazy user relation
+        String username = (kid.getUser() != null) ? kid.getUser().getUsername() : null;
+        
         return new KidDto(
             kid.getId(),
             kid.getNickname(),
-            kid.getUser().getUsername(),
+            username,
             kid.getAgeGroup(),
             kid.getFavoriteColor(),
             kid.getAvatarId(),

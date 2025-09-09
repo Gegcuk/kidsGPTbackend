@@ -36,13 +36,9 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
     @Test
     void entityPersistenceDefaults_ShouldAutoPopulateCreatedAtInUTCWhenNull() {
         // Arrange - Create a ConsentLedger with null createdAt
-        UUID consentId = UUID.randomUUID();
         LocalDateTime beforeInsert = LocalDateTime.ofInstant(Instant.now(), ZoneOffset.UTC);
         
-        ConsentLedger consentLedger = ConsentLedger.builder()
-                .consentId(consentId)
-                .userId(testUserId)
-                .consentType(testConsentType)
+        ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)                .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
                 .policyUrl("https://example.com/policy")
@@ -61,12 +57,13 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null) // Explicitly set to null to test @PrePersist
                 .build();
 
-        // Act - Persist the entity
-        entityManager.persistAndFlush(consentLedger);
+        // Act - Save the entity and get its auto-generated ID
+        ConsentLedger savedLedger = consentLedgerRepository.save(consentLedger);
+        entityManager.flush();
         entityManager.clear();
 
         // Assert - Verify createdAt was auto-populated
-        ConsentLedger persistedLedger = entityManager.find(ConsentLedger.class, consentId);
+        ConsentLedger persistedLedger = entityManager.find(ConsentLedger.class, savedLedger.getConsentId());
         assertNotNull(persistedLedger, "Entity should be persisted");
         assertNotNull(persistedLedger.getCreatedAt(), "createdAt should be auto-populated");
         
@@ -87,12 +84,9 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
     @Test
     void entityPersistenceDefaults_ShouldNotOverrideExistingCreatedAt() {
         // Arrange - Create a ConsentLedger with a specific createdAt value
-        UUID consentId = UUID.randomUUID();
         LocalDateTime specificCreatedAt = LocalDateTime.of(2023, 1, 1, 12, 0, 0);
         
-        ConsentLedger consentLedger = ConsentLedger.builder()
-                .consentId(consentId)
-                .userId(testUserId)
+        ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -112,12 +106,13 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(specificCreatedAt) // Set a specific value
                 .build();
 
-        // Act - Persist the entity
-        entityManager.persistAndFlush(consentLedger);
+        // Act - Save the entity and get its auto-generated ID
+        ConsentLedger savedLedger = consentLedgerRepository.save(consentLedger);
+        entityManager.flush();
         entityManager.clear();
 
         // Assert - Verify createdAt was not overridden
-        ConsentLedger persistedLedger = entityManager.find(ConsentLedger.class, consentId);
+        ConsentLedger persistedLedger = entityManager.find(ConsentLedger.class, savedLedger.getConsentId());
         assertNotNull(persistedLedger, "Entity should be persisted");
         assertEquals(specificCreatedAt, persistedLedger.getCreatedAt(), 
                 "createdAt should not be overridden when already set");
@@ -126,13 +121,8 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
     @Test
     void entityPersistenceDefaults_ShouldHandleMultipleInsertsWithNullCreatedAt() {
         // Arrange - Create multiple ConsentLedger entities with null createdAt
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
         
-        ConsentLedger consentLedger1 = ConsentLedger.builder()
-                .consentId(consentId1)
-                .userId(testUserId)
+        ConsentLedger consentLedger1 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -152,9 +142,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null)
                 .build();
 
-        ConsentLedger consentLedger2 = ConsentLedger.builder()
-                .consentId(consentId2)
-                .userId(testUserId)
+        ConsentLedger consentLedger2 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
@@ -174,9 +162,7 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null)
                 .build();
 
-        ConsentLedger consentLedger3 = ConsentLedger.builder()
-                .consentId(consentId3)
-                .userId(testUserId)
+        ConsentLedger consentLedger3 = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -196,16 +182,17 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null)
                 .build();
 
-        // Act - Persist all entities
-        entityManager.persistAndFlush(consentLedger1);
-        entityManager.persistAndFlush(consentLedger2);
-        entityManager.persistAndFlush(consentLedger3);
+        // Act - Save all entities and get their auto-generated IDs
+        ConsentLedger savedLedger1 = consentLedgerRepository.save(consentLedger1);
+        ConsentLedger savedLedger2 = consentLedgerRepository.save(consentLedger2);
+        ConsentLedger savedLedger3 = consentLedgerRepository.save(consentLedger3);
+        entityManager.flush();
         entityManager.clear();
 
         // Assert - Verify all entities have auto-populated createdAt
-        ConsentLedger persisted1 = entityManager.find(ConsentLedger.class, consentId1);
-        ConsentLedger persisted2 = entityManager.find(ConsentLedger.class, consentId2);
-        ConsentLedger persisted3 = entityManager.find(ConsentLedger.class, consentId3);
+        ConsentLedger persisted1 = entityManager.find(ConsentLedger.class, savedLedger1.getConsentId());
+        ConsentLedger persisted2 = entityManager.find(ConsentLedger.class, savedLedger2.getConsentId());
+        ConsentLedger persisted3 = entityManager.find(ConsentLedger.class, savedLedger3.getConsentId());
 
         assertNotNull(persisted1.getCreatedAt(), "First entity should have auto-populated createdAt");
         assertNotNull(persisted2.getCreatedAt(), "Second entity should have auto-populated createdAt");
@@ -224,11 +211,8 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
     @Test
     void entityPersistenceDefaults_ShouldVerifyPrecisionAndZoneExpectations() {
         // Arrange - Create a ConsentLedger with null createdAt
-        UUID consentId = UUID.randomUUID();
         
-        ConsentLedger consentLedger = ConsentLedger.builder()
-                .consentId(consentId)
-                .userId(testUserId)
+        ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
@@ -248,12 +232,13 @@ class ConsentLedgerEntityBehaviorRepositoryTest {
                 .createdAt(null)
                 .build();
 
-        // Act - Persist the entity
-        entityManager.persistAndFlush(consentLedger);
+        // Act - Save the entity and get its auto-generated ID
+        ConsentLedger savedLedger = consentLedgerRepository.save(consentLedger);
+        entityManager.flush();
         entityManager.clear();
 
         // Assert - Verify precision and zone expectations
-        ConsentLedger persistedLedger = entityManager.find(ConsentLedger.class, consentId);
+        ConsentLedger persistedLedger = entityManager.find(ConsentLedger.class, savedLedger.getConsentId());
         assertNotNull(persistedLedger.getCreatedAt(), "createdAt should be auto-populated");
 
         // Verify the timestamp has reasonable precision (nanoseconds are acceptable for LocalDateTime)

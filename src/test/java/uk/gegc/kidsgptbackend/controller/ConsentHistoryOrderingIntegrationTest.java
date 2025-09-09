@@ -169,12 +169,7 @@ class ConsentHistoryOrderingIntegrationTest {
         // Create 10 consent records with identical consentTimestamp but different createdAt
         // This will test the tie-break logic (consentTimestamp desc, createdAt desc)
         for (int i = 0; i < 10; i++) {
-            ConsentLedger consentLedger = ConsentLedger.builder()
-                    .consentId(UUID.randomUUID())
-                    .userId(testUserId)
-                    .consentType(ConsentType.values()[i % ConsentType.values().length])
-                    .consentVersion("1." + (i % 3) + ".0")
-                    .consentStatus(ConsentStatus.GRANTED)
+            ConsentLedger consentLedger = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)                  .consentType(ConsentType.values()[i % ConsentType.values().length])                    .consentVersion("1." + (i % 3) + ".0")                    .consentStatus(ConsentStatus.GRANTED)
                     .policyUrl("https://example.com/policy" + i)
                     .contentHash("hash" + i)
                     .jurisdiction("GB")
@@ -190,11 +185,15 @@ class ConsentHistoryOrderingIntegrationTest {
                     .recordSignature(("signature" + i).getBytes())
                     .build();
             
-            consentIds.add(consentLedger.getConsentId());
             consentLedgers.add(consentLedger);
         }
         
-        consentLedgerRepository.saveAll(consentLedgers);
+        List<ConsentLedger> savedConsentLedgers = consentLedgerRepository.saveAll(consentLedgers);
+        
+        // Get the auto-generated IDs
+        for (ConsentLedger savedLedger : savedConsentLedgers) {
+            consentIds.add(savedLedger.getConsentId());
+        }
     }
 
     private void verifySameConsentTimestampAcrossPages(String firstPageResponse, String secondPageResponse) {

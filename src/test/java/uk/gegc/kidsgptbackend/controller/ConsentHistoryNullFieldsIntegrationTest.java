@@ -147,9 +147,8 @@ class ConsentHistoryNullFieldsIntegrationTest {
         List<ConsentLedger> consentLedgers = new ArrayList<>();
         
         // Create consent with null optional fields (no parentVerificationId, locale, region)
-        consentWithNullFieldsId = UUID.randomUUID();
         ConsentLedger consentWithNullFields = ConsentLedger.builder()
-                .consentId(consentWithNullFieldsId)
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
@@ -171,9 +170,8 @@ class ConsentHistoryNullFieldsIntegrationTest {
                 .build();
         
         // Create consent with all fields populated
-        consentWithAllFieldsId = UUID.randomUUID();
         ConsentLedger consentWithAllFields = ConsentLedger.builder()
-                .consentId(consentWithAllFieldsId)
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(ConsentType.TERMS_OF_SERVICE)
                 .consentVersion("1.0.0")
@@ -197,7 +195,11 @@ class ConsentHistoryNullFieldsIntegrationTest {
         consentLedgers.add(consentWithNullFields);
         consentLedgers.add(consentWithAllFields);
         
-        consentLedgerRepository.saveAll(consentLedgers);
+        List<ConsentLedger> savedConsentLedgers = consentLedgerRepository.saveAll(consentLedgers);
+        
+        // Get the auto-generated IDs
+        consentWithNullFieldsId = savedConsentLedgers.get(0).getConsentId();
+        consentWithAllFieldsId = savedConsentLedgers.get(1).getConsentId();
     }
 
     private void verifyJsonStructure(String response) {

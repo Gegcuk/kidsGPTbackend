@@ -38,14 +38,10 @@ class ConsentLedgerActiveGrantRepositoryTest {
     @Test
     void findActiveGrantByUserTypeAndVersion_ShouldReturnOnlyGrantedRowForExactVersion() {
         // Arrange - Create multiple grants and withdrawals for the same user/type/version
-        UUID consentId1 = UUID.randomUUID();
-        UUID consentId2 = UUID.randomUUID();
-        UUID consentId3 = UUID.randomUUID();
-        UUID consentId4 = UUID.randomUUID();
 
         // Create a GRANTED record for the exact version
         ConsentLedger grantedRecord = ConsentLedger.builder()
-                .consentId(consentId1)
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -65,9 +61,14 @@ class ConsentLedgerActiveGrantRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
+        // Save the granted record first to get its auto-generated ID
+        ConsentLedger savedGrantedRecord = consentLedgerRepository.save(grantedRecord);
+        entityManager.flush();
+        entityManager.clear();
+
         // Create a WITHDRAWN record for the same version
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(consentId2)
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -85,12 +86,12 @@ class ConsentLedgerActiveGrantRepositoryTest {
                 .retentionExpiresAt(LocalDateTime.now().plusYears(8))
                 .receiptJson("{\"test\":\"withdrawn\"}")
                 .recordSignature(new byte[]{4, 5, 6})
-                .withdrawnConsentId(consentId1)
+                .withdrawnConsentId(savedGrantedRecord.getConsentId())
                 .build();
 
         // Create a GRANTED record for a different version
         ConsentLedger grantedDifferentVersion = ConsentLedger.builder()
-                .consentId(consentId3)
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion("2.0.0")
@@ -112,7 +113,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
 
         // Create a GRANTED record for a different user
         ConsentLedger grantedDifferentUser = ConsentLedger.builder()
-                .consentId(consentId4)
+                .consentId(UUID.randomUUID())
                 .userId(UUID.randomUUID())
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -133,10 +134,10 @@ class ConsentLedgerActiveGrantRepositoryTest {
                 .build();
 
         // Persist all records
-        entityManager.persistAndFlush(grantedRecord);
-        entityManager.persistAndFlush(withdrawnRecord);
-        entityManager.persistAndFlush(grantedDifferentVersion);
-        entityManager.persistAndFlush(grantedDifferentUser);
+        consentLedgerRepository.save(withdrawnRecord);
+        consentLedgerRepository.save(grantedDifferentVersion);
+        consentLedgerRepository.save(grantedDifferentUser);
+        entityManager.flush();
         entityManager.clear();
 
         // Act
@@ -146,7 +147,7 @@ class ConsentLedgerActiveGrantRepositoryTest {
         // Assert
         assertTrue(result.isPresent(), "Should find the GRANTED record for the exact version");
         ConsentLedger foundRecord = result.get();
-        assertEquals(consentId1, foundRecord.getConsentId(), "Should return the correct GRANTED record");
+        assertEquals(savedGrantedRecord.getConsentId(), foundRecord.getConsentId(), "Should return the correct GRANTED record");
         assertEquals(ConsentStatus.GRANTED, foundRecord.getConsentStatus(), "Should be GRANTED status");
         assertEquals(testVersion, foundRecord.getConsentVersion(), "Should match the exact version");
         assertEquals(testUserId, foundRecord.getUserId(), "Should match the exact user");
@@ -156,10 +157,9 @@ class ConsentLedgerActiveGrantRepositoryTest {
     @Test
     void findActiveGrantByUserTypeAndVersion_ShouldReturnEmptyWhenNoGrantedRecordExists() {
         // Arrange - Create only a WITHDRAWN record for the version
-        UUID consentId = UUID.randomUUID();
 
         ConsentLedger withdrawnRecord = ConsentLedger.builder()
-                .consentId(consentId)
+                .consentId(UUID.randomUUID())
                 .userId(testUserId)
                 .consentType(testConsentType)
                 .consentVersion(testVersion)
@@ -179,7 +179,8 @@ class ConsentLedgerActiveGrantRepositoryTest {
                 .recordSignature(new byte[]{1, 2, 3})
                 .build();
 
-        entityManager.persistAndFlush(withdrawnRecord);
+        consentLedgerRepository.save(withdrawnRecord);
+        entityManager.flush();
         entityManager.clear();
 
         // Act

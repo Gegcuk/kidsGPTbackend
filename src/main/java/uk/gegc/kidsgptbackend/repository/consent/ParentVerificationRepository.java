@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import uk.gegc.kidsgptbackend.model.consent.ParentVerification;
+import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
 import uk.gegc.kidsgptbackend.model.consent.VerificationStatus;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,20 @@ public interface ParentVerificationRepository extends JpaRepository<ParentVerifi
     
     @Query("SELECT pv FROM ParentVerification pv WHERE pv.parentId = :parentId AND pv.verificationStatus = 'PENDING' AND pv.expiresAt > :now ORDER BY pv.createdAt DESC")
     List<ParentVerification> findPendingVerificationsByParent(@Param("parentId") UUID parentId, @Param("now") LocalDateTime now);
+    
+    @Query("""
+        SELECT pv FROM ParentVerification pv
+        WHERE pv.parentId = :parentId
+          AND pv.verificationStatus = 'PENDING'
+          AND pv.expiresAt > :now
+          AND pv.verificationMethod = :method
+          AND pv.contactInfoHash = :contactHash
+        """)
+    Optional<ParentVerification> findPendingForParentMethodContact(
+        @Param("parentId") UUID parentId,
+        @Param("method") VerificationMethod method,
+        @Param("contactHash") byte[] contactHash,
+        @Param("now") LocalDateTime now);
     
     @Query("SELECT COUNT(pv) FROM ParentVerification pv WHERE pv.parentId = :parentId AND pv.verificationStatus = 'FAILED' AND pv.createdAt >= :since")
     long countFailedAttemptsSince(@Param("parentId") UUID parentId, @Param("since") LocalDateTime since);

@@ -66,6 +66,7 @@ class ConsentControllerIntegrationTest {
     private String accessToken;
 
     @BeforeEach
+    @Transactional
     void setUp() {
         // Set up role and user
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {

@@ -96,9 +96,6 @@ public class ConsentServiceImpl implements ConsentService {
         Instant nowUtc = Instant.now(clock);
         LocalDateTime nowLocal = LocalDateTime.ofInstant(nowUtc, ZoneOffset.UTC);
 
-        // ---- Generate consentId once and reuse across receipt + row
-        UUID consentId = UUID.randomUUID();
-
         // ---- Server-derived IP/UA override client body for security
         String ip = RequestContextUtil.getServerCapturedIp();
         String ua = RequestContextUtil.getServerCapturedUserAgent();
@@ -145,15 +142,18 @@ public class ConsentServiceImpl implements ConsentService {
         // ---- Resolve verification method for receipt
         String verificationMethod = resolveVerificationMethod(request.verificationId());
 
-        // ---- Build canonical receipt JSON (deterministic ordering)
+        // ---- Pre-generate UUID for application-assigned ID
+        UUID consentId = UUID.randomUUID();
+
+        // ---- Build canonical receipt JSON with pre-generated ID (deterministic ordering)
         String receiptJson = buildCanonicalReceiptJson(consentId, request, jurisdiction, region, locale, ip, ua, nowUtc, kids, verificationMethod);
 
         // ---- HMAC over canonical JSON
         byte[] recordSignature = generateHmacSignature(receiptJson);
 
-        // ---- Persist ledger row
+        // ---- Persist ledger row with complete data (single save)
         ConsentLedger consentLedger = ConsentLedger.builder()
-                .consentId(consentId) // ensure entity allows manual ID set
+                .consentId(consentId) // Set pre-generated ID
                 .userId(request.userId())
                 .consentType(request.consentType())
                 .consentVersion(request.consentVersion())
@@ -170,13 +170,13 @@ public class ConsentServiceImpl implements ConsentService {
                 .consentTimestamp(nowLocal)
                 .parentVerificationId(request.verificationId())
                 .retentionExpiresAt(retentionExpiresAt)
-                .receiptJson(receiptJson)
-                .recordSignature(recordSignature)
+                .receiptJson(receiptJson) // Set actual receipt JSON
+                .recordSignature(recordSignature) // Set actual signature
                 .build();
 
         ConsentLedger savedConsent;
         try {
-            // Force DB hit now so we catch constraint violations here, not at tx commit
+            // Single save with complete data
             savedConsent = consentLedgerRepository.saveAndFlush(consentLedger);
             log.info("Saved consent ledger entry with ID: {}", savedConsent.getConsentId());
         } catch (DataIntegrityViolationException e) {
@@ -209,7 +209,7 @@ public class ConsentServiceImpl implements ConsentService {
         List<ConsentStatusResponse.ConsentStatusByType> latestByType = buildLatestConsentStatus(request.userId());
         boolean reconsentNeeded = false; // for this consentType just granted
 
-        return new ConsentStatusResponse(latestByType, reconsentNeeded, consentId);
+        return new ConsentStatusResponse(latestByType, reconsentNeeded, savedConsent.getConsentId());
     }
     
     @Override
@@ -274,14 +274,17 @@ public class ConsentServiceImpl implements ConsentService {
                 );
             }
         }
-        
+
+        // ---- Pre-generate UUID for application-assigned ID
         UUID withdrawalId = UUID.randomUUID();
+        
+        // ---- Build withdrawal receipt JSON with pre-generated ID
         String receiptJson = buildWithdrawalReceiptJson(withdrawalId, request, granted, ip, ua, nowUtc);
         byte[] recordSignature = generateHmacSignature(receiptJson);
         
-        // ---- Persist withdrawal ledger row
+        // ---- Persist withdrawal ledger row with complete data (single save)
         ConsentLedger withdrawalLedger = ConsentLedger.builder()
-                .consentId(withdrawalId)
+                .consentId(withdrawalId) // Set pre-generated ID
                 .userId(userId)
                 .consentType(granted.getConsentType())
                 .consentVersion(granted.getConsentVersion()) // Use version from grant, not request
@@ -299,14 +302,16 @@ public class ConsentServiceImpl implements ConsentService {
                 .parentVerificationId(granted.getParentVerificationId())
                 .retentionExpiresAt(granted.getRetentionExpiresAt())
                 .withdrawnConsentId(granted.getConsentId()) // Link to the withdrawn consent
-                .receiptJson(receiptJson)
-                .recordSignature(recordSignature)
+                .receiptJson(receiptJson) // Set actual receipt JSON
+                .recordSignature(recordSignature) // Set actual signature
                 .build();
         
         ConsentLedger savedWithdrawal;
         try {
+            // Single save with complete data
             savedWithdrawal = consentLedgerRepository.saveAndFlush(withdrawalLedger);
             log.info("Saved consent withdrawal entry with ID: {}", savedWithdrawal.getConsentId());
+            
         } catch (DataIntegrityViolationException e) {
             if (isDuplicateKey(e)) {
                 log.warn("Duplicate withdrawal raced; returning current status. user={}, type={}, v={}",
@@ -327,7 +332,7 @@ public class ConsentServiceImpl implements ConsentService {
         return new ConsentStatusResponse(
             buildEffectiveConsentStatus(userId),
             true, // reconsentNeeded is true after withdrawal
-            withdrawalId
+            savedWithdrawal.getConsentId()
         );
     }
     

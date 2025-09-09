@@ -1115,10 +1115,19 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
                 .thenAnswer(invocation -> {
                     ConsentLedger savedWithdrawal = invocation.getArgument(0);
-                    // Update the mock to return the withdrawal for subsequent calls
-                    when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                    // Update the mock to return the withdrawal for subsequent calls for all consent types
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                             eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
                             .thenReturn(Optional.of(savedWithdrawal));
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                            .thenReturn(Optional.empty());
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                            .thenReturn(Optional.empty());
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
+                            .thenReturn(Optional.empty());
                     return savedWithdrawal;
                 });
 
@@ -1126,18 +1135,6 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
-
-        // Mock findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc for other consent types
-        // The PARENTAL_CONSENT mock will be set by saveAndFlush's thenAnswer
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
-                .thenReturn(Optional.empty());
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
-                .thenReturn(Optional.empty());
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
-                .thenReturn(Optional.empty());
 
         ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
                 testUserId.toString(),
@@ -1209,10 +1206,19 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
                 .thenAnswer(invocation -> {
                     ConsentLedger savedWithdrawal = invocation.getArgument(0);
-                    // Update the mock to return the withdrawal for subsequent calls
-                    when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                    // Update the mock to return the withdrawal for subsequent calls for all consent types
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                             eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
                             .thenReturn(Optional.of(savedWithdrawal));
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                            .thenReturn(Optional.empty());
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                            .thenReturn(Optional.empty());
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
+                            .thenReturn(Optional.empty());
                     return savedWithdrawal;
                 });
 
@@ -1220,18 +1226,6 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         when(consentLedgerRepository.findFirstByUserIdAndConsentTypeAndConsentStatusOrderByConsentTimestampDescCreatedAtDesc(
                 eq(testUserId), eq(ConsentType.PARENTAL_CONSENT), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
-
-        // Mock findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc for other consent types
-        // The PARENTAL_CONSENT mock will be set by saveAndFlush's thenAnswer
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
-                .thenReturn(Optional.empty());
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
-                .thenReturn(Optional.empty());
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
-                .thenReturn(Optional.empty());
 
         ConsentWithdrawRequest withdrawRequest = new ConsentWithdrawRequest(
                 testUserId.toString(),
@@ -1300,10 +1294,19 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
         when(consentLedgerRepository.saveAndFlush(any(ConsentLedger.class)))
                 .thenAnswer(invocation -> {
                     ConsentLedger savedWithdrawal = invocation.getArgument(0);
-                    // Update the mock to return the withdrawal for subsequent calls
-                    when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                    // Update the mock to return the withdrawal for subsequent calls for all consent types
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
                             eq(testUserId), eq(ConsentType.DATA_PROCESSING)))
                             .thenReturn(Optional.of(savedWithdrawal));
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
+                            .thenReturn(Optional.empty());
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
+                            .thenReturn(Optional.empty());
+                    lenient().when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
+                            eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
+                            .thenReturn(Optional.empty());
                     return savedWithdrawal;
                 });
 
@@ -1312,16 +1315,7 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
                 eq(testUserId), eq(ConsentType.DATA_PROCESSING), eq(ConsentStatus.GRANTED)))
                 .thenReturn(Optional.of(grantedConsent));
 
-        // Mock findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc for other consent types
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.TERMS_OF_SERVICE)))
-                .thenReturn(Optional.empty());
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.PRIVACY_POLICY)))
-                .thenReturn(Optional.empty());
-        when(consentLedgerRepository.findFirstByUserIdAndConsentTypeOrderByConsentTimestampDescCreatedAtDesc(
-                eq(testUserId), eq(ConsentType.PARENTAL_CONSENT)))
-                .thenReturn(Optional.empty());
+
 
         // Create request with different IP/UA than server-captured values
         String clientIp = "10.0.0.1";

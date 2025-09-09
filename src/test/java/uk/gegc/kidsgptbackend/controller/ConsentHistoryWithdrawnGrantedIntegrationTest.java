@@ -143,11 +143,7 @@ class ConsentHistoryWithdrawnGrantedIntegrationTest {
         
         // Create WITHDRAWN consent first (older timestamp)
         LocalDateTime withdrawnTimestamp = baseTimestamp.minusHours(2);
-        withdrawnConsentId = UUID.randomUUID();
-        ConsentLedger withdrawnConsent = ConsentLedger.builder()
-                .consentId(withdrawnConsentId)
-                .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY)
+        ConsentLedger withdrawnConsent = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)                .consentType(ConsentType.PRIVACY_POLICY)
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.WITHDRAWN)
                 .policyUrl("https://example.com/policy")
@@ -167,11 +163,7 @@ class ConsentHistoryWithdrawnGrantedIntegrationTest {
         
         // Create GRANTED consent second (newer timestamp, same type)
         LocalDateTime grantedTimestamp = baseTimestamp.minusHours(1);
-        grantedConsentId = UUID.randomUUID();
-        ConsentLedger grantedConsent = ConsentLedger.builder()
-                .consentId(grantedConsentId)
-                .userId(testUserId)
-                .consentType(ConsentType.PRIVACY_POLICY) // Same type as WITHDRAWN
+        ConsentLedger grantedConsent = ConsentLedger.builder().consentId(UUID.randomUUID()).userId(testUserId)                .consentType(ConsentType.PRIVACY_POLICY) // Same type as WITHDRAWN
                 .consentVersion("1.0.0")
                 .consentStatus(ConsentStatus.GRANTED)
                 .policyUrl("https://example.com/policy")
@@ -192,7 +184,11 @@ class ConsentHistoryWithdrawnGrantedIntegrationTest {
         consentLedgers.add(withdrawnConsent);
         consentLedgers.add(grantedConsent);
         
-        consentLedgerRepository.saveAll(consentLedgers);
+        List<ConsentLedger> savedConsentLedgers = consentLedgerRepository.saveAll(consentLedgers);
+        
+        // Get the auto-generated IDs
+        withdrawnConsentId = savedConsentLedgers.get(0).getConsentId();
+        grantedConsentId = savedConsentLedgers.get(1).getConsentId();
     }
 
     private void verifyBothWithdrawnAndGrantedAppear(String response) {

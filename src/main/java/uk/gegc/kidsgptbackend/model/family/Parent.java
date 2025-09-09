@@ -35,6 +35,9 @@ public class Parent {
     @Column(name = "phone_number")
     private String phoneNumber;
 
+    @Column(name = "user_id")
+    private UUID userId; // Direct reference to User for better lookup
+
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Kid> kids = new HashSet<>();
 }
