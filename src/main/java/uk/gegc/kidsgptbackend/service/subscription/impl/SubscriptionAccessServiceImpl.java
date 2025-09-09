@@ -12,6 +12,7 @@ import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.service.family.KidCountingService;
 import uk.gegc.kidsgptbackend.service.subscription.SubscriptionAccessService;
 
 import java.time.Instant;
@@ -29,6 +30,7 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionUsageRepository subscriptionUsageRepository;
     private final ObjectMapper objectMapper;
+    private final KidCountingService kidCountingService;
 
     @Override
     public boolean hasFeatureAccess(User user, String feature) {
@@ -52,7 +54,7 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
             case "chat" -> hasFeatureAccess(user, "chat_limit");
             case "image_generation" -> hasFeatureAccess(user, "image_generation");
             case "story_continuation" -> hasFeatureAccess(user, "story_continuation");
-            case "add_kid" -> canAddMoreKids(user);
+            case "add_kid" -> kidCountingService.canAddMoreKids(user);
             default -> false;
         };
     }
@@ -183,18 +185,10 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         return subscription.orElse(null);
     }
 
-    private boolean hasFreeTierAccess(String feature) {
-        return switch (feature) {
-            case "chat_limit" -> true; // Limited to 10 per month
-            case "image_generation" -> false;
-            case "story_continuation" -> false;
-            default -> false;
-        };
-    }
 
     private int getFreeTierLimit(String feature) {
         return switch (feature) {
-            case "chat_limit" -> 15; // 15 messages across the 3-day window
+            case "chat_limit" -> 15; // 15 messages across the 3-day window (not 10 per month)
             default -> 0;
         };
     }
@@ -247,15 +241,4 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         return subscriptionUsageRepository.save(usage);
     }
 
-    private boolean canAddMoreKids(User user) {
-        UserSubscription activeSubscription = getActiveSubscription(user);
-        
-        if (activeSubscription == null) {
-            return true; // Free tier allows 1 kid
-        }
-
-        // TODO: Implement actual kid counting logic
-        int currentKidsCount = 0; // Placeholder
-        return currentKidsCount < activeSubscription.getSubscriptionPlan().getMaxKids();
-    }
 }

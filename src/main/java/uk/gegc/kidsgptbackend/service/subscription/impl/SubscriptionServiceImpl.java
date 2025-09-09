@@ -10,7 +10,7 @@ import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionPlanRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.service.family.KidCountingService;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.service.subscription.SubscriptionService;
@@ -28,8 +28,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
 
     private final SubscriptionPlanRepository subscriptionPlanRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
-    private final UserRepository userRepository;
     private final GooglePlayClient googlePlayClient;
+    private final KidCountingService kidCountingService;
+    private final SubscriptionSaver subscriptionSaver;
+    private final SubscriptionAcknowledger subscriptionAcknowledger;
 
     @Override
     @Transactional(readOnly = true)
@@ -49,22 +51,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     @Override
+    // Remove @Transactional from this method - orchestration should not be transactional
     public UserSubscription createSubscription(User user, CreateSubscriptionRequest request) {
-        // Check if user already has an active subscription (with SELECT FOR UPDATE to prevent race conditions)
-        List<UserSubscription> activeSubscriptions = userSubscriptionRepository.findActiveSubscriptionsWithLock(user);
-        if (!activeSubscriptions.isEmpty()) {
-            throw new IllegalStateException("User already has an active subscription");
-        }
-
-        SubscriptionPlan plan = subscriptionPlanRepository.findById(request.planId())
-                .orElseThrow(() -> new IllegalArgumentException("Subscription plan not found"));
-        
-        // Verify product ID matches plan
-        if (!java.util.Objects.equals(plan.getGooglePlayProductId(), request.googleProductId())) {
-            throw new IllegalArgumentException("Product/plan mismatch");
-        }
-
-        // Verify purchase with Google Play
+        // 1) Verify purchase with Google Play (network call outside transaction)
         GooglePlaySubscriptionPurchase googlePurchase = googlePlayClient.getSubscriptionPurchase(
                 request.googleProductId(), request.purchaseToken());
         
@@ -72,57 +61,25 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             throw new IllegalStateException("Purchase not active");
         }
 
-        // Acknowledge the purchase with Google Play before persisting
-        boolean acknowledged = false;
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            try {
-                googlePlayClient.acknowledgeSubscription(request.googleProductId(), request.purchaseToken(), null);
-                acknowledged = true;
-                break;
-            } catch (Exception e) {
-                log.warn("Failed to acknowledge subscription (attempt {}/3): {}", attempt, e.getMessage());
-                if (attempt == 3) {
-                    log.error("Failed to acknowledge subscription after 3 attempts - continuing but marking for retry", e);
-                } else {
-                    try {
-                        Thread.sleep(1000 * attempt); // Exponential backoff
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        break;
-                    }
-                }
-            }
+        // 2) Acknowledge the purchase with Google Play if needed (network call outside transaction)
+        if ("NOT_ACKNOWLEDGED".equals(googlePurchase.getAcknowledgementState())) {
+            subscriptionAcknowledger.acknowledge(request.googleProductId(), request.purchaseToken());
         }
 
-        // Check if subscription already exists for this purchase token
-        UserSubscription subscription = userSubscriptionRepository
-                .findByPaymentProviderAndExternalSubscriptionId(
-                        UserSubscription.PaymentProvider.GOOGLE_PLAY, request.purchaseToken())
-                .orElse(new UserSubscription());
-
-        subscription.setUser(user);
-        subscription.setSubscriptionPlan(plan);
-        subscription.setPaymentProvider(UserSubscription.PaymentProvider.GOOGLE_PLAY);
-        subscription.setExternalSubscriptionId(request.purchaseToken()); // Store purchaseToken, not subscriptionId
-        subscription.setStatus(mapGooglePlayStatus(googlePurchase));
-        subscription.setCurrentPeriodStart(Instant.ofEpochMilli(googlePurchase.getStartTimeMillis()));
-        subscription.setCurrentPeriodEnd(Instant.ofEpochMilli(googlePurchase.getExpiryTimeMillis()));
-        subscription.setAutoRenew(Boolean.TRUE.equals(googlePurchase.getAutoRenewing()));
-        subscription.setStartDate(Instant.now());
-        subscription.setProviderStatusRaw(googlePurchase.getPurchaseState());
-
-        UserSubscription savedSubscription = userSubscriptionRepository.save(subscription);
-        log.info("Created/updated subscription {} for user {} from Google Play purchase", 
-                savedSubscription.getId(), user.getId());
-
-        return savedSubscription;
+        // 3) Persist in short transaction
+        return subscriptionSaver.saveFromGoogle(user, request, googlePurchase);
     }
+
 
     @Override
     @Transactional(readOnly = true)
     public SubscriptionStatusDto getUserSubscriptionStatus(User user) {
         UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(user)
                 .orElse(null);
+
+        // Count current kids using the kid counting service for both free and paid users
+        int currentKidsCount = kidCountingService.countKidsForParent(user);
+        boolean canAddMoreKids = kidCountingService.canAddMoreKids(user);
 
         if (activeSubscription == null) {
             return new SubscriptionStatusDto(
@@ -134,13 +91,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     false,
                     null,
                     1, // Default free tier
-                    0, // Will be calculated based on actual kids
-                    true
+                    currentKidsCount,
+                    canAddMoreKids
             );
         }
-
-        // Count current kids (you'll need to implement this based on your kid entity)
-        int currentKidsCount = 0; // TODO: Implement kid counting logic
 
         return new SubscriptionStatusDto(
                 user.getId(),
@@ -152,7 +106,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 activeSubscription.getTrialEndDate(),
                 activeSubscription.getSubscriptionPlan().getMaxKids(),
                 currentKidsCount,
-                currentKidsCount < activeSubscription.getSubscriptionPlan().getMaxKids()
+                canAddMoreKids
         );
     }
 
@@ -248,16 +202,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @Transactional(readOnly = true)
     public boolean canAddMoreKids(User user) {
-        UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(user)
-                .orElse(null);
-
-        if (activeSubscription == null) {
-            return true; // Free tier allows 1 kid
-        }
-
-        // TODO: Implement actual kid counting logic
-        int currentKidsCount = 0;
-        return currentKidsCount < activeSubscription.getSubscriptionPlan().getMaxKids();
+        return kidCountingService.canAddMoreKids(user); // always delegate
     }
 
     @Override
@@ -306,15 +251,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
     }
 
-    // Helper methods - DEPRECATED: Don't calculate dates locally, use provider data
-    @Deprecated
-    private Instant calculateEndDate(SubscriptionPlan.BillingCycle billingCycle) {
-        // This should not be used - providers are source of truth for billing dates
-        return switch (billingCycle) {
-            case MONTHLY -> Instant.now().plusSeconds(30L * 24 * 60 * 60); // 30 days
-            case YEARLY -> Instant.now().plusSeconds(365L * 24 * 60 * 60); // 365 days
-        };
-    }
     
     UserSubscription.SubscriptionStatus mapGooglePlayStatus(GooglePlaySubscriptionPurchase purchase) {
         if (purchase.isPurchased() && !purchase.isExpired()) {
@@ -336,7 +272,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             case "unpaid" -> UserSubscription.SubscriptionStatus.UNPAID;
             case "incomplete" -> UserSubscription.SubscriptionStatus.INCOMPLETE;
             case "incomplete_expired" -> UserSubscription.SubscriptionStatus.INCOMPLETE_EXPIRED;
-            default -> UserSubscription.SubscriptionStatus.ACTIVE;
+            default -> UserSubscription.SubscriptionStatus.INCOMPLETE;
         };
     }
 

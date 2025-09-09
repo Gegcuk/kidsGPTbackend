@@ -1,6 +1,7 @@
 package uk.gegc.kidsgptbackend.service.auth.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -36,11 +37,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -83,6 +86,7 @@ public class AuthServiceImpl implements AuthService {
             parent.setFirstName("Parent"); // Default first name
             parent.setLastName("User");    // Default last name
             parent.setEmail(request.email());
+            parent.setUserId(saved.getId()); // Set direct userId reference for robust lookup
             parentRepository.save(parent);
         }
 
@@ -105,9 +109,13 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException("Only parents can create kid accounts");
         }
 
-        // Find parent profile
-        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
-                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+        // Find parent profile - prefer userId lookup, fallback to email
+        Optional<Parent> parentOpt = parentRepository.findByUserId(parentUser.getId());
+        if (parentOpt.isEmpty()) {
+            log.debug("Parent profile not found by userId for user: {}, trying email lookup", parentUser.getUsername());
+            parentOpt = parentRepository.findByEmail(parentUser.getEmail());
+        }
+        Parent parent = parentOpt.orElseThrow(() -> new ValidationException("Parent profile not found"));
 
         // Generate unique username for kid (nickname + random suffix)
         String kidUsername = generateUniqueKidUsername(request.nickname());
@@ -147,6 +155,9 @@ public class AuthServiceImpl implements AuthService {
 
     private String generateUniqueKidUsername(String nickname) {
         String baseUsername = nickname.toLowerCase().replaceAll("[^a-z0-9]", "");
+        if (baseUsername.isBlank()) {
+            baseUsername = "kid"; // Fallback if nickname becomes empty after sanitization
+        }
         String kidUsername = baseUsername + "_kid";
         
         int counter = 1;
@@ -210,9 +221,13 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException("Only parents can retrieve their kids");
         }
 
-        // Find parent profile
-        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
-                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+        // Find parent profile - prefer userId lookup, fallback to email
+        Optional<Parent> parentOpt = parentRepository.findByUserId(parentUser.getId());
+        if (parentOpt.isEmpty()) {
+            log.debug("Parent profile not found by userId for user: {}, trying email lookup", parentUser.getUsername());
+            parentOpt = parentRepository.findByEmail(parentUser.getEmail());
+        }
+        Parent parent = parentOpt.orElseThrow(() -> new ValidationException("Parent profile not found"));
 
         // Find all kids belonging to this parent
         List<Kid> kids = kidRepository.findAllByParentId(parent.getId());
@@ -237,9 +252,13 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException("Only parents can delete kid accounts");
         }
 
-        // Find parent profile
-        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
-                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+        // Find parent profile - prefer userId lookup, fallback to email
+        Optional<Parent> parentOpt = parentRepository.findByUserId(parentUser.getId());
+        if (parentOpt.isEmpty()) {
+            log.debug("Parent profile not found by userId for user: {}, trying email lookup", parentUser.getUsername());
+            parentOpt = parentRepository.findByEmail(parentUser.getEmail());
+        }
+        Parent parent = parentOpt.orElseThrow(() -> new ValidationException("Parent profile not found"));
 
         // Find the kid by ID and verify it belongs to this parent
         Kid kid = kidRepository.findById(kidId)
@@ -278,9 +297,13 @@ public class AuthServiceImpl implements AuthService {
             throw new ValidationException("Only parents can delete their accounts");
         }
 
-        // Find parent profile
-        Parent parent = parentRepository.findByEmail(parentUser.getEmail())
-                .orElseThrow(() -> new ValidationException("Parent profile not found"));
+        // Find parent profile - prefer userId lookup, fallback to email
+        Optional<Parent> parentOpt = parentRepository.findByUserId(parentUser.getId());
+        if (parentOpt.isEmpty()) {
+            log.debug("Parent profile not found by userId for user: {}, trying email lookup", parentUser.getUsername());
+            parentOpt = parentRepository.findByEmail(parentUser.getEmail());
+        }
+        Parent parent = parentOpt.orElseThrow(() -> new ValidationException("Parent profile not found"));
 
         // Check if parent has kids by querying the database directly
         List<Kid> existingKids = kidRepository.findAllByParentId(parent.getId());

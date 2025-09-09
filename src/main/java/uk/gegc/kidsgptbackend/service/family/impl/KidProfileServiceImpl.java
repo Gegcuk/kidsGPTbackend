@@ -1,6 +1,6 @@
 package uk.gegc.kidsgptbackend.service.family.impl;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,15 +24,12 @@ import uk.gegc.kidsgptbackend.service.family.KidProfileService;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class KidProfileServiceImpl implements KidProfileService {
-    @Autowired
-    private KidRepository kidRepository;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private ParentRepository parentRepository;
-    @Autowired
-    private PasswordEncoder passwordEncoder;
+    private final KidRepository kidRepository;
+    private final UserRepository userRepository;
+    private final ParentRepository parentRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     @Transactional
@@ -43,7 +40,7 @@ public class KidProfileServiceImpl implements KidProfileService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         
         // Verify user is a child
-        boolean isChild = user.getRoles().stream()
+        boolean isChild = user.getRoles() != null && user.getRoles().stream()
                 .anyMatch(role -> RoleName.ROLE_CHILD.name().equals(role.getRole()));
         
         if (!isChild) {
@@ -72,15 +69,16 @@ public class KidProfileServiceImpl implements KidProfileService {
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         
         // Verify user is a parent
-        boolean isParent = user.getRoles().stream()
+        boolean isParent = user.getRoles() != null && user.getRoles().stream()
                 .anyMatch(role -> RoleName.ROLE_PARENT.name().equals(role.getRole()));
         
         if (!isParent) {
             throw new ValidationException("Only parents can update their kids' profiles");
         }
         
-        // Find parent profile
-        Parent parent = parentRepository.findByEmail(user.getEmail())
+        // Find parent profile - prefer userId lookup, fallback to email
+        Parent parent = parentRepository.findByUserId(user.getId())
+                .or(() -> parentRepository.findByEmail(user.getEmail()))
                 .orElseThrow(() -> new ValidationException("Parent profile not found"));
         
         // Find kid by ID and verify it belongs to this parent
@@ -122,7 +120,7 @@ public class KidProfileServiceImpl implements KidProfileService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
         
-        boolean isChild = user.getRoles().stream()
+        boolean isChild = user.getRoles() != null && user.getRoles().stream()
                 .anyMatch(role -> RoleName.ROLE_CHILD.name().equals(role.getRole()));
         
         if (!isChild) {

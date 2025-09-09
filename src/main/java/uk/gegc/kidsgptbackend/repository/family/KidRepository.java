@@ -12,5 +12,6 @@ import java.util.UUID;
 public interface KidRepository extends JpaRepository<Kid, UUID> {
     Optional<Kid> findByParentId(UUID parentId);
     List<Kid> findAllByParentId(UUID parentId);
+    int countByParentId(UUID parentId);
     Optional<Kid> findByUserId(UUID userId);
 }
