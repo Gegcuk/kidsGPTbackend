@@ -16,7 +16,6 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -77,31 +76,19 @@ class SubscriptionPaymentRepositoryTest {
         // Use fixed base time to ensure consistent ordering across test runs
         Instant baseTime = Instant.parse("2024-01-01T12:00:00Z");
         
-        // Create pending payment (30 minutes ago - newest)
-        pendingPayment = new SubscriptionPayment();
-        pendingPayment.setUserSubscription(userSubscription);
-        pendingPayment.setAmount(new BigDecimal("4.99"));
-        pendingPayment.setCurrency("GBP");
-        pendingPayment.setStatus(SubscriptionPayment.PaymentStatus.PENDING);
-        pendingPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
-        pendingPayment.setExternalPaymentId("payment_id_456");
-        pendingPayment.setBillingPeriodStart(baseTime);
-        pendingPayment.setBillingPeriodEnd(baseTime.plusSeconds(2592000)); // 30 days from base
-        pendingPayment.setCreatedAt(baseTime.minusSeconds(1800)); // 30 minutes before base (newest)
-        entityManager.persistAndFlush(pendingPayment);
-
-        // Create successful payment (1 hour ago)
-        successfulPayment = new SubscriptionPayment();
-        successfulPayment.setUserSubscription(userSubscription);
-        successfulPayment.setAmount(new BigDecimal("4.99"));
-        successfulPayment.setCurrency("GBP");
-        successfulPayment.setStatus(SubscriptionPayment.PaymentStatus.SUCCEEDED);
-        successfulPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
-        successfulPayment.setExternalPaymentId("payment_id_123");
-        successfulPayment.setBillingPeriodStart(baseTime.minusSeconds(1800)); // 30 minutes before base
-        successfulPayment.setBillingPeriodEnd(baseTime.plusSeconds(1800)); // 30 minutes after base
-        successfulPayment.setCreatedAt(baseTime.minusSeconds(3600)); // 1 hour before base
-        entityManager.persistAndFlush(successfulPayment);
+        // Create payments with explicit timestamps to ensure consistent ordering
+        // Create old pending payment (3 hours ago - oldest, for testing pending older than query)
+        oldPendingPayment = new SubscriptionPayment();
+        oldPendingPayment.setUserSubscription(userSubscription);
+        oldPendingPayment.setAmount(new BigDecimal("4.99"));
+        oldPendingPayment.setCurrency("GBP");
+        oldPendingPayment.setStatus(SubscriptionPayment.PaymentStatus.PENDING);
+        oldPendingPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
+        oldPendingPayment.setExternalPaymentId("payment_id_old");
+        oldPendingPayment.setBillingPeriodStart(baseTime.minusSeconds(2592000)); // 30 days before base
+        oldPendingPayment.setBillingPeriodEnd(baseTime); // at base time
+        oldPendingPayment.setCreatedAt(baseTime.minusSeconds(10800)); // 3 hours before base (oldest)
+        entityManager.persistAndFlush(oldPendingPayment);
 
         // Create failed payment (2 hours ago)
         failedPayment = new SubscriptionPayment();
@@ -116,18 +103,31 @@ class SubscriptionPaymentRepositoryTest {
         failedPayment.setCreatedAt(baseTime.minusSeconds(7200)); // 2 hours before base
         entityManager.persistAndFlush(failedPayment);
 
-        // Create old pending payment (3 hours ago - oldest, for testing pending older than query)
-        oldPendingPayment = new SubscriptionPayment();
-        oldPendingPayment.setUserSubscription(userSubscription);
-        oldPendingPayment.setAmount(new BigDecimal("4.99"));
-        oldPendingPayment.setCurrency("GBP");
-        oldPendingPayment.setStatus(SubscriptionPayment.PaymentStatus.PENDING);
-        oldPendingPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
-        oldPendingPayment.setExternalPaymentId("payment_id_old");
-        oldPendingPayment.setBillingPeriodStart(baseTime.minusSeconds(2592000)); // 30 days before base
-        oldPendingPayment.setBillingPeriodEnd(baseTime); // at base time
-        oldPendingPayment.setCreatedAt(baseTime.minusSeconds(10800)); // 3 hours before base (oldest)
-        entityManager.persistAndFlush(oldPendingPayment);
+        // Create successful payment (1 hour ago)
+        successfulPayment = new SubscriptionPayment();
+        successfulPayment.setUserSubscription(userSubscription);
+        successfulPayment.setAmount(new BigDecimal("4.99"));
+        successfulPayment.setCurrency("GBP");
+        successfulPayment.setStatus(SubscriptionPayment.PaymentStatus.SUCCEEDED);
+        successfulPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
+        successfulPayment.setExternalPaymentId("payment_id_123");
+        successfulPayment.setBillingPeriodStart(baseTime.minusSeconds(1800)); // 30 minutes before base
+        successfulPayment.setBillingPeriodEnd(baseTime.plusSeconds(1800)); // 30 minutes after base
+        successfulPayment.setCreatedAt(baseTime.minusSeconds(3600)); // 1 hour before base
+        entityManager.persistAndFlush(successfulPayment);
+
+        // Create pending payment (30 minutes ago - newest)
+        pendingPayment = new SubscriptionPayment();
+        pendingPayment.setUserSubscription(userSubscription);
+        pendingPayment.setAmount(new BigDecimal("4.99"));
+        pendingPayment.setCurrency("GBP");
+        pendingPayment.setStatus(SubscriptionPayment.PaymentStatus.PENDING);
+        pendingPayment.setPaymentProvider(SubscriptionPayment.PaymentProvider.GOOGLE_PLAY);
+        pendingPayment.setExternalPaymentId("payment_id_456");
+        pendingPayment.setBillingPeriodStart(baseTime);
+        pendingPayment.setBillingPeriodEnd(baseTime.plusSeconds(2592000)); // 30 days from base
+        pendingPayment.setCreatedAt(baseTime.minusSeconds(1800)); // 30 minutes before base (newest)
+        entityManager.persistAndFlush(pendingPayment);
 
         entityManager.clear();
     }
@@ -140,11 +140,26 @@ class SubscriptionPaymentRepositoryTest {
 
         // Then
         assertThat(result).hasSize(4);
-        // Should be ordered by createdAt DESC (newest first)
-        assertThat(result.get(0).getExternalPaymentId()).isEqualTo("payment_id_456"); // 30 minutes ago
-        assertThat(result.get(1).getExternalPaymentId()).isEqualTo("payment_id_123"); // 1 hour ago
-        assertThat(result.get(2).getExternalPaymentId()).isEqualTo("payment_id_789"); // 2 hours ago
-        assertThat(result.get(3).getExternalPaymentId()).isEqualTo("payment_id_old"); // 3 hours ago
+        
+        // Verify ordering by checking that each payment is newer than or equal to the next one
+        for (int i = 0; i < result.size() - 1; i++) {
+            assertThat(result.get(i).getCreatedAt()).isAfterOrEqualTo(result.get(i + 1).getCreatedAt());
+        }
+        
+        // Verify all expected payments are present
+        List<String> expectedPaymentIds = result.stream()
+                .map(SubscriptionPayment::getExternalPaymentId)
+                .toList();
+        assertThat(expectedPaymentIds).containsExactlyInAnyOrder(
+                "payment_id_456", "payment_id_123", "payment_id_789", "payment_id_old");
+        
+        // Verify the newest payment is first
+        assertThat(result.get(0).getExternalPaymentId()).isEqualTo("payment_id_456");
+        assertThat(result.get(0).getCreatedAt()).isEqualTo(Instant.parse("2024-01-01T11:30:00Z"));
+        
+        // Verify the oldest payment is last
+        assertThat(result.get(3).getExternalPaymentId()).isEqualTo("payment_id_old");
+        assertThat(result.get(3).getCreatedAt()).isEqualTo(Instant.parse("2024-01-01T09:00:00Z"));
     }
 
     @Test
@@ -283,6 +298,12 @@ class SubscriptionPaymentRepositoryTest {
         assertThat(result.get(0).getStatus()).isEqualTo(SubscriptionPayment.PaymentStatus.PENDING);
         assertThat(result.get(0).getCreatedAt()).isBefore(cutoffTime);
         assertThat(result.get(0).getExternalPaymentId()).isEqualTo("payment_id_old");
+        
+        // Additional verification: ensure no other pending payments are included
+        // The other pending payment (payment_id_456) was created 30 minutes before base time,
+        // which is after the cutoff time (1 hour before base time), so it should not be included
+        assertThat(result).allMatch(payment -> payment.getCreatedAt().isBefore(cutoffTime));
+        assertThat(result).allMatch(payment -> payment.getStatus() == SubscriptionPayment.PaymentStatus.PENDING);
     }
 
     @Test
