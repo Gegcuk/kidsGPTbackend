@@ -21,6 +21,7 @@ import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAccessServic
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
@@ -247,11 +248,12 @@ class SubscriptionAccessServiceTest {
         subscriptionAccessService.getRemainingUsage(user, "chat_limit");
         
         // Then
-        // Verify that the period key uses monthly format
+        // Verify that the period key uses monthly format (YYYY-MM based on current system time)
+        String expectedMonthKey = YearMonth.now().toString(); // e.g., "2024-11"
         verify(subscriptionUsageRepository).findByUserAndFeatureAndPeriodKey(
                 eq(user), 
                 eq("chat_limit"), 
-                eq("2025-09") // Current month (September 2025)
+                eq(expectedMonthKey)
         );
     }
 

@@ -53,7 +53,8 @@ public class SecurityConfig {
                                 "/api/v1/auth/reset-password/validate",
                                 "/api/v1/auth/2fa/setup",
                                 "/api/v1/auth/2fa/verify",
-                                "/api/v1/system/status"
+                                "/api/v1/system/status",
+                                "/api/diagnostics/**"
                         ).permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/auth/me").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/v1/quizzes/**").permitAll()
