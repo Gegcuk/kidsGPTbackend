@@ -7,6 +7,7 @@ import org.springframework.ai.moderation.ModerationModel;
 import org.springframework.ai.moderation.ModerationPrompt;
 import org.springframework.ai.moderation.ModerationResponse;
 import org.springframework.ai.moderation.ModerationResult;
+import org.springframework.ai.openai.OpenAiModerationOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
@@ -31,6 +32,9 @@ public class ModerationUtil {
 
     private final ModerationModel moderationModel;
     private final ChatClient chatClient;
+
+    @Value("${spring.ai.openai.moderation.options.model:omni-moderation-latest}")
+    private String enforcedModerationModel;
 
     @Value("classpath:prompts/moderation/age-aware-prompt-template.txt")
     private Resource ageAwarePromptTemplate;
@@ -113,7 +117,7 @@ public class ModerationUtil {
         log.debug("Validating content safety: '{}'", content);
         
         try {
-            ModerationResponse response = moderationModel.call(new ModerationPrompt(content));
+            ModerationResponse response = moderationModel.call(createPrompt(content));
             boolean isSafe = response.getResult().getOutput().getResults().stream()
                     .noneMatch(ModerationResult::isFlagged);
             
@@ -153,7 +157,7 @@ public class ModerationUtil {
 
             log.debug("Age-aware moderation prompt: '{}'", moderationPrompt);
             
-            ModerationResponse response = moderationModel.call(new ModerationPrompt(moderationPrompt));
+            ModerationResponse response = moderationModel.call(createPrompt(moderationPrompt));
             boolean isSafe = response.getResult().getOutput().getResults().stream()
                     .noneMatch(ModerationResult::isFlagged);
             
@@ -421,6 +425,21 @@ public class ModerationUtil {
             log.warn("Failed to load AI validation user template, using fallback", e);
             return FALLBACK_AI_USER_TEMPLATE;
         }
+    }
+
+    private ModerationPrompt createPrompt(String instructions) {
+        OpenAiModerationOptions options = OpenAiModerationOptions.builder()
+                .model(resolveModerationModel())
+                .build();
+        return new ModerationPrompt(instructions, options);
+    }
+
+    private String resolveModerationModel() {
+        if (enforcedModerationModel == null || enforcedModerationModel.isBlank()
+                || "not-set".equalsIgnoreCase(enforcedModerationModel)) {
+            return "omni-moderation-latest";
+        }
+        return enforcedModerationModel;
     }
 
     /**

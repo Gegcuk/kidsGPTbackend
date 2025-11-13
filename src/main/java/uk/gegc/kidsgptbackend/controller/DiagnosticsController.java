@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.moderation.ModerationModel;
 import org.springframework.ai.openai.OpenAiModerationModel;
+import org.springframework.ai.openai.OpenAiModerationOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -55,15 +56,9 @@ public class DiagnosticsController {
                 if (defaultOptions != null) {
                     response.put("defaultOptionsPresent", true);
                     response.put("defaultOptionsClass", defaultOptions.getClass().getName());
+                    response.put("defaultOptionsModel", defaultOptions.getModel());
                     
-                    // Try to get string representation which might contain the model
-                    try {
-                        String optionsStr = defaultOptions.toString();
-                        response.put("defaultOptionsToString", optionsStr);
-                        response.put("postConstructLikelyRan", optionsStr.contains("omni-moderation"));
-                    } catch (Exception e2) {
-                        response.put("toStringError", e2.getMessage());
-                    }
+                    response.put("postConstructLikelyRan", "omni-moderation-latest".equals(defaultOptions.getModel()));
                 } else {
                     response.put("defaultOptionsPresent", false);
                     response.put("warning", "PostConstruct withDefaultOptions() might not have worked");
@@ -104,7 +99,14 @@ public class DiagnosticsController {
         
         try {
             // Try a simple moderation call
-            var moderationPrompt = new org.springframework.ai.moderation.ModerationPrompt("test");
+            var telemetryModel = configuredModel;
+            if ("not-set".equals(telemetryModel) || telemetryModel == null || telemetryModel.isBlank()) {
+                telemetryModel = "omni-moderation-latest";
+            }
+            var moderationPrompt = new org.springframework.ai.moderation.ModerationPrompt(
+                    "test",
+                    OpenAiModerationOptions.builder().model(telemetryModel).build()
+            );
             var result = moderationModel.call(moderationPrompt);
             
             response.put("status", "SUCCESS");
@@ -127,4 +129,3 @@ public class DiagnosticsController {
         return ResponseEntity.ok(response);
     }
 }
-
