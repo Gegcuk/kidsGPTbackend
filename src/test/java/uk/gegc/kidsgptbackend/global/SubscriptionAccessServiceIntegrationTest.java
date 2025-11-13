@@ -20,6 +20,7 @@ import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAccessServic
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -302,11 +303,12 @@ class SubscriptionAccessServiceIntegrationTest {
         // When - Check access
         subscriptionAccessService.getRemainingUsage(user, "chat_limit");
         
-        // Then - Should use monthly fallback
+        // Then - Should use monthly fallback (YYYY-MM based on current system time)
+        String expectedMonthKey = YearMonth.now().toString(); // e.g., "2024-11"
         verify(subscriptionUsageRepository).findByUserAndFeatureAndPeriodKey(
                 eq(user), 
                 eq("chat_limit"), 
-                eq("2025-09") // Monthly fallback (current month)
+                eq(expectedMonthKey)
         );
     }
 
