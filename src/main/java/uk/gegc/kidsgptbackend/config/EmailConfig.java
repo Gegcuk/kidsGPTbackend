@@ -36,7 +36,7 @@ public class EmailConfig {
 
     private String frontendUrl = "http://localhost:3000";
 
-    private boolean enabled = true;
+    private boolean enabled = false;
 
     /**
      * Helper class for email validation using Jakarta Validation
