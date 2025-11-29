@@ -1,5 +1,6 @@
 package uk.gegc.kidsgptbackend.service.email.impl;
 
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,13 +22,16 @@ class EmailServiceImplTest {
     @Mock
     private JavaMailSender mailSender;
 
+    @Mock
+    private Validator validator;
+
     private EmailConfig emailConfig;
     private EmailServiceImpl emailService;
 
     @BeforeEach
     void setUp() {
         // Set up a real EmailConfig with test values
-        emailConfig = new EmailConfig();
+        emailConfig = new EmailConfig(validator);
         emailConfig.setFrom("noreply@kidsgpt.com");
         emailConfig.setFrontendUrl("http://localhost:3000");
         emailConfig.setEnabled(true);
