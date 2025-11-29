@@ -5,7 +5,9 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.Email;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
@@ -14,15 +16,13 @@ import java.util.Set;
 
 @Slf4j
 @Data
+@NoArgsConstructor
 @Configuration
 @ConfigurationProperties(prefix = "app.email")
 public class EmailConfig {
 
-    private final Validator validator;
-
-    public EmailConfig(Validator validator) {
-        this.validator = validator;
-    }
+    @Autowired
+    private Validator validator;
 
     private String host = "smtp.gmail.com";
 
@@ -74,6 +74,9 @@ public class EmailConfig {
             throw new IllegalStateException("From email is required when email is enabled");
         }
         // Use Jakarta Validation's Email validator for RFC-compliant validation
+        if (validator == null) {
+            throw new IllegalStateException("Validator is not available. EmailConfig must be managed by Spring.");
+        }
         EmailValidationTarget validationTarget = new EmailValidationTarget(from);
         Set<ConstraintViolation<EmailValidationTarget>> violations = validator.validate(validationTarget);
         if (!violations.isEmpty()) {
