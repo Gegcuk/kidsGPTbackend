@@ -36,6 +36,44 @@ jobs:
             !target/*-javadoc.jar
           retention-days: 7
 
+  security-scan:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+
+      - name: Make mvnw executable
+        run: chmod +x mvnw
+
+      - name: Run OWASP Dependency-Check
+        run: ./mvnw --batch-mode org.owasp:dependency-check-maven:check
+
+      - name: Upload security scan report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-report
+          path: target/dependency-check-report.*
+          retention-days: 30
+
+      - name: Generate security scan summary
+        if: always()
+        run: |
+          if [ -f target/dependency-check-report.html ]; then
+            echo "## 🔒 Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "OWASP Dependency-Check scan completed. View detailed report in artifacts." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📁 Artifact: \`security-scan-report\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
   test:
     runs-on: ubuntu-latest
     needs: build
@@ -81,7 +119,7 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run tests
-        run: ./mvnw --batch-mode test verify
+        run: ./mvnw --batch-mode clean verify
 
       - name: Publish test results
         uses: dorny/test-reporter@v1

@@ -29,6 +29,7 @@
     <properties>
         <java.version>17</java.version>
         <jacoco.version>0.8.12</jacoco.version>
+        <owasp.dependency-check.version>10.0.4</owasp.dependency-check.version>
     </properties>
     <dependencies>
 
@@ -324,6 +325,29 @@
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- OWASP Dependency-Check Plugin for Security Scanning -->
+            <plugin>
+                <groupId>org.owasp</groupId>
+                <artifactId>dependency-check-maven</artifactId>
+                <version>${owasp.dependency-check.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                    <skipProvidedScope>true</skipProvidedScope>
+                    <skipRuntimeScope>false</skipRuntimeScope>
+                    <skipTestScope>false</skipTestScope>
+                    <suppressionFiles>
+                        <suppressionFile>${project.basedir}/.owasp/dependency-check-suppressions.xml</suppressionFile>
+                    </suppressionFiles>
+                    <format>ALL</format>
+                </configuration>
             </plugin>
         </plugins>
     </build>
