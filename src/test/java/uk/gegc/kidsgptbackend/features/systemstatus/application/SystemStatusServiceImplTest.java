@@ -1,15 +1,16 @@
-package uk.gegc.kidsgptbackend.systemstatus;
+package uk.gegc.kidsgptbackend.features.systemstatus.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.actuate.health.*;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
+import uk.gegc.kidsgptbackend.features.systemstatus.api.dto.SystemStatusDto;
+import uk.gegc.kidsgptbackend.features.systemstatus.application.impl.SystemStatusServiceImpl;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -20,8 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-class SystemStatusServiceTest {
+class SystemStatusServiceImplTest extends BaseUnitTest {
 
     @Mock
     private HealthContributorRegistry healthRegistry;
@@ -33,10 +33,12 @@ class SystemStatusServiceTest {
     private Clock clock;
 
     @InjectMocks
-    private SystemStatusService systemStatusService;
+    private SystemStatusServiceImpl systemStatusService;
 
     @BeforeEach
-    void setUp() {
+    @Override
+    protected void setUp() {
+        super.setUp();
         ReflectionTestUtils.setField(systemStatusService, "commit", "abc123");
         ReflectionTestUtils.setField(systemStatusService, "buildTag", "v1.0.0");
         

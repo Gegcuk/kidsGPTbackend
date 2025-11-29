@@ -1,12 +1,13 @@
-package uk.gegc.kidsgptbackend.systemstatus;
+package uk.gegc.kidsgptbackend.features.systemstatus.api;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import uk.gegc.kidsgptbackend.features.systemstatus.api.dto.SystemStatusDto;
+import uk.gegc.kidsgptbackend.features.systemstatus.application.impl.SystemStatusServiceImpl;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.time.Instant;
 import java.util.Map;
@@ -14,11 +15,10 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-@ExtendWith(MockitoExtension.class)
-class SystemStatusControllerTest {
+class SystemStatusControllerTest extends BaseUnitTest {
 
     @Mock
-    private SystemStatusService systemStatusService;
+    private SystemStatusServiceImpl systemStatusService;
 
     @InjectMocks
     private SystemStatusController systemStatusController;
@@ -26,7 +26,9 @@ class SystemStatusControllerTest {
     private SystemStatusDto mockStatusDto;
 
     @BeforeEach
-    void setUp() {
+    @Override
+    protected void setUp() {
+        super.setUp();
         mockStatusDto = new SystemStatusDto();
         mockStatusDto.setOverall("UP");
         mockStatusDto.setApp("kidsGPT-backend");

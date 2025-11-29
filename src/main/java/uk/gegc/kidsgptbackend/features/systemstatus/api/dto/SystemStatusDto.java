@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.systemstatus;
+package uk.gegc.kidsgptbackend.features.systemstatus.api.dto;
 
 import lombok.Data;
 

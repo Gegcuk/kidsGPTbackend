@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.systemstatus;
+package uk.gegc.kidsgptbackend.features.systemstatus.application.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -6,6 +6,7 @@ import org.springframework.boot.actuate.health.*;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
+import uk.gegc.kidsgptbackend.features.systemstatus.api.dto.SystemStatusDto;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -16,7 +17,7 @@ import jakarta.annotation.PostConstruct;
 
 @Service
 @RequiredArgsConstructor
-public class SystemStatusService {
+public class SystemStatusServiceImpl {
 
     private final HealthContributorRegistry healthRegistry;   // Actuator SPI
     private final Environment env;              // resolved properties

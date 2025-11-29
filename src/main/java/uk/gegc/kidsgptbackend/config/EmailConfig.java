@@ -1,48 +1,94 @@
 package uk.gegc.kidsgptbackend.config;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.validation.annotation.Validated;
+import org.springframework.util.StringUtils;
+
+import java.util.Set;
 
 @Slf4j
 @Data
-@Validated
 @Configuration
 @ConfigurationProperties(prefix = "app.email")
 public class EmailConfig {
 
-    @NotBlank(message = "Email host is required")
+    private final Validator validator;
+
+    /**
+     * Constructor for dependency injection.
+     * Spring Boot will use setter-based property binding (via @Data setters)
+     * and this constructor for dependency injection.
+     */
+    @Autowired
+    public EmailConfig(Validator validator) {
+        this.validator = validator;
+    }
+
     private String host = "smtp.gmail.com";
 
-    @NotNull(message = "Email port is required")
-    @Positive(message = "Email port must be positive")
     private Integer port = 587;
 
-    @NotBlank(message = "Email username is required")
     private String username;
 
-    @NotBlank(message = "Email password is required")
     private String password;
 
-    @NotBlank(message = "From email is required")
-    @Email(message = "From email must be a valid email address")
     private String from;
 
-    @NotBlank(message = "Frontend URL is required")
     private String frontendUrl = "http://localhost:3000";
 
-    private boolean enabled = true;
+    private boolean enabled = false;
 
+    /**
+     * Helper class for email validation using Jakarta Validation
+     */
+    private static class EmailValidationTarget {
+        @Email(message = "From email must be a valid email address")
+        private final String email;
+
+        EmailValidationTarget(String email) {
+            this.email = email;
+        }
+    }
+
+    @PostConstruct
     public void validateConfiguration() {
         if (!enabled) {
             log.warn("Email service is disabled. No emails will be sent.");
             return;
+        }
+
+        // Validate required fields only when email is enabled
+        if (!StringUtils.hasText(host)) {
+            throw new IllegalStateException("Email host is required when email is enabled");
+        }
+        if (port == null || port <= 0) {
+            throw new IllegalStateException("Email port must be positive when email is enabled");
+        }
+        if (!StringUtils.hasText(username)) {
+            throw new IllegalStateException("Email username is required when email is enabled");
+        }
+        if (!StringUtils.hasText(password)) {
+            throw new IllegalStateException("Email password is required when email is enabled");
+        }
+        if (!StringUtils.hasText(from)) {
+            throw new IllegalStateException("From email is required when email is enabled");
+        }
+        // Use Jakarta Validation's Email validator for RFC-compliant validation
+        EmailValidationTarget validationTarget = new EmailValidationTarget(from);
+        Set<ConstraintViolation<EmailValidationTarget>> violations = validator.validate(validationTarget);
+        if (!violations.isEmpty()) {
+            String errorMessage = violations.iterator().next().getMessage();
+            throw new IllegalStateException("From email validation failed: " + errorMessage);
+        }
+        if (!StringUtils.hasText(frontendUrl)) {
+            throw new IllegalStateException("Frontend URL is required when email is enabled");
         }
 
         log.info("Email configuration validated:");
