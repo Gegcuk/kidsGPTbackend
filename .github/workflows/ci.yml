@@ -53,6 +53,8 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run OWASP Dependency-Check
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         run: ./mvnw --batch-mode org.owasp:dependency-check-maven:check
 
       - name: Upload security scan report
