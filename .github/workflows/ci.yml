@@ -45,9 +45,29 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
+          cache: maven
 
       - name: Make mvnw executable
         run: chmod +x mvnw
 
       - name: Build & test
         run: ./mvnw --batch-mode clean verify
+
+      - name: Upload JaCoCo coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-coverage-report
+          path: target/site/jacoco/
+          retention-days: 30
+
+      - name: Generate coverage summary
+        if: always()
+        run: |
+          if [ -f target/site/jacoco/index.html ]; then
+            echo "## 📊 Code Coverage Report" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Coverage report generated. View details in the uploaded artifacts." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📁 Artifact: \`jacoco-coverage-report\`" >> $GITHUB_STEP_SUMMARY
+          fi
