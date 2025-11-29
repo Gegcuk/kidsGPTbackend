@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.systemstatus;
+package uk.gegc.kidsgptbackend.features.systemstatus.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,6 +10,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.boot.actuate.health.*;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
+import uk.gegc.kidsgptbackend.features.systemstatus.api.dto.SystemStatusDto;
+import uk.gegc.kidsgptbackend.features.systemstatus.application.impl.SystemStatusServiceImpl;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -21,7 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class SystemStatusServiceTest {
+class SystemStatusServiceImplTest {
 
     @Mock
     private HealthContributorRegistry healthRegistry;
@@ -33,7 +35,7 @@ class SystemStatusServiceTest {
     private Clock clock;
 
     @InjectMocks
-    private SystemStatusService systemStatusService;
+    private SystemStatusServiceImpl systemStatusService;
 
     @BeforeEach
     void setUp() {

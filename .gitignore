@@ -44,3 +44,4 @@ logs/
 /consent_impl.md
 grant_improvements.txt
 src/test/java/uk/gegc/kidsgptbackend/controller/ConsentControllerIntegrationTest.java
+docs/
