@@ -1,6 +1,7 @@
 # Age-Specific System Prompts
 
-This directory contains age-specific system prompts that are automatically selected based on the user's age. Each prompt is tailored to the developmental stage, language abilities, and educational needs of different age groups.
+This directory contains age-specific system prompts that are automatically selected based on the user's age. 
+Each prompt is tailored to the developmental stage, language abilities, and educational needs of different age groups.
 
 ## Age Group Mapping
 
