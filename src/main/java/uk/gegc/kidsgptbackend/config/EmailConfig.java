@@ -1,17 +1,28 @@
 package uk.gegc.kidsgptbackend.config;
 
 import jakarta.annotation.PostConstruct;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Validator;
+import jakarta.validation.constraints.Email;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.StringUtils;
 
+import java.util.Set;
+
 @Slf4j
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "app.email")
 public class EmailConfig {
+
+    private final Validator validator;
+
+    public EmailConfig(Validator validator) {
+        this.validator = validator;
+    }
 
     private String host = "smtp.gmail.com";
 
@@ -26,6 +37,18 @@ public class EmailConfig {
     private String frontendUrl = "http://localhost:3000";
 
     private boolean enabled = true;
+
+    /**
+     * Helper class for email validation using Jakarta Validation
+     */
+    private static class EmailValidationTarget {
+        @Email(message = "From email must be a valid email address")
+        private final String email;
+
+        EmailValidationTarget(String email) {
+            this.email = email;
+        }
+    }
 
     @PostConstruct
     public void validateConfiguration() {
@@ -50,8 +73,12 @@ public class EmailConfig {
         if (!StringUtils.hasText(from)) {
             throw new IllegalStateException("From email is required when email is enabled");
         }
-        if (!from.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
-            throw new IllegalStateException("From email must be a valid email address when email is enabled");
+        // Use Jakarta Validation's Email validator for RFC-compliant validation
+        EmailValidationTarget validationTarget = new EmailValidationTarget(from);
+        Set<ConstraintViolation<EmailValidationTarget>> violations = validator.validate(validationTarget);
+        if (!violations.isEmpty()) {
+            String errorMessage = violations.iterator().next().getMessage();
+            throw new IllegalStateException("From email validation failed: " + errorMessage);
         }
         if (!StringUtils.hasText(frontendUrl)) {
             throw new IllegalStateException("Frontend URL is required when email is enabled");
