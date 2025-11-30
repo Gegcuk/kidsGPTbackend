@@ -196,13 +196,9 @@ jobs:
         continue-on-error: true
         timeout-minutes: 30
         run: |
-          if [ -z "$NVD_API_KEY" ]; then
-            echo "⚠️ Warning: NVD_API_KEY secret is not set. Scan will be slower without API key."
-          else
-            echo "✅ NVD_API_KEY is set (length: ${#NVD_API_KEY} characters)"
-          fi
-          
-          echo "🔒 Running security scan..."
+                if [ -z "$NVD_API_KEY" ]; then
+                  echo "⚠️ NVD_API_KEY not set. Scan will be slower."
+                fi
           # Pass API key as both environment variable and Maven property
           # Note: continue-on-error handles failures, so we don't need || exit 0
           ./mvnw --batch-mode org.owasp:dependency-check-maven:check \

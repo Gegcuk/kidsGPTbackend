@@ -72,16 +72,15 @@ jobs:
           echo "Previous version: $PREVIOUS_TAG"
           echo "PREVIOUS_TAG=$PREVIOUS_TAG"
     
-    - name: Deploy to VPS
-      id: deploy
-      uses: appleboy/ssh-action@v1.2.4
-      with:
-        host: ${{ secrets.VPS_HOST }}
-        username: ${{ secrets.VPS_USER }}
-        key: ${{ secrets.VPS_SSH_KEY }}
-        script: |
-          # Create .env file with secrets
-          cat > .env << EOF
+            - name: Deploy to VPS
+              id: deploy
+              uses: appleboy/ssh-action@v1.2.4
+              with:
+                host: ${{ secrets.VPS_HOST }}
+                username: ${{ secrets.VPS_USER }}
+                key: ${{ secrets.VPS_SSH_KEY }}
+                script: |
+                  cat > .env << EOF
           # Database Configuration
           DB_URL=${{ secrets.DB_URL }}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
@@ -112,20 +111,15 @@ jobs:
           APP_TAG=${{ github.sha }}
           EOF
           
-          # Store previous tag for rollback
           if [ -f /tmp/previous_tag.txt ]; then
             PREVIOUS_TAG=$(cat /tmp/previous_tag.txt)
             echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> .env
           fi
           
-          # Pull latest image and restart services
-          echo "🚀 Deploying version ${{ github.sha }}..."
+          echo "Deploying version ${{ github.sha }}"
           docker-compose pull
           docker-compose up -d
-          
-          # Wait for services to start
-          echo "⏳ Waiting for services to start..."
-          sleep 30  # Increased wait time for services to fully start
+          sleep 3
     
     - name: Health check
       id: health_check
@@ -135,84 +129,57 @@ jobs:
       run: |
         # Set health check URL if not provided
         if [ -z "$HEALTH_CHECK_URL" ]; then
+          # Try HTTPS first, fallback to HTTP on port 8080 (common backend port)
           HEALTH_CHECK_URL="https://${VPS_HOST}/api/v1/system/status"
+          HTTP_FALLBACK_URL="http://${VPS_HOST}:8080/api/v1/system/status"
+        else
+          HTTP_FALLBACK_URL=$(echo "$HEALTH_CHECK_URL" | sed 's|^https://|http://|' | sed 's|/api/|:8080/api/|')
         fi
         MAX_RETRIES=12
         RETRY_DELAY=10
         RETRY_COUNT=0
         
-        echo "🏥 Starting health check..."
-        echo "Health check URL: $HEALTH_CHECK_URL"
-        
         HEALTH_CHECK_START=$(date +%s)
         
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-          echo "Health check attempt $((RETRY_COUNT + 1))/$MAX_RETRIES..."
-          
           REQUEST_START=$(date +%s%N)
-          # Try HTTPS first, then HTTP if HTTPS fails
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 --connect-timeout 10 "$HEALTH_CHECK_URL" 2>&1 || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --connect-timeout 3 "$HEALTH_CHECK_URL" 2>&1 || echo "000")
           
-          # If HTTPS fails with 000, try HTTP version
           if [ "$HTTP_CODE" = "000" ]; then
-            HTTP_URL=$(echo "$HEALTH_CHECK_URL" | sed 's|^https://|http://|')
-            echo "⚠️  HTTPS failed, trying HTTP: $HTTP_URL"
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 --connect-timeout 10 "$HTTP_URL" 2>&1 || echo "000")
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --connect-timeout 3 "$HTTP_FALLBACK_URL" 2>&1 || echo "000")
             if [ "$HTTP_CODE" != "000" ]; then
-              HEALTH_CHECK_URL="$HTTP_URL"
+              HEALTH_CHECK_URL="$HTTP_FALLBACK_URL"
             fi
           fi
           
           REQUEST_END=$(date +%s%N)
-          REQUEST_DURATION=$(( (REQUEST_END - REQUEST_START) / 1000000 ))  # Convert to milliseconds
+          REQUEST_DURATION=$(( (REQUEST_END - REQUEST_START) / 1000000 ))
           
           if [ "$RETRY_COUNT" -eq 0 ]; then
             echo "first_response_time_ms=$REQUEST_DURATION" >> $GITHUB_OUTPUT
           fi
           
           if [ "$HTTP_CODE" = "200" ]; then
-            # Verify response contains "UP" status
-            RESPONSE=$(curl -s --max-time 15 "$HEALTH_CHECK_URL" || echo "")
+            RESPONSE=$(curl -s --max-time 5 "$HEALTH_CHECK_URL" || echo "")
             if echo "$RESPONSE" | grep -q '"overall":"UP"'; then
               HEALTH_CHECK_END=$(date +%s)
               HEALTH_CHECK_DURATION=$((HEALTH_CHECK_END - HEALTH_CHECK_START))
               echo "health_check_duration=$HEALTH_CHECK_DURATION" >> $GITHUB_OUTPUT
-              echo "✅ Health check passed! Service is UP"
-              echo "Health check completed in ${HEALTH_CHECK_DURATION} seconds"
+              echo "✅ Health check passed"
               exit 0
-            else
-              echo "⚠️  Service responded but status is not UP"
-              echo "Response: ${RESPONSE:0:200}"  # Show first 200 chars of response
             fi
-          elif [ "$HTTP_CODE" = "000" ]; then
-            # Connection failed - provide diagnostic info
-            echo "❌ Health check failed: Connection timeout or unreachable"
-            echo "   URL: $HEALTH_CHECK_URL"
-            echo "   This usually means:"
-            echo "   - Service is still starting (wait longer)"
-            echo "   - Network/firewall blocking GitHub Actions"
-            echo "   - DNS not resolving"
-            echo "   - Wrong URL or port"
-          else
-            echo "❌ Health check failed with HTTP code: $HTTP_CODE"
           fi
           
           RETRY_COUNT=$((RETRY_COUNT + 1))
           if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-            echo "⏳ Retrying in ${RETRY_DELAY} seconds..."
             sleep $RETRY_DELAY
-            RETRY_DELAY=$((RETRY_DELAY + 5))  # Exponential backoff
+            RETRY_DELAY=$((RETRY_DELAY + 5))
           fi
         done
         
-        HEALTH_CHECK_END=$(date +%s)
-        HEALTH_CHECK_DURATION=$((HEALTH_CHECK_END - HEALTH_CHECK_START))
+        HEALTH_CHECK_DURATION=$(( $(date +%s) - HEALTH_CHECK_START ))
         echo "health_check_duration=$HEALTH_CHECK_DURATION" >> $GITHUB_OUTPUT
-        echo "health_check_failed=true" >> $GITHUB_OUTPUT
-        echo "❌ Health check failed after $MAX_RETRIES attempts (took ${HEALTH_CHECK_DURATION} seconds)"
-        echo "⚠️  Note: Service may still be running. HTTP 000 usually indicates network connectivity issues from GitHub Actions."
-        echo "   If your app is working, you can ignore this health check failure or configure VPS_HEALTH_CHECK_URL secret."
-        # Don't fail the deployment if health check fails - just warn
+        echo "❌ Health check failed after $MAX_RETRIES attempts"
         exit 0
     
     - name: Rollback on failure
@@ -234,13 +201,11 @@ jobs:
           fi
           
           if [ -z "$PREVIOUS_TAG" ] || [ "$PREVIOUS_TAG" = "" ]; then
-            echo "⚠️  No previous version found. Cannot rollback."
+            echo "❌ No previous version found. Cannot rollback."
             exit 1
           fi
           
-          echo "🔄 Rolling back to previous version: $PREVIOUS_TAG"
-          
-          # Update .env with previous tag (POSIX-compliant)
+          echo "Rolling back to version: $PREVIOUS_TAG"
           if [ -f .env ]; then
             if grep -q "^APP_TAG=" .env; then
               sed "s|^APP_TAG=.*|APP_TAG=$PREVIOUS_TAG|" .env > .env.tmp && mv .env.tmp .env
@@ -249,13 +214,10 @@ jobs:
             fi
           fi
           
-          # Pull previous image and restart
           docker-compose pull
           docker-compose up -d
+          echo "✅ Rollback completed"
           
-          echo "✅ Rollback completed to version: $PREVIOUS_TAG"
-          
-          # Wait and verify rollback
           sleep 10
           if [ -z "${{ secrets.VPS_HEALTH_CHECK_URL }}" ]; then
             HEALTH_URL="https://${{ secrets.VPS_HOST }}/api/v1/system/status"
@@ -263,11 +225,6 @@ jobs:
             HEALTH_URL="${{ secrets.VPS_HEALTH_CHECK_URL }}"
           fi
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
-          if [ "$HTTP_CODE" = "200" ]; then
-            echo "✅ Rollback verification: Service is responding"
-          else
-            echo "⚠️  Rollback verification: Service may still be starting"
-          fi
     
     - name: Collect deployment metrics
       id: metrics
@@ -364,16 +321,11 @@ jobs:
         path: metrics/
         retention-days: 90
     
-    - name: Deployment notification
-      if: always()
-      run: |
-        if [ "${{ steps.health_check.outcome }}" = "success" ]; then
-          echo "✅ Deployment successful!"
-          echo "Version: ${{ github.sha }}"
-          echo "Commit: ${{ github.event.head_commit.message }}"
-          echo "Author: ${{ github.event.head_commit.author.name }}"
-        else
-          echo "❌ Deployment failed!"
-          echo "Attempted version: ${{ github.sha }}"
-          echo "Check rollback step for previous version details"
-        fi 
+            - name: Deployment notification
+              if: always()
+              run: |
+                if [ "${{ steps.health_check.outcome }}" = "success" ]; then
+                  echo "✅ Deployment successful"
+                else
+                  echo "❌ Deployment failed"
+                fi
