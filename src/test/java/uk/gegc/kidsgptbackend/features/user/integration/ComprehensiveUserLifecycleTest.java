@@ -1,32 +1,23 @@
-package uk.gegc.kidsgptbackend.integration;
+package uk.gegc.kidsgptbackend.features.user.integration;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
-import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.family.KidRepository;
 import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
-import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import java.util.Set;
 
@@ -34,41 +25,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("Comprehensive User Lifecycle Tests - Missing Happy Paths")
-class ComprehensiveUserLifecycleTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class ComprehensiveUserLifecycleTest extends BaseIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
 
     @Autowired
     private ParentRepository parentRepository;
 
     @Autowired
     private KidRepository kidRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @BeforeEach
-    void setUp() {
-        // Ensure roles exist
-        ensureRoleExists(RoleName.ROLE_ADMIN);
-        ensureRoleExists(RoleName.ROLE_PARENT);
-        ensureRoleExists(RoleName.ROLE_CHILD);
-    }
 
     @Test
     @DisplayName("Complete Happy Path: Admin creation, /me endpoint, logout")
@@ -225,11 +192,4 @@ class ComprehensiveUserLifecycleTest {
                 .andExpect(jsonPath("$.avatarId").value("princess_avatar"));
     }
 
-    private void ensureRoleExists(RoleName roleName) {
-        roleRepository.findByRole(roleName.name()).orElseGet(() -> {
-            Role role = new Role();
-            role.setRole(roleName.name());
-            return roleRepository.save(role);
-        });
-    }
 } 
