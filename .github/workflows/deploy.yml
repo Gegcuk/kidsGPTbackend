@@ -138,7 +138,7 @@ jobs:
             fi
           fi
           
-          sleep 10
+          sleep 30
           
           CONTAINER_STATUS=$(docker ps --filter "name=app" --format "{{.Status}}" | head -1)
           if [ -z "$CONTAINER_STATUS" ]; then
@@ -170,8 +170,8 @@ jobs:
         else
           HTTP_FALLBACK_URL=$(echo "$HEALTH_CHECK_URL" | sed 's|^https://|http://|' | sed 's|/api/|:8080/api/|')
         fi
-        MAX_RETRIES=6
-        RETRY_DELAY=5
+        MAX_RETRIES=12
+        RETRY_DELAY=10
         RETRY_COUNT=0
         
         HEALTH_CHECK_START=$(date +%s)
