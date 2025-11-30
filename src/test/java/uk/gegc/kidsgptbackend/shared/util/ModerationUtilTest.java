@@ -11,16 +11,18 @@ import org.springframework.ai.moderation.*;
 import uk.gegc.kidsgptbackend.shared.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ModerationUtil Tests")
-class ModerationUtilTest {
+class ModerationUtilTest extends BaseUnitTest {
 
     @Mock
     private ModerationModel moderationModel;
@@ -36,8 +38,10 @@ class ModerationUtilTest {
 
     private ModerationUtil moderationUtil;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
+        super.setUp();
         moderationUtil = new ModerationUtil(moderationModel, chatClient);
         
         // Setup ChatClient mock chain (using lenient to avoid unnecessary stubbing errors)
@@ -334,5 +338,288 @@ class ModerationUtilTest {
 
         // Should default to AGE_9_10
         verify(requestSpec).system(contains("9-10 year old"));
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: should handle chat message type differently")
+    void validateComprehensive_chatMessageType_handlesDifferently() {
+        // Arrange
+        String content = "Safe chat message";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+        when(callSpec.content()).thenReturn("SAFE");
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(content, user, "chat message");
+
+        // Assert
+        assertThat(result).isTrue();
+        verify(moderationModel).call(any(ModerationPrompt.class));
+        verify(callSpec).content();
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: should return false for chat message when AI validation fails")
+    void validateComprehensive_chatMessageAiValidationFails_returnsFalse() {
+        // Arrange
+        String content = "Unsafe chat message";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+        when(callSpec.content()).thenReturn("UNSAFE: inappropriate");
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(content, user, "chat message");
+
+        // Assert
+        assertThat(result).isFalse();
+        verify(moderationModel).call(any(ModerationPrompt.class));
+        verify(callSpec).content();
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: should handle ModerationServiceException")
+    void validateComprehensive_moderationServiceException_throwsException() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class)))
+                .thenThrow(new ModerationServiceException("Service unavailable", new RuntimeException()));
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateComprehensive(content, user, "test content"))
+                .isInstanceOf(ModerationServiceException.class);
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: should return true when AI validation catches exception gracefully")
+    void validateComprehensive_aiValidationCatchesException_returnsTrue() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+        when(callSpec.content()).thenThrow(new RuntimeException("Unexpected AI error"));
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(content, user, "test content");
+
+        // Assert - validateContentWithAI catches exceptions and doesn't re-throw, so returns true
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle null AI response")
+    void validateContentWithAI_nullAiResponse_throwsException() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn(null);
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inappropriate for age group");
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle empty AI response")
+    void validateContentWithAI_emptyAiResponse_throwsException() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("   ");
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inappropriate for age group");
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle AI response without colon in UNSAFE")
+    void validateContentWithAI_unsafeResponseWithoutColon_throwsException() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("UNSAFE");
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inappropriate for age group");
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle AI response with reason after colon")
+    void validateContentWithAI_unsafeResponseWithReason_throwsExceptionWithReason() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("UNSAFE: contains violence");
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("contains violence");
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle case-insensitive SAFE response")
+    void validateContentWithAI_caseInsensitiveSafe_passes() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("safe");
+
+        // Act & Assert
+        assertThatCode(() -> moderationUtil.validateContentWithAI(content, user))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle SAFE with additional text")
+    void validateContentWithAI_safeWithAdditionalText_passes() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("SAFE - content is appropriate");
+
+        // Act & Assert
+        assertThatCode(() -> moderationUtil.validateContentWithAI(content, user))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle all age groups")
+    void validateContentWithAI_allAgeGroups_works() {
+        // Arrange
+        String content = "Test content";
+        when(callSpec.content()).thenReturn("SAFE");
+
+        // Test all age groups
+        for (AgeGroup ageGroup : AgeGroup.values()) {
+            int age = switch (ageGroup) {
+                case AGE_6_8 -> 7;
+                case AGE_9_10 -> 9;
+                case AGE_11_12 -> 11;
+                case AGE_13_14 -> 13;
+                case AGE_15_16 -> 15;
+            };
+            User user = createTestUser(age);
+
+            // Act & Assert
+            assertThatCode(() -> moderationUtil.validateContentWithAI(content, user))
+                    .doesNotThrowAnyException();
+        }
+    }
+
+    @Test
+    @DisplayName("validateSafetyForAge: should handle service error")
+    void validateSafetyForAge_serviceError_throwsException() {
+        // Arrange
+        String content = "Test content";
+        AgeGroup ageGroup = AgeGroup.AGE_6_8;
+        when(moderationModel.call(any(ModerationPrompt.class)))
+                .thenThrow(new RuntimeException("Service error"));
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateSafetyForAge(content, ageGroup))
+                .isInstanceOf(ModerationServiceException.class)
+                .hasMessage("Moderation service unavailable");
+    }
+
+    @Test
+    @DisplayName("validateSafety: should log flagged categories")
+    void validateSafety_flaggedContent_logsCategories() {
+        // Arrange
+        String content = "Unsafe content";
+        ModerationResult moderationResult = new ModerationResult.Builder()
+                .flagged(true)
+                .build();
+        Moderation moderation = Moderation.builder()
+                .results(List.of(moderationResult))
+                .build();
+        ModerationResponse response = new ModerationResponse(new org.springframework.ai.moderation.Generation(moderation));
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(response);
+
+        // Act
+        boolean result = moderationUtil.validateSafety(content);
+
+        // Assert
+        assertThat(result).isFalse();
+        verify(moderationModel).call(any(ModerationPrompt.class));
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: chat message with null content should return false")
+    void validateComprehensive_chatMessageNullContent_returnsFalse() {
+        // Arrange
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(null, user, "chat message");
+
+        // Assert
+        assertThat(result).isFalse();
+        verify(moderationModel).call(any(ModerationPrompt.class));
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: chat message with empty content should return false")
+    void validateComprehensive_chatMessageEmptyContent_returnsFalse() {
+        // Arrange
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive("", user, "chat message");
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: chat message with too long content should return false")
+    void validateComprehensive_chatMessageTooLong_returnsFalse() {
+        // Arrange
+        User user = createTestUser(8);
+        String longContent = "a".repeat(1001);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(longContent, user, "chat message");
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: chat message with too short content should return false")
+    void validateComprehensive_chatMessageTooShort_returnsFalse() {
+        // Arrange
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive("ab", user, "chat message");
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: chat message with AI service error should return false")
+    void validateComprehensive_chatMessageAiError_returnsFalse() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+        when(callSpec.content()).thenThrow(new RuntimeException("AI service error"));
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(content, user, "chat message");
+
+        // Assert
+        assertThat(result).isFalse();
     }
 } 
