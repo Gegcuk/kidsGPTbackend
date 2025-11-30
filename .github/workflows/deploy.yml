@@ -117,8 +117,21 @@ jobs:
           fi
           
           echo "Deploying version ${{ github.sha }}"
-          docker-compose pull
-          docker-compose up -d --force-recreate --no-deps app
+          echo "Verifying .env file has correct APP_TAG..."
+          grep "APP_TAG=${{ github.sha }}" .env || echo "⚠️  APP_TAG not found in .env"
+          
+          echo "Pulling new image: ${{ secrets.DOCKER_USER }}/kidsgptbackend:${{ github.sha }}"
+          docker pull ${{ secrets.DOCKER_USER }}/kidsgptbackend:${{ github.sha }}
+          
+          echo "Stopping and removing old container..."
+          docker compose stop app || true
+          docker compose rm -f app || true
+          
+          echo "Starting new container with tag: ${{ github.sha }}"
+          APP_TAG=${{ github.sha }} docker compose up -d --no-deps app
+          
+          echo "Verifying container started with correct image..."
+          docker ps --filter "name=app" --format "{{.Image}}"
           sleep 3
     
     - name: Health check
@@ -256,8 +269,8 @@ jobs:
             fi
           fi
           
-          docker-compose pull
-          docker-compose up -d
+          docker compose pull
+          docker compose up -d
           echo "✅ Rollback completed"
           
           sleep 10
