@@ -59,6 +59,16 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          # Change to deployment directory
+          DEPLOY_DIR="${DEPLOY_DIR:-/opt/kidsgptbackend}"
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="$HOME/kidsgptbackend"
+          fi
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="."
+          fi
+          cd "$DEPLOY_DIR" || { echo "Failed to change to directory: $DEPLOY_DIR"; exit 1; }
+          
           # Get current running image tag (if exists) - using POSIX-compliant approach
           PREVIOUS_TAG=$(docker ps --filter "ancestor=${{ secrets.DOCKER_USER }}/kidsgptbackend" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' | head -1 || echo "")
           if [ -z "$PREVIOUS_TAG" ]; then
@@ -80,6 +90,19 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          # Change to deployment directory (adjust path if needed)
+          DEPLOY_DIR="${DEPLOY_DIR:-/opt/kidsgptbackend}"
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="$HOME/kidsgptbackend"
+          fi
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="."
+          fi
+          cd "$DEPLOY_DIR" || { echo "Failed to change to directory: $DEPLOY_DIR"; exit 1; }
+          echo "Working directory: $(pwd)"
+          echo "Checking for docker-compose.yml..."
+          ls -la docker-compose.yml || echo "⚠️  docker-compose.yml not found in $(pwd)"
+          
           cat > .env << EOF
           # Database Configuration
           DB_URL=${{ secrets.DB_URL }}
@@ -124,11 +147,28 @@ jobs:
           docker pull ${{ secrets.DOCKER_USER }}/kidsgptbackend:${{ github.sha }}
           
           echo "Stopping and removing old container..."
-          docker compose stop app || true
-          docker compose rm -f app || true
+          if [ -f docker-compose.yml ]; then
+            docker compose -f docker-compose.yml stop app || true
+            docker compose -f docker-compose.yml rm -f app || true
+          else
+            echo "⚠️  docker-compose.yml not found, trying to find it..."
+            COMPOSE_FILE=$(find . -name "docker-compose.yml" -type f 2>/dev/null | head -1)
+            if [ -n "$COMPOSE_FILE" ]; then
+              echo "Found docker-compose.yml at: $COMPOSE_FILE"
+              docker compose -f "$COMPOSE_FILE" stop app || true
+              docker compose -f "$COMPOSE_FILE" rm -f app || true
+            else
+              echo "❌ docker-compose.yml not found"
+              exit 1
+            fi
+          fi
           
           echo "Starting new container with tag: ${{ github.sha }}"
-          APP_TAG=${{ github.sha }} docker compose up -d --no-deps app
+          if [ -f docker-compose.yml ]; then
+            APP_TAG=${{ github.sha }} docker compose -f docker-compose.yml up -d --no-deps app
+          else
+            APP_TAG=${{ github.sha }} docker compose -f "$COMPOSE_FILE" up -d --no-deps app
+          fi
           
           echo "Verifying container started with correct image..."
           docker ps --filter "name=app" --format "{{.Image}}"
@@ -211,6 +251,16 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          # Change to deployment directory
+          DEPLOY_DIR="${DEPLOY_DIR:-/opt/kidsgptbackend}"
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="$HOME/kidsgptbackend"
+          fi
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="."
+          fi
+          cd "$DEPLOY_DIR" || { echo "Failed to change to directory: $DEPLOY_DIR"; exit 1; }
+          
           echo "Verifying deployed version..."
           EXPECTED_TAG="${{ github.sha }}"
           
@@ -246,11 +296,21 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
+          # Change to deployment directory
+          DEPLOY_DIR="${DEPLOY_DIR:-/opt/kidsgptbackend}"
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="$HOME/kidsgptbackend"
+          fi
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="."
+          fi
+          cd "$DEPLOY_DIR" || { echo "Failed to change to directory: $DEPLOY_DIR"; exit 1; }
+          
           # Get previous tag from file
           if [ -f /tmp/previous_tag.txt ]; then
             PREVIOUS_TAG=$(cat /tmp/previous_tag.txt)
           elif [ -f .env ]; then
-            PREVIOUS_TAG=$(grep -oP 'PREVIOUS_TAG=\K.*' .env 2>/dev/null || echo "")
+            PREVIOUS_TAG=$(grep '^PREVIOUS_TAG=' .env 2>/dev/null | cut -d'=' -f2- || echo "")
           else
             PREVIOUS_TAG=""
           fi
@@ -269,8 +329,19 @@ jobs:
             fi
           fi
           
-          docker compose pull
-          docker compose up -d
+          if [ -f docker-compose.yml ]; then
+            docker compose -f docker-compose.yml pull
+            docker compose -f docker-compose.yml up -d
+          else
+            COMPOSE_FILE=$(find . -name "docker-compose.yml" -type f 2>/dev/null | head -1)
+            if [ -n "$COMPOSE_FILE" ]; then
+              docker compose -f "$COMPOSE_FILE" pull
+              docker compose -f "$COMPOSE_FILE" up -d
+            else
+              echo "❌ docker-compose.yml not found for rollback"
+              exit 1
+            fi
+          fi
           echo "✅ Rollback completed"
           
           sleep 10
