@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -36,7 +36,10 @@ jobs:
           fi
           
           echo "🔒 Running security scan..."
-          ./mvnw --batch-mode org.owasp:dependency-check-maven:check || {
+          # Pass API key as both environment variable and Maven property
+          ./mvnw --batch-mode org.owasp:dependency-check-maven:check \
+            -Dnvd.api.key="$NVD_API_KEY" \
+            -Ddependency-check.nvd.apiKey="$NVD_API_KEY" || {
             echo "⚠️ Security scan failed but continuing..."
             echo "This is non-blocking - reports will still be generated if available"
             exit 0
