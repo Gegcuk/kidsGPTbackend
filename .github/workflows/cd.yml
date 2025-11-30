@@ -37,7 +37,7 @@ jobs:
 
     steps:
       - name: SSH to VPS and redeploy
-        uses: appleboy/ssh-action@v1.0.0
+        uses: appleboy/ssh-action@v1.2.4
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
