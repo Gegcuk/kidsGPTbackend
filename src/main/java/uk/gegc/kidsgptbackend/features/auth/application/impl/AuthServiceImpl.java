@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.auth.impl;
+package uk.gegc.kidsgptbackend.features.auth.application.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,10 +11,10 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
-import uk.gegc.kidsgptbackend.dto.auth.UpdateEmailRequest;
-import uk.gegc.kidsgptbackend.dto.auth.UpdatePasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.UpdateEmailRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.UpdatePasswordRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.*;
 import uk.gegc.kidsgptbackend.shared.exception.CredentialUpdateException;
 import uk.gegc.kidsgptbackend.shared.exception.UnauthorizedException;
@@ -25,13 +25,14 @@ import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository;
+import uk.gegc.kidsgptbackend.features.auth.domain.model.RevokedToken;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.RevokedTokenRepository;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
-import uk.gegc.kidsgptbackend.service.auth.AuthService;
+import uk.gegc.kidsgptbackend.features.auth.application.AuthService;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -193,7 +194,7 @@ public class AuthServiceImpl implements AuthService {
     public void logout(String token) {
         var claims = jwtTokenProvider.getClaims(token);
         LocalDateTime expires = claims.getExpiration().toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
-        uk.gegc.kidsgptbackend.model.auth.RevokedToken revoked = new uk.gegc.kidsgptbackend.model.auth.RevokedToken();
+        RevokedToken revoked = new RevokedToken();
         revoked.setToken(token);
         revoked.setExpiresAt(expires);
         revokedTokenRepository.save(revoked);

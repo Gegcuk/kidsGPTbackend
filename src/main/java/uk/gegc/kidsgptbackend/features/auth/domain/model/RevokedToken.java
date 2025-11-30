@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.model.auth;
+package uk.gegc.kidsgptbackend.features.auth.domain.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;

@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.auth.impl;
+package uk.gegc.kidsgptbackend.features.auth.application.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,14 +7,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gegc.kidsgptbackend.dto.auth.ForgotPasswordRequest;
-import uk.gegc.kidsgptbackend.dto.auth.PasswordResetResponse;
-import uk.gegc.kidsgptbackend.dto.auth.ResetPasswordRequest;
-import uk.gegc.kidsgptbackend.model.auth.PasswordResetToken;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.ForgotPasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.PasswordResetResponse;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.ResetPasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.domain.model.PasswordResetToken;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
+import uk.gegc.kidsgptbackend.features.auth.application.PasswordResetService;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 import uk.gegc.kidsgptbackend.shared.util.TokenGenerator;
 

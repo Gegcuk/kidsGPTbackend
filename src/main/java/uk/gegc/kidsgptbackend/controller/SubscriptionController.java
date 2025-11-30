@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.subscription.*;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.service.auth.CurrentUserResolver;
+import uk.gegc.kidsgptbackend.features.auth.application.CurrentUserResolver;
 import uk.gegc.kidsgptbackend.service.subscription.SubscriptionService;
 
 import java.time.Instant;

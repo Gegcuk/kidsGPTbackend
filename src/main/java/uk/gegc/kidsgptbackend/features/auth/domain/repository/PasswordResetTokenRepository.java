@@ -1,11 +1,11 @@
-package uk.gegc.kidsgptbackend.repository.auth;
+package uk.gegc.kidsgptbackend.features.auth.domain.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import uk.gegc.kidsgptbackend.model.auth.PasswordResetToken;
+import uk.gegc.kidsgptbackend.features.auth.domain.model.PasswordResetToken;
 
 import java.time.LocalDateTime;
 import java.util.Optional;

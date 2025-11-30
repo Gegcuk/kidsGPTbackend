@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.auth;
+package uk.gegc.kidsgptbackend.features.auth.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 

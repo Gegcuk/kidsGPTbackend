@@ -1,8 +1,8 @@
-package uk.gegc.kidsgptbackend.repository.auth;
+package uk.gegc.kidsgptbackend.features.auth.domain.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import uk.gegc.kidsgptbackend.model.auth.RevokedToken;
+import uk.gegc.kidsgptbackend.features.auth.domain.model.RevokedToken;
 
 import java.time.LocalDateTime;
 import java.util.UUID;

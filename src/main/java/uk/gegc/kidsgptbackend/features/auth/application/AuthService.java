@@ -1,9 +1,9 @@
-package uk.gegc.kidsgptbackend.service.auth;
+package uk.gegc.kidsgptbackend.features.auth.application;
 
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
-import uk.gegc.kidsgptbackend.dto.auth.UpdateEmailRequest;
-import uk.gegc.kidsgptbackend.dto.auth.UpdatePasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.UpdateEmailRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.UpdatePasswordRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.*;
 
 import java.util.List;
