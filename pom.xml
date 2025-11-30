@@ -350,6 +350,7 @@
                         <suppressionFile>${project.basedir}/.owasp/dependency-check-suppressions.xml</suppressionFile>
                     </suppressionFiles>
                     <format>ALL</format>
+                    <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
                 </configuration>
             </plugin>
         </plugins>
