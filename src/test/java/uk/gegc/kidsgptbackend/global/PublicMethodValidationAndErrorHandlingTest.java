@@ -15,7 +15,7 @@ import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;
 import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionServiceImpl;
 import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAccessServiceImpl;
 import uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl;
-import uk.gegc.kidsgptbackend.service.tips.impl.DailyTipServiceImpl;
+import uk.gegc.kidsgptbackend.features.tips.application.impl.DailyTipServiceImpl;
 import uk.gegc.kidsgptbackend.service.jokes.impl.DailyJokeServiceImpl;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
@@ -23,7 +23,7 @@ import uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository;
 import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
-import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
+import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
 import uk.gegc.kidsgptbackend.dto.jokes.DailyJokeDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 
