@@ -22,7 +22,7 @@ class PasswordResetTokenTest extends BaseRepositoryTest {
     private String testEmail;
 
     @BeforeEach
-    void setUp() {
+    void initTokenTestData() {
         testUserId = UUID.randomUUID();
         testEmail = "test@example.com";
     }
@@ -135,8 +135,6 @@ class PasswordResetTokenTest extends BaseRepositoryTest {
         token.setCreatedAt(null);
         token.setExpiresAt(null);
         token.setUsed(false);
-
-        LocalDateTime beforeSave = LocalDateTime.now();
 
         // When - Save the entity
         PasswordResetToken saved = persistFlushAndClear(token);
