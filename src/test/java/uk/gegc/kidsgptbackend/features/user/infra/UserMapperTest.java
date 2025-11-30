@@ -32,11 +32,6 @@ public class UserMapperTest extends BaseUnitTest {
     @InjectMocks
     UserMapper mapper;
 
-    @Override
-    @BeforeEach
-    protected void setUp() {
-        super.setUp();
-    }
 
     @Test
     @DisplayName("toDto maps entity fields correctly")
@@ -356,5 +351,46 @@ public class UserMapperTest extends BaseUnitTest {
         assertThat(result.favoriteColor()).isNull();
         assertThat(result.avatarId()).isNull();
         assertThat(result.interests()).isNull();
+    }
+
+    @Test
+    @DisplayName("Should handle null user in KidDto mapping")
+    void toKidDto_WithNullUser_ReturnsNullUsername() {
+        // Given
+        Kid kid = new Kid();
+        kid.setId(UUID.randomUUID());
+        kid.setNickname("Johnny");
+        kid.setAgeGroup(AgeGroup.AGE_9_10);
+        kid.setUser(null); // Null user
+
+        // When
+        KidDto result = UserMapper.toKidDto(kid);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(result.id()).isEqualTo(kid.getId());
+        assertThat(result.nickname()).isEqualTo("Johnny");
+        assertThat(result.username()).isNull(); // Should handle null user gracefully
+    }
+
+    @Test
+    @DisplayName("Should handle null roles in toProfileDto")
+    void toProfileDto_WithNullRoles_ReturnsNullRole() {
+        // Given
+        User user = new User();
+        user.setId(UUID.randomUUID());
+        user.setUsername("alice");
+        user.setEmail("alice@example.com");
+        user.setCreatedAt(Instant.now());
+        user.setRoles(null); // Null roles
+
+        // When
+        UserProfileDto dto = mapper.toProfileDto(user);
+
+        // Then
+        assertThat(dto).isNotNull();
+        assertThat(dto.id()).isEqualTo(user.getId());
+        assertThat(dto.username()).isEqualTo("alice");
+        assertThat(dto.role()).isNull(); // Should handle null roles gracefully
     }
 }
