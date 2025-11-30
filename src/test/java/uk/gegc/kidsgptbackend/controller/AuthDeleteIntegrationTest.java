@@ -142,8 +142,8 @@ class AuthDeleteIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + nonExistentKidId)
                         .header("Authorization", "Bearer " + parentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.details").value("Kid not found"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Kid not found"));
     }
 
     @Test
@@ -185,7 +185,7 @@ class AuthDeleteIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
                         .header("Authorization", "Bearer " + childToken))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("Access Denied"));
+                .andExpect(jsonPath("$.title").value("Access Denied"));
     }
 
     @Test
@@ -217,8 +217,8 @@ class AuthDeleteIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
                         .header("Authorization", "Bearer " + secondParentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.details").value("You can only delete your own kids' accounts"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("You can only delete your own kids' accounts"));
     }
 
     @Test
@@ -255,8 +255,8 @@ class AuthDeleteIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/account")
                         .header("Authorization", "Bearer " + parentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.details").value("Cannot delete parent account with existing kids. Please delete all kids first."));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Cannot delete parent account with existing kids. Please delete all kids first."));
     }
 
     @Test
@@ -294,7 +294,7 @@ class AuthDeleteIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/account")
                         .header("Authorization", "Bearer " + childToken))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("Access Denied"));
+                .andExpect(jsonPath("$.title").value("Access Denied"));
     }
 
     @Test

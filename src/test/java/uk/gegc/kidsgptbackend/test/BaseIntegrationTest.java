@@ -61,7 +61,7 @@ public abstract class BaseIntegrationTest {
      * but should call {@code super.setUp()} to ensure roles are created.
      */
     @BeforeEach
-    void setUp() {
+    protected void setUp() throws Exception {
         ensureRoleExists(RoleName.ROLE_ADMIN);
         ensureRoleExists(RoleName.ROLE_PARENT);
         ensureRoleExists(RoleName.ROLE_CHILD);

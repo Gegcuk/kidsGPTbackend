@@ -802,8 +802,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Invalid policyUrl: must be HTTPS and from allowed host"))
-                .andExpect(jsonPath("$.details[0]").value("Invalid policyUrl: must be HTTPS and from allowed host"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Invalid policyUrl: must be HTTPS and from allowed host"));
     }
 
     @Test
@@ -832,8 +832,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Invalid policyUrl: must be HTTPS and from allowed host"))
-                .andExpect(jsonPath("$.details[0]").value("Invalid policyUrl: must be HTTPS and from allowed host"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Invalid policyUrl: must be HTTPS and from allowed host"));
     }
 
     @Test
@@ -862,8 +862,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
     }
 
     @Test
@@ -892,8 +892,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
     }
 
     @Test
@@ -1142,7 +1142,7 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details[0]").value(containsString("verificationId is required")));
+                .andExpect(jsonPath("$.detail").value(containsString("verificationId is required")));
     }
 
     @Test
@@ -1171,7 +1171,7 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details[0]").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
     }
 
     @Test
@@ -1200,7 +1200,7 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details[0]").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
     }
 
     @Test
@@ -1287,7 +1287,7 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.details[0]").value(containsString("Invalid policyUrl")));
+                .andExpect(jsonPath("$.detail").value(containsString("Invalid policyUrl")));
     }
 
     @Test
@@ -1594,7 +1594,8 @@ class ConsentControllerIntegrationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(withdrawRequest)))
                 .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error").value(containsString("No active consent found to withdraw")));
+                .andExpect(jsonPath("$.title").value("Resource Not Found"))
+                .andExpect(jsonPath("$.detail").value(containsString("No active consent found to withdraw")));
     }
 
     @Test
@@ -1662,7 +1663,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(withdrawRequest)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value(containsString("Cannot withdraw version 1.0.0 when version 2.0.0 is active")));
+                .andExpect(jsonPath("$.title").value("Conflict"))
+                .andExpect(jsonPath("$.detail").value(containsString("Cannot withdraw version 1.0.0 when version 2.0.0 is active")));
     }
 
     @Test
@@ -1683,7 +1685,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(withdrawRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value(containsString("Invalid userId format")));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value(containsString("Invalid userId format")));
     }
 
     @Test
@@ -1705,8 +1708,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("Consent version is required")));
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.detail").value(containsString("Consent version is required")));
     }
 
     @Test
@@ -1729,8 +1732,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("Consent version is required")));
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.detail").value(containsString("Consent version is required")));
     }
 
     @Test
@@ -1752,8 +1755,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details[0]").value(containsString("Consent type is required")));
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.detail").value(containsString("Consent type is required")));
     }
 
     @Test
@@ -2256,7 +2259,8 @@ class ConsentControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(withdrawV1Request)))
                 .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.error").value(containsString("Cannot withdraw version 1.0.0 when version 2.0.0 is active")));
+                .andExpect(jsonPath("$.title").value("Conflict"))
+                .andExpect(jsonPath("$.detail").value(containsString("Cannot withdraw version 1.0.0 when version 2.0.0 is active")));
     }
 
     @Test

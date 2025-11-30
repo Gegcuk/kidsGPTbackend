@@ -69,7 +69,7 @@ class ConsentControllerHistoryIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isUnauthorized())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]").value("Authentication required"));
+           .andExpect(jsonPath("$.detail").value("Authentication required"));
 
         // Ensure service is not called
         verifyNoInteractions(consentService);
@@ -100,7 +100,7 @@ class ConsentControllerHistoryIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isForbidden())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]")
+           .andExpect(jsonPath("$.detail")
                .value("Access denied: You can only view your own consent history"));
 
         // Ensure service is not called
@@ -131,7 +131,7 @@ class ConsentControllerHistoryIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isInternalServerError())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]").value("Invalid user authentication"));
+           .andExpect(jsonPath("$.detail").value("Invalid user authentication"));
 
         // Ensure service is not called
         verifyNoInteractions(consentService);
@@ -161,7 +161,7 @@ class ConsentControllerHistoryIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]").value("Parameter 'userId' should be of type UUID"));
+           .andExpect(jsonPath("$.detail").value("Parameter 'userId' should be of type UUID"));
 
         // Ensure service is not called
         verifyNoInteractions(consentService);
@@ -307,21 +307,21 @@ class ConsentControllerHistoryIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]").value("Page number must be non-negative"));
+           .andExpect(jsonPath("$.detail").value("Page number must be non-negative"));
 
         // Test case 2: size = 0
         mockMvc.perform(get("/api/v1/consent/history/{userId}?page=0&size=0", userId)
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]").value("Page size must be between 1 and 100"));
+           .andExpect(jsonPath("$.detail").value("Page size must be between 1 and 100"));
 
         // Test case 3: size > 100
         mockMvc.perform(get("/api/v1/consent/history/{userId}?page=0&size=101", userId)
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.details[0]").value("Page size must be between 1 and 100"));
+           .andExpect(jsonPath("$.detail").value("Page size must be between 1 and 100"));
 
         // Verify service was called with the invalid parameters
         Mockito.verify(consentService).getConsentHistory(userId, -1, 20);

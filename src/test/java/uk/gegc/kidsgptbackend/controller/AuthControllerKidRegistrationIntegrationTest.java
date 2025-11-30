@@ -1,29 +1,21 @@
 package uk.gegc.kidsgptbackend.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.RoleName;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import java.util.Set;
 import java.util.UUID;
@@ -34,38 +26,21 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
 @DisplayName("AuthController Kid Registration Integration Tests")
-class AuthControllerKidRegistrationIntegrationTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class AuthControllerKidRegistrationIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
 
     @Autowired
-    private RoleRepository roleRepository;
-
-    @Autowired
     private ParentRepository parentRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
 
     private String parentToken;
 
+    @Override
     @BeforeEach
-    void setUp() throws Exception {
-        // Setup roles
-        ensureRoleExists(RoleName.ROLE_PARENT);
-        ensureRoleExists(RoleName.ROLE_CHILD);
+    protected void setUp() throws Exception {
+        super.setUp();
         
         // Create and authenticate parent
         setupParentUser();
@@ -164,8 +139,8 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.details").value("Only parents can create kid accounts"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Only parents can create kid accounts"));
     }
 
     @Test
@@ -177,7 +152,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"password\":\"test123\",\"ageGroup\":\"AGE_6_8\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"));
+                .andExpect(jsonPath("$.title").value("Validation Failed"));
 
         // Missing password
         mockMvc.perform(post("/api/v1/auth/register-kid")
@@ -185,7 +160,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"Test\",\"ageGroup\":\"AGE_6_8\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"));
+                .andExpect(jsonPath("$.title").value("Validation Failed"));
 
         // Missing ageGroup
         mockMvc.perform(post("/api/v1/auth/register-kid")
@@ -193,7 +168,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"nickname\":\"Test\",\"password\":\"test123\"}"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"));
+                .andExpect(jsonPath("$.title").value("Validation Failed"));
     }
 
     @Test
@@ -211,7 +186,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(shortNickname)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"));
+                .andExpect(jsonPath("$.title").value("Validation Failed"));
 
         // Password too short
         KidRegistrationRequest shortPassword = new KidRegistrationRequest(
@@ -225,7 +200,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(shortPassword)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"));
+                .andExpect(jsonPath("$.title").value("Validation Failed"));
 
         // Nickname too long
         KidRegistrationRequest longNickname = new KidRegistrationRequest(
@@ -239,7 +214,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(longNickname)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"));
+                .andExpect(jsonPath("$.title").value("Validation Failed"));
     }
 
     @Test
@@ -250,7 +225,7 @@ class AuthControllerKidRegistrationIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ invalid json }"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Malformed JSON"));
+                .andExpect(jsonPath("$.title").value("Malformed Request"));
     }
 
     @Test
@@ -373,8 +348,8 @@ class AuthControllerKidRegistrationIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + nonExistentKidId)
                         .header("Authorization", "Bearer " + parentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.details").value("Kid not found"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("Kid not found"));
     }
 
     @Test
@@ -416,7 +391,7 @@ class AuthControllerKidRegistrationIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
                         .header("Authorization", "Bearer " + childToken))
                 .andExpect(status().isForbidden())
-                .andExpect(jsonPath("$.error").value("Access Denied"));
+                .andExpect(jsonPath("$.title").value("Access Denied"));
     }
 
     @Test
@@ -465,8 +440,8 @@ class AuthControllerKidRegistrationIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
                         .header("Authorization", "Bearer " + secondParentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Bad Request"))
-                .andExpect(jsonPath("$.details").value("You can only delete your own kids' accounts"));
+                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.detail").value("You can only delete your own kids' accounts"));
     }
 
     private void setupParentUser() throws Exception {
@@ -498,13 +473,5 @@ class AuthControllerKidRegistrationIntegrationTest {
 
         JsonNode parentResponse = objectMapper.readTree(parentAuthResult.getResponse().getContentAsString());
         parentToken = parentResponse.get("accessToken").asText();
-    }
-
-    private void ensureRoleExists(RoleName roleName) {
-        roleRepository.findByRole(roleName.name()).orElseGet(() -> {
-            Role role = new Role();
-            role.setRole(roleName.name());
-            return roleRepository.save(role);
-        });
     }
 } 

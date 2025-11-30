@@ -125,12 +125,39 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<ProblemDetail> handleResponseStatusException(ResponseStatusException ex, WebRequest request) {
         String reason = ex.getReason() != null ? ex.getReason() : "Unknown error";
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(ex.getStatusCode(), reason);
-        problemDetail.setTitle("Request Failed");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/response-status"));
+        HttpStatusCode statusCode = ex.getStatusCode();
+        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, reason);
+        
+        // Set appropriate title based on status code
+        String title = switch (statusCode.value()) {
+            case 400 -> "Bad Request";
+            case 401 -> "Unauthorized";
+            case 403 -> "Forbidden";
+            case 404 -> "Resource Not Found";
+            case 409 -> "Conflict";
+            case 410 -> "Gone";
+            case 429 -> "Too Many Requests";
+            case 500 -> "Internal Server Error";
+            default -> "Request Failed";
+        };
+        problemDetail.setTitle(title);
+        
+        // Set appropriate type based on status code
+        String typePath = switch (statusCode.value()) {
+            case 400 -> "/bad-request";
+            case 401 -> "/unauthorized";
+            case 403 -> "/forbidden";
+            case 404 -> "/not-found";
+            case 409 -> "/conflict";
+            case 410 -> "/gone";
+            case 429 -> "/rate-limit";
+            case 500 -> "/internal-server-error";
+            default -> "/response-status";
+        };
+        problemDetail.setType(URI.create(ERROR_TYPE_BASE + typePath));
         problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
         problemDetail.setProperty("timestamp", Instant.now(clock));
-        return new ResponseEntity<>(problemDetail, ex.getStatusCode());
+        return new ResponseEntity<>(problemDetail, statusCode);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -305,7 +332,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 
 
-    // Override Spring's default handlers to ensure they return ErrorResponse
+    // Override Spring's default handlers to ensure they return ProblemDetail (RFC 7807)
 
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(

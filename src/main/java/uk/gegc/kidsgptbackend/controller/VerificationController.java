@@ -57,10 +57,13 @@ public class VerificationController {
                     name = "Invalid UUID",
                     value = """
                     {
-                      "timestamp":"2025-01-01T12:00:00",
+                      "type":"/errors/validation-failed",
+                      "title":"Validation Failed",
                       "status":400,
-                      "error":"Bad Request",
-                      "details":["Parent ID is required"]
+                      "detail":"parentId: Parent ID is required",
+                      "instance":"/api/v1/verification/initiate",
+                      "timestamp":"2025-01-01T12:00:00Z",
+                      "errors":["parentId: Parent ID is required"]
                     }
                     """
                 ),
@@ -68,10 +71,13 @@ public class VerificationController {
                     name = "Invalid email",
                     value = """
                     {
-                      "timestamp":"2025-01-01T12:00:00",
+                      "type":"/errors/validation-failed",
+                      "title":"Validation Failed",
                       "status":400,
-                      "error":"Bad Request",
-                      "details":["contactInfo must be a valid email address when verificationMethod=EMAIL"]
+                      "detail":"contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL",
+                      "instance":"/api/v1/verification/initiate",
+                      "timestamp":"2025-01-01T12:00:00Z",
+                      "errors":["contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL"]
                     }
                     """
                 )

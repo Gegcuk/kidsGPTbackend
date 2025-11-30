@@ -683,8 +683,8 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMissingParentId))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test missing verificationMethod returns 400 with ProblemDetail
@@ -699,8 +699,8 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMissingMethod))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("verificationMethod: Verification method is required")))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("verificationMethod: Verification method is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test missing contactInfo returns 400 with ProblemDetail
@@ -715,8 +715,8 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonMissingContact))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test invalid email format returns 400 with ProblemDetail
@@ -730,8 +730,8 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidEmailRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL")))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test invalid SMS format returns 400 with ProblemDetail
@@ -745,8 +745,8 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidSmsRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test unsupported method returns 400 with ProblemDetail
@@ -762,8 +762,8 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(jsonUnsupportedMethod))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
-                .andExpect(jsonPath("$.details").value(org.hamcrest.Matchers.hasItem("verificationMethod: Unsupported verification method")))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
+                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("verificationMethod: Unsupported verification method")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test empty JSON body returns 400 with ProblemDetail
@@ -773,7 +773,7 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(emptyJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Validation Failed"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test malformed JSON returns 400 with ProblemDetail
@@ -783,7 +783,7 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(malformedJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Malformed JSON"))
+                .andExpect(jsonPath("$.title").value("Malformed Request"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 

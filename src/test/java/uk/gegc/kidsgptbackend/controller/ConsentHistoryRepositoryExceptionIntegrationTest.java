@@ -68,10 +68,10 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(user(testUserId.toString())))
                 .andExpect(status().isInternalServerError())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.error").value("Failed to retrieve consent history"))
-                .andExpect(jsonPath("$.details").isArray())
+                .andExpect(jsonPath("$.title").value("Request Failed"))
+                .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
@@ -87,10 +87,10 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(user(testUserId.toString())))
                 .andExpect(status().isInternalServerError())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.error").value("Failed to retrieve consent history"))
-                .andExpect(jsonPath("$.details").isArray())
+                .andExpect(jsonPath("$.title").value("Request Failed"))
+                .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
@@ -107,7 +107,7 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .with(user(testUserId.toString())))
                 .andExpect(status().isInternalServerError())
-                .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andReturn()
                 .getResponse()
                 .getContentAsString();
@@ -129,9 +129,10 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .with(user(testUserId.toString())))
                     .andExpect(status().isInternalServerError())
-                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                     .andExpect(jsonPath("$.status").value(500))
-                    .andExpect(jsonPath("$.error").value("Failed to retrieve consent history"));
+                    .andExpect(jsonPath("$.title").value("Request Failed"))
+                    .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"));
         }
     }
 
@@ -156,27 +157,26 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .with(user(testUserId.toString())))
                     .andExpect(status().isInternalServerError())
-                    .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                     .andExpect(jsonPath("$.status").value(500))
-                    .andExpect(jsonPath("$.error").value("Failed to retrieve consent history"))
-                    .andExpect(jsonPath("$.details").isArray())
+                    .andExpect(jsonPath("$.title").value("Request Failed"))
+                    .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"))
                     .andExpect(jsonPath("$.timestamp").exists());
         }
     }
 
     private void verifyErrorPayloadContainsExceptionDetails(String response, String expectedMessage) {
-        // Verify that the response contains the expected error structure
+        // Verify that the response contains the expected ProblemDetail structure (RFC 7807)
         assert response.contains("status");
-        assert response.contains("error");
-        assert response.contains("details");
+        assert response.contains("title");
+        assert response.contains("detail");
         assert response.contains("timestamp");
         
-        // Verify that the response contains the exception message (may be in details array)
+        // Verify that the response contains the exception message
         assert response.contains("500") : "Response should contain status 500";
         assert response.contains("Failed to retrieve consent history") : "Response should contain error message";
         
-        // The exception message might be in the details array or logged separately
-        // We verify the basic structure is correct - the response should contain the error message
+        // The exception message is in the detail field for ProblemDetail
         assert response.contains("Failed to retrieve consent history") : "Response should contain the error message";
     }
 } 
