@@ -8,24 +8,25 @@ on:
   schedule:
     # Run weekly on Mondays at 2:00 AM UTC
     - cron: '0 2 * * 1'
+  workflow_dispatch:  # Allow manual trigger
+
+permissions:
+  contents: read
+  security-events: write
 
 jobs:
   analyze:
-    name: Analyze
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
+            name: Analyze
+            runs-on: ubuntu-latest
 
-    strategy:
+            strategy:
       fail-fast: false
       matrix:
         language: [ 'java' ]
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4

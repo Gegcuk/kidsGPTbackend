@@ -1,11 +1,24 @@
-name: Continuous Deployment
+name: Continuous Deployment (Legacy)
+
+# NOTE: This workflow is legacy. Use deploy.yml instead for deployments with health checks and rollback.
+# This workflow is kept for backward compatibility but should be disabled or removed.
+# To disable: comment out the 'on:' section or set to workflow_dispatch only.
 
 on:
-  push:
-    branches: [ master ]
+  # Disabled - use deploy.yml instead
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force deployment (use deploy.yml instead)'
+        required: true
+        default: false
+        type: boolean
 
 env:
   IMAGE_NAME: ${{ secrets.DOCKER_USER }}/kidsgptbackend
+
+permissions:
+  contents: read
 
 jobs:
   build-and-push:
@@ -13,7 +26,7 @@ jobs:
     permissions: { contents: read, packages: write }
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
       - uses: docker/setup-buildx-action@v3
 
@@ -23,7 +36,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASS }}
 
       - name: Build & push Docker image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true

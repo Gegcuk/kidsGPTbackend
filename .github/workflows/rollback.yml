@@ -14,7 +14,7 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
       
     - name: Rollback on VPS
       uses: appleboy/ssh-action@v1.2.4
@@ -27,9 +27,13 @@ jobs:
           
           echo "🔄 Rolling back to version: $VERSION"
           
-          # Update .env with rollback version
+          # Update .env with rollback version (POSIX-compliant)
           if [ -f .env ]; then
-            sed -i "s/APP_TAG=.*/APP_TAG=$VERSION/" .env
+            if grep -q "^APP_TAG=" .env; then
+              sed "s|^APP_TAG=.*|APP_TAG=$VERSION|" .env > .env.tmp && mv .env.tmp .env
+            else
+              echo "APP_TAG=$VERSION" >> .env
+            fi
           else
             echo "⚠️  .env file not found. Creating new one..."
             cat > .env << EOF
@@ -83,4 +87,11 @@ jobs:
         
         echo "⚠️  Rollback verification: Service may still be starting or there may be an issue"
         echo "Please check the service manually"
+        
+        echo "## 🔄 Rollback Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Rolled back to:** ${{ inputs.version }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Timestamp:** $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+        echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Verification:** $([ "$HTTP_CODE" = "200" ] && echo "✅ Success" || echo "⚠️ Pending")" >> $GITHUB_STEP_SUMMARY
 
