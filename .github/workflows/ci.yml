@@ -56,7 +56,13 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
         continue-on-error: true
-        run: ./mvnw --batch-mode org.owasp:dependency-check-maven:check || echo "⚠️ Security scan failed but continuing..."
+        run: |
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "⚠️ Warning: NVD_API_KEY secret is not set. Scan will be slower without API key."
+          else
+            echo "✅ NVD_API_KEY is set (length: ${#NVD_API_KEY} characters)"
+          fi
+          ./mvnw --batch-mode org.owasp:dependency-check-maven:check || echo "⚠️ Security scan failed but continuing..."
 
       - name: Upload security scan report
         uses: actions/upload-artifact@v4
