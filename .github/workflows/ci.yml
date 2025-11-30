@@ -24,7 +24,14 @@ jobs:
         run: chmod +x mvnw
 
       - name: Build (compile and package)
-        run: ./mvnw --batch-mode clean package -DskipTests
+        id: build
+        run: |
+          START_TIME=$(date +%s)
+          ./mvnw --batch-mode clean package -DskipTests
+          END_TIME=$(date +%s)
+          BUILD_DURATION=$((END_TIME - START_TIME))
+          echo "build_duration=$BUILD_DURATION" >> $GITHUB_OUTPUT
+          echo "Build completed in ${BUILD_DURATION} seconds"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -81,7 +88,17 @@ jobs:
         run: chmod +x mvnw
 
       - name: Run tests
-        run: ./mvnw --batch-mode clean verify
+        id: test
+        run: |
+          START_TIME=$(date +%s)
+          ./mvnw --batch-mode clean verify
+          TEST_EXIT_CODE=$?
+          END_TIME=$(date +%s)
+          TEST_DURATION=$((END_TIME - START_TIME))
+          echo "test_duration=$TEST_DURATION" >> $GITHUB_OUTPUT
+          echo "test_exit_code=$TEST_EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "Tests completed in ${TEST_DURATION} seconds"
+          exit $TEST_EXIT_CODE
 
       - name: Publish test results
         uses: dorny/test-reporter@v2
@@ -198,3 +215,79 @@ jobs:
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "Note: Dependabot and CodeQL still provide security coverage." >> $GITHUB_STEP_SUMMARY
           fi
+
+  metrics:
+    runs-on: ubuntu-latest
+    needs: [build, test, security-scan]
+    if: always()
+    
+    steps:
+      - name: Collect build metrics
+        run: |
+          echo "## 📈 CI/CD Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get job durations from previous jobs
+          BUILD_STATUS="${{ needs.build.result }}"
+          TEST_STATUS="${{ needs.test.result }}"
+          SECURITY_STATUS="${{ needs.security-scan.result }}"
+          
+          echo "### Build Metrics" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build Status:** $BUILD_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Status:** $TEST_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security Scan Status:** $SECURITY_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Calculate overall status
+          if [ "$BUILD_STATUS" = "success" ] && [ "$TEST_STATUS" = "success" ]; then
+            OVERALL_STATUS="✅ Success"
+          else
+            OVERALL_STATUS="❌ Failed"
+          fi
+          
+          echo "- **Overall Status:** $OVERALL_STATUS" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Get workflow run information
+          echo "### Workflow Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Run:** ${{ github.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Event:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Create metrics JSON file
+          mkdir -p metrics
+          cat > metrics/ci-metrics.json << EOF
+          {
+            "workflow_run": ${{ github.run_number }},
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "actor": "${{ github.actor }}",
+            "event": "${{ github.event_name }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "build": {
+              "status": "$BUILD_STATUS"
+            },
+            "test": {
+              "status": "$TEST_STATUS"
+            },
+            "security_scan": {
+              "status": "$SECURITY_STATUS"
+            },
+            "overall_status": "$OVERALL_STATUS"
+          }
+          EOF
+          
+          echo "Metrics saved to metrics/ci-metrics.json"
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-metrics
+          path: metrics/
+          retention-days: 90

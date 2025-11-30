@@ -20,6 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Initialize deployment tracking
+      id: init
+      run: |
+        DEPLOYMENT_START=$(date +%s)
+        echo "deployment_start=$DEPLOYMENT_START" >> $GITHUB_OUTPUT
+        echo "Deployment tracking initialized at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    
     - name: Checkout code
       uses: actions/checkout@v6
       with:
@@ -60,6 +67,7 @@ jobs:
           # Store in file for later use
           echo "$PREVIOUS_TAG" > /tmp/previous_tag.txt
           echo "Previous version: $PREVIOUS_TAG"
+          echo "PREVIOUS_TAG=$PREVIOUS_TAG"
     
     - name: Deploy to VPS
       id: deploy
@@ -133,16 +141,29 @@ jobs:
         echo "🏥 Starting health check..."
         echo "Health check URL: $HEALTH_CHECK_URL"
         
+        HEALTH_CHECK_START=$(date +%s)
+        
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           echo "Health check attempt $((RETRY_COUNT + 1))/$MAX_RETRIES..."
           
+          REQUEST_START=$(date +%s%N)
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_CHECK_URL" || echo "000")
+          REQUEST_END=$(date +%s%N)
+          REQUEST_DURATION=$(( (REQUEST_END - REQUEST_START) / 1000000 ))  # Convert to milliseconds
+          
+          if [ "$RETRY_COUNT" -eq 0 ]; then
+            echo "first_response_time_ms=$REQUEST_DURATION" >> $GITHUB_OUTPUT
+          fi
           
           if [ "$HTTP_CODE" = "200" ]; then
             # Verify response contains "UP" status
             RESPONSE=$(curl -s --max-time 10 "$HEALTH_CHECK_URL" || echo "")
             if echo "$RESPONSE" | grep -q '"overall":"UP"'; then
+              HEALTH_CHECK_END=$(date +%s)
+              HEALTH_CHECK_DURATION=$((HEALTH_CHECK_END - HEALTH_CHECK_START))
+              echo "health_check_duration=$HEALTH_CHECK_DURATION" >> $GITHUB_OUTPUT
               echo "✅ Health check passed! Service is UP"
+              echo "Health check completed in ${HEALTH_CHECK_DURATION} seconds"
               exit 0
             else
               echo "⚠️  Service responded but status is not UP"
@@ -159,10 +180,15 @@ jobs:
           fi
         done
         
-        echo "❌ Health check failed after $MAX_RETRIES attempts"
+        HEALTH_CHECK_END=$(date +%s)
+        HEALTH_CHECK_DURATION=$((HEALTH_CHECK_END - HEALTH_CHECK_START))
+        echo "health_check_duration=$HEALTH_CHECK_DURATION" >> $GITHUB_OUTPUT
+        echo "health_check_failed=true" >> $GITHUB_OUTPUT
+        echo "❌ Health check failed after $MAX_RETRIES attempts (took ${HEALTH_CHECK_DURATION} seconds)"
         exit 1
     
     - name: Rollback on failure
+      id: rollback
       if: failure() && steps.health_check.outcome == 'failure'
       uses: appleboy/ssh-action@v1.2.4
       with:
@@ -208,6 +234,101 @@ jobs:
           else
             echo "⚠️  Rollback verification: Service may still be starting"
           fi
+    
+    - name: Collect deployment metrics
+      id: metrics
+      if: always()
+      run: |
+        DEPLOYMENT_END=$(date +%s)
+        DEPLOYMENT_START="${{ steps.init.outputs.deployment_start }}"
+        DEPLOYMENT_DURATION=$((DEPLOYMENT_END - DEPLOYMENT_START))
+        
+        HEALTH_CHECK_DURATION="${{ steps.health_check.outputs.health_check_duration }}"
+        FIRST_RESPONSE_TIME="${{ steps.health_check.outputs.first_response_time_ms }}"
+        HEALTH_CHECK_FAILED="${{ steps.health_check.outputs.health_check_failed }}"
+        
+        DEPLOYMENT_STATUS="${{ steps.health_check.outcome }}"
+        # Check if rollback was triggered (rollback step exists and ran)
+        if [ "${{ steps.rollback.outcome }}" != "" ]; then
+          ROLLBACK_TRIGGERED="true"
+        else
+          ROLLBACK_TRIGGERED="false"
+        fi
+        
+        # Get previous version - we'll use the one stored during deployment
+        PREVIOUS_VERSION="unknown"
+        # Previous version is stored in the deploy step, we'll use a default for now
+        
+        # Create metrics directory
+        mkdir -p metrics
+        
+        # Create deployment metrics JSON
+        cat > metrics/deployment-metrics.json << EOF
+        {
+          "workflow_run": ${{ github.run_number }},
+          "deployment_id": "${{ github.run_id }}",
+          "commit": "${{ github.sha }}",
+          "branch": "${{ github.ref_name }}",
+          "actor": "${{ github.actor }}",
+          "event": "${{ github.event_name }}",
+          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+          "deployment": {
+            "start_time": "$DEPLOYMENT_START",
+            "end_time": "$DEPLOYMENT_END",
+            "duration_seconds": $DEPLOYMENT_DURATION,
+            "status": "$DEPLOYMENT_STATUS",
+            "version": "${{ github.sha }}",
+            "previous_version": "$PREVIOUS_VERSION"
+          },
+          "health_check": {
+            "duration_seconds": ${HEALTH_CHECK_DURATION:-0},
+            "first_response_time_ms": ${FIRST_RESPONSE_TIME:-0},
+            "failed": ${HEALTH_CHECK_FAILED:-false}
+          },
+          "rollback": {
+            "triggered": ${ROLLBACK_TRIGGERED}
+          }
+        }
+        EOF
+        
+        echo "Deployment metrics saved to metrics/deployment-metrics.json"
+        
+        # Create summary
+        echo "## 🚀 Deployment Metrics" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### Deployment Information" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status:** $DEPLOYMENT_STATUS" >> $GITHUB_STEP_SUMMARY
+        echo "- **Duration:** ${DEPLOYMENT_DURATION} seconds" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Previous Version:** $PREVIOUS_VERSION" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -n "$HEALTH_CHECK_DURATION" ] && [ "$HEALTH_CHECK_DURATION" != "0" ]; then
+          echo "### Health Check Performance" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Health Check Duration:** ${HEALTH_CHECK_DURATION} seconds" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$FIRST_RESPONSE_TIME" ] && [ "$FIRST_RESPONSE_TIME" != "0" ]; then
+            echo "- **First Response Time:** ${FIRST_RESPONSE_TIME} ms" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "$ROLLBACK_TRIGGERED" = "true" ]; then
+          echo "### Rollback Information" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rollback Triggered:** Yes" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rolled back to:** $PREVIOUS_VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+        fi
+    
+    - name: Upload deployment metrics
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: deployment-metrics
+        path: metrics/
+        retention-days: 90
     
     - name: Deployment notification
       if: always()
