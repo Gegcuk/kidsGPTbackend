@@ -195,18 +195,18 @@ jobs:
         else
           HTTP_FALLBACK_URL=$(echo "$HEALTH_CHECK_URL" | sed 's|^https://|http://|' | sed 's|/api/|:8080/api/|')
         fi
-        MAX_RETRIES=12
-        RETRY_DELAY=10
+        MAX_RETRIES=6
+        RETRY_DELAY=5
         RETRY_COUNT=0
         
         HEALTH_CHECK_START=$(date +%s)
         
         while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
           REQUEST_START=$(date +%s%N)
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --connect-timeout 3 "$HEALTH_CHECK_URL" 2>&1 || echo "000")
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 --connect-timeout 2 "$HEALTH_CHECK_URL" 2>&1 || echo "000")
           
           if [ "$HTTP_CODE" = "000" ] && [ -n "$HTTP_FALLBACK_URL" ]; then
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --connect-timeout 3 "$HTTP_FALLBACK_URL" 2>&1 || echo "000")
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 --connect-timeout 2 "$HTTP_FALLBACK_URL" 2>&1 || echo "000")
             if [ "$HTTP_CODE" != "000" ]; then
               HEALTH_CHECK_URL="$HTTP_FALLBACK_URL"
             fi
@@ -220,7 +220,7 @@ jobs:
           fi
           
           if [ "$HTTP_CODE" = "200" ]; then
-            RESPONSE=$(curl -s --max-time 5 "$HEALTH_CHECK_URL" || echo "")
+            RESPONSE=$(curl -s --max-time 3 "$HEALTH_CHECK_URL" || echo "")
             if echo "$RESPONSE" | grep -q '"overall":"UP"'; then
               HEALTH_CHECK_END=$(date +%s)
               HEALTH_CHECK_DURATION=$((HEALTH_CHECK_END - HEALTH_CHECK_START))
@@ -233,7 +233,6 @@ jobs:
           RETRY_COUNT=$((RETRY_COUNT + 1))
           if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
             sleep $RETRY_DELAY
-            RETRY_DELAY=$((RETRY_DELAY + 5))
           fi
         done
         
