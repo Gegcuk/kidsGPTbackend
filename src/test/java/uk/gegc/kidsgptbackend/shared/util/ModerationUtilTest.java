@@ -9,8 +9,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.moderation.*;
 import uk.gegc.kidsgptbackend.shared.exception.ModerationServiceException;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.util.List;

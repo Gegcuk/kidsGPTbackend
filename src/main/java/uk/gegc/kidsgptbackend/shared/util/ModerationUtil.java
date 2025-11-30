@@ -13,8 +13,8 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.shared.exception.ModerationServiceException;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

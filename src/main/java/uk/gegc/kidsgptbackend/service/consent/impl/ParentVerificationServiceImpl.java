@@ -16,7 +16,7 @@ import uk.gegc.kidsgptbackend.model.consent.ParentVerification;
 import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
 import uk.gegc.kidsgptbackend.model.consent.VerificationStatus;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.consent.ParentVerificationService;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 

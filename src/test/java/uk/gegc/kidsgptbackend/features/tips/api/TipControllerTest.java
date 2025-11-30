@@ -12,7 +12,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.tips.application.DailyTipService;
 
 import static org.mockito.Mockito.when;

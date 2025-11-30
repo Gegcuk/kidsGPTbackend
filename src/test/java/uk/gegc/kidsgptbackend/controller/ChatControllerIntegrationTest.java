@@ -16,9 +16,9 @@ import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
 import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
 
@@ -55,7 +55,7 @@ class ChatControllerIntegrationTest {
     @org.junit.jupiter.api.BeforeEach
     void setupUser() {
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.model.user.Role r = new uk.gegc.kidsgptbackend.model.user.Role();
+            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
             r.setRole("ROLE_PARENT");
             return roleRepository.save(r);
         });

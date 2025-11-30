@@ -10,11 +10,11 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import uk.gegc.kidsgptbackend.shared.exception.*;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;
 import uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository;
 import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 
 import java.time.Clock;
 import java.time.Instant;

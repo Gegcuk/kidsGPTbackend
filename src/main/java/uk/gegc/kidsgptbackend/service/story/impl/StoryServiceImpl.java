@@ -24,10 +24,10 @@ import uk.gegc.kidsgptbackend.mapper.StoryMapper;
 import uk.gegc.kidsgptbackend.model.story.Story;
 import uk.gegc.kidsgptbackend.model.story.StoryMessage;
 import uk.gegc.kidsgptbackend.model.story.StoryStatus;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.story.StoryRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.story.StoryService;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 

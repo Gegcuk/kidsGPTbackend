@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 @Component
 @RequiredArgsConstructor

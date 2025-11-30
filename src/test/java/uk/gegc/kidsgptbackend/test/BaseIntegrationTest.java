@@ -9,9 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.model.user.Role;
-import uk.gegc.kidsgptbackend.model.user.RoleName;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
+import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 
 /**
  * Base class for integration tests.

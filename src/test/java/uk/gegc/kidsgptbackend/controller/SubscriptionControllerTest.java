@@ -43,7 +43,7 @@ class SubscriptionControllerTest {
 
     private ObjectMapper objectMapper;
     private User testPrincipal;
-    private uk.gegc.kidsgptbackend.model.user.User testUser;
+    private uk.gegc.kidsgptbackend.features.user.domain.model.User testUser;
     private SubscriptionPlanDto freePlan;
     private SubscriptionPlanDto plusPlan;
     private UserSubscription testSubscription;
@@ -57,7 +57,7 @@ class SubscriptionControllerTest {
         testPrincipal = new User("testuser", "password", Collections.emptyList());
 
         // Setup test user
-        testUser = new uk.gegc.kidsgptbackend.model.user.User();
+        testUser = new uk.gegc.kidsgptbackend.features.user.domain.model.User();
         testUser.setId(UUID.randomUUID());
         testUser.setUsername("testuser");
         testUser.setEmail("test@example.com");

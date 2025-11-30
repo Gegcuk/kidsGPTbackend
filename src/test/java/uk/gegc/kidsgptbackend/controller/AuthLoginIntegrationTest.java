@@ -12,9 +12,9 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -40,7 +40,7 @@ class AuthLoginIntegrationTest {
     @org.junit.jupiter.api.BeforeEach
     void setupRoleAndUser() {
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.model.user.Role r = new uk.gegc.kidsgptbackend.model.user.Role();
+            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
             r.setRole("ROLE_PARENT");
             return roleRepository.save(r);
         });

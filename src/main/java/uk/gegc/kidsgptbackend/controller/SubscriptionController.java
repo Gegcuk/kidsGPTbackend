@@ -12,7 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.subscription.*;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.service.auth.CurrentUserResolver;
 import uk.gegc.kidsgptbackend.service.subscription.SubscriptionService;
 
@@ -97,7 +97,7 @@ public class SubscriptionController {
         }
 
         // Get user from principal (you'll need to implement this)
-        // uk.gegc.kidsgptbackend.model.user.User user = getUserFromPrincipal(principal);
+        // uk.gegc.kidsgptbackend.features.user.domain.model.User user = getUserFromPrincipal(principal);
         // List<UserSubscriptionDto> history = subscriptionService.getUserSubscriptionHistory(user);
         // return ResponseEntity.ok(history);
         
@@ -115,7 +115,7 @@ public class SubscriptionController {
         }
 
         // Get user from principal (you'll need to implement this)
-        // uk.gegc.kidsgptbackend.model.user.User user = getUserFromPrincipal(principal);
+        // uk.gegc.kidsgptbackend.features.user.domain.model.User user = getUserFromPrincipal(principal);
         // UserSubscriptionDto cancelledSubscription = subscriptionService.cancelSubscription(user, reason);
         // return ResponseEntity.ok(cancelledSubscription);
         
@@ -132,7 +132,7 @@ public class SubscriptionController {
         }
 
         // Get user from principal (you'll need to implement this)
-        // uk.gegc.kidsgptbackend.model.user.User user = getUserFromPrincipal(principal);
+        // uk.gegc.kidsgptbackend.features.user.domain.model.User user = getUserFromPrincipal(principal);
         // UserSubscriptionDto reactivatedSubscription = subscriptionService.reactivateSubscription(user);
         // return ResponseEntity.ok(reactivatedSubscription);
         

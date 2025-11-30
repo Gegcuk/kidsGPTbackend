@@ -8,9 +8,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import uk.gegc.kidsgptbackend.model.user.Role;
-import uk.gegc.kidsgptbackend.model.user.RoleName;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
+import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 
 import java.util.Optional;
 

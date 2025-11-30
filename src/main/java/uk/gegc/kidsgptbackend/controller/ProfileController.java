@@ -5,9 +5,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
-import uk.gegc.kidsgptbackend.dto.user.KidSelfUpdateRequest;
-import uk.gegc.kidsgptbackend.dto.user.ParentUpdateKidRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileDto;
+import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
 import uk.gegc.kidsgptbackend.service.family.KidProfileService;
 
 import java.util.UUID;

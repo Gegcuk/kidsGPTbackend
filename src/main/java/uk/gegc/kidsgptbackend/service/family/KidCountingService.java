@@ -1,6 +1,6 @@
 package uk.gegc.kidsgptbackend.service.family;
 
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
 /**
  * Service for counting kids associated with a parent user.

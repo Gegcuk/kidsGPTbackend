@@ -10,9 +10,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -38,7 +38,7 @@ class AuthControllerIntegrationTest {
     @org.junit.jupiter.api.BeforeEach
     void setupRole() {
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.model.user.Role r = new uk.gegc.kidsgptbackend.model.user.Role();
+            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
             r.setRole("ROLE_PARENT");
             return roleRepository.save(r);
         });
@@ -62,7 +62,7 @@ class AuthControllerIntegrationTest {
     @Test
     @DisplayName("Duplicate email → 409 Conflict")
     void register_duplicateEmail_returnsConflict() throws Exception {
-        uk.gegc.kidsgptbackend.model.user.User existing = new uk.gegc.kidsgptbackend.model.user.User();
+        uk.gegc.kidsgptbackend.features.user.domain.model.User existing = new uk.gegc.kidsgptbackend.features.user.domain.model.User();
         existing.setUsername("bob");
         existing.setEmail("bob@example.com");
         existing.setHashedPassword("hash");

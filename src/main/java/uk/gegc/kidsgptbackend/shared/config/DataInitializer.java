@@ -3,9 +3,9 @@ package uk.gegc.kidsgptbackend.shared.config;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.model.user.Role;
-import uk.gegc.kidsgptbackend.model.user.RoleName;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
+import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 
 
 @Component

@@ -10,7 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.service.family.KidCountingService;
