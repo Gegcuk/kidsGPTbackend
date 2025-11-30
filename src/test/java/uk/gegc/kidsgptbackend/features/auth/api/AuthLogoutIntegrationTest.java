@@ -1,0 +1,99 @@
+package uk.gegc.kidsgptbackend.features.auth.api;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.web.servlet.MockMvc;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+class AuthLogoutIntegrationTest extends BaseIntegrationTest {
+
+    @Autowired
+    MockMvc mockMvc;
+    @Autowired
+    ObjectMapper objectMapper;
+    @Autowired
+    UserRepository userRepository;
+    @Autowired
+    RoleRepository roleRepository;
+    @Autowired
+    PasswordEncoder passwordEncoder;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setupUser() {
+        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
+            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
+            r.setRole("ROLE_PARENT");
+            return roleRepository.save(r);
+        });
+
+        User u = new User();
+        u.setUsername("logoutuser");
+        u.setEmail("logout@example.com");
+        u.setHashedPassword(passwordEncoder.encode("password123"));
+        u.setActive(true);
+        u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").get()));
+        userRepository.save(u);
+    }
+
+    private String obtainAccessToken() throws Exception {
+        AuthLoginRequest req = new AuthLoginRequest("logoutuser", "password123");
+        String response = mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode node = objectMapper.readTree(response);
+        return node.get("accessToken").asText();
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout without Authorization header → 401 Unauthorized")
+    void logout_noHeader_returnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout with non-Bearer header → 401 Unauthorized")
+    void logout_nonBearerHeader_returnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Token sometoken"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout with token → 200 OK")
+    void logout_withToken_returnsOk() throws Exception {
+        String token = obtainAccessToken();
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Logged out token should be rejected on subsequent requests")
+    void logout_revokesToken() throws Exception {
+        String token = obtainAccessToken();
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+}

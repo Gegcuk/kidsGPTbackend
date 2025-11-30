@@ -37,7 +37,7 @@ public class JwtAuthenticationFilterTest {
     JwtTokenProvider jwtTokenProvider;
 
     @Mock
-    uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository revokedTokenRepository;
+    uk.gegc.kidsgptbackend.features.auth.domain.repository.RevokedTokenRepository revokedTokenRepository;
 
     JwtAuthenticationFilter authenticationFilter;
 

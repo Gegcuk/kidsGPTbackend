@@ -6,7 +6,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.PasswordResetTokenRepository;
 
 import java.time.Clock;
 import java.time.LocalDateTime;

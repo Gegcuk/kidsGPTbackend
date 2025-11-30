@@ -7,7 +7,7 @@ import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;

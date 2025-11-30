@@ -9,7 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
-import uk.gegc.kidsgptbackend.repository.auth.RevokedTokenRepository;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.RevokedTokenRepository;
 
 import java.io.IOException;
 
