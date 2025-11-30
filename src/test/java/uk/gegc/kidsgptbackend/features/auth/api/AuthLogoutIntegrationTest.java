@@ -59,9 +59,17 @@ class AuthLogoutIntegrationTest extends BaseIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/auth/logout without token → 401 Unauthorized")
-    void logout_noToken_returnsUnauthorized() throws Exception {
+    @DisplayName("POST /api/v1/auth/logout without Authorization header → 401 Unauthorized")
+    void logout_noHeader_returnsUnauthorized() throws Exception {
         mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout with non-Bearer header → 401 Unauthorized")
+    void logout_nonBearerHeader_returnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Token sometoken"))
                 .andExpect(status().isUnauthorized());
     }
 

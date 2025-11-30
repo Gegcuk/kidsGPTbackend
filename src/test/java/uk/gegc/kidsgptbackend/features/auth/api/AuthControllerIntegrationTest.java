@@ -9,8 +9,13 @@ import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class AuthControllerIntegrationTest extends BaseIntegrationTest {
@@ -77,6 +82,64 @@ class AuthControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/auth/logout without Bearer header → 401 Unauthorized")
+    void logout_withoutBearerHeader_returnsUnauthorized() throws Exception {
+        // Test logout without Authorization header
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
+
+        // Test logout with non-Bearer header
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Token sometoken"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/auth/kids without authentication → 401 Unauthorized")
+    void getMyKids_noAuthentication_returnsUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/kids"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/kids/{kidId} without authentication → 401 Unauthorized")
+    void deleteKid_noAuthentication_returnsUnauthorized() throws Exception {
+        mockMvc.perform(delete("/api/v1/auth/kids/" + UUID.randomUUID()))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/auth/account without authentication → 401 Unauthorized")
+    void deleteParentAccount_noAuthentication_returnsUnauthorized() throws Exception {
+        mockMvc.perform(delete("/api/v1/auth/account"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/auth/update-email without authentication → 401 Unauthorized")
+    void updateEmail_noAuthentication_returnsUnauthorized() throws Exception {
+        uk.gegc.kidsgptbackend.features.auth.api.dto.UpdateEmailRequest request = 
+            new uk.gegc.kidsgptbackend.features.auth.api.dto.UpdateEmailRequest("new@example.com");
+        
+        mockMvc.perform(put("/api/v1/auth/update-email")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/auth/update-password without authentication → 401 Unauthorized")
+    void updatePassword_noAuthentication_returnsUnauthorized() throws Exception {
+        uk.gegc.kidsgptbackend.features.auth.api.dto.UpdatePasswordRequest request = 
+            new uk.gegc.kidsgptbackend.features.auth.api.dto.UpdatePasswordRequest("oldpass", "newpass");
+        
+        mockMvc.perform(put("/api/v1/auth/update-password")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
     }
 
 }
