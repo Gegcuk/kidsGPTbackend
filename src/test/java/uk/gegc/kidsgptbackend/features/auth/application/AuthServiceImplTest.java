@@ -1,13 +1,10 @@
-package uk.gegc.kidsgptbackend.service.auth.impl;
+package uk.gegc.kidsgptbackend.features.auth.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -16,8 +13,9 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.auth.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthTokensResponse;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidDto;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
@@ -36,6 +34,8 @@ import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
+import uk.gegc.kidsgptbackend.features.auth.application.impl.AuthServiceImpl;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.RevokedTokenRepository;
 
 import java.util.*;
 
@@ -45,8 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@Execution(ExecutionMode.CONCURRENT)
-public class AuthServiceImplTest {
+class AuthServiceImplTest extends BaseUnitTest {
 
     @Mock
     UserRepository userRepository;
@@ -64,13 +63,16 @@ public class AuthServiceImplTest {
     AuthenticationManager authenticationManager;
     @Mock
     JwtTokenProvider jwtTokenProvider;
+    @Mock
+    RevokedTokenRepository revokedTokenRepository;
 
     @InjectMocks
     AuthServiceImpl authService;
 
+    @Override
     @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
+    protected void setUp() {
+        super.setUp();
     }
 
     @Test

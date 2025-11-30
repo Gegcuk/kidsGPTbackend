@@ -1,56 +1,35 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class AuthLoginIntegrationTest {
+class AuthLoginIntegrationTest extends BaseIntegrationTest {
 
-    @Autowired
-    MockMvc mockMvc;
-    @Autowired
-    ObjectMapper objectMapper;
     @Autowired
     UserRepository userRepository;
-    @Autowired
-    RoleRepository roleRepository;
-    @Autowired
-    PasswordEncoder passwordEncoder;
 
-    @org.junit.jupiter.api.BeforeEach
-    void setupRoleAndUser() {
-        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
-            r.setRole("ROLE_PARENT");
-            return roleRepository.save(r);
-        });
+    @Override
+    @BeforeEach
+    protected void setUp() throws Exception {
+        super.setUp();
 
         User u = new User();
         u.setUsername("loginuser");
         u.setEmail("login@example.com");
         u.setHashedPassword(passwordEncoder.encode("password123"));
         u.setActive(true);
-        u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").get()));
+        u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").orElseThrow()));
         userRepository.save(u);
     }
 

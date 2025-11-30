@@ -1,4 +1,5 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -6,15 +7,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
@@ -33,11 +30,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class AuthDeleteIntegrationTest {
+class AuthDeleteIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     MockMvc mockMvc;

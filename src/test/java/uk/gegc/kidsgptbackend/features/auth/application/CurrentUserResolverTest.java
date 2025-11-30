@@ -1,16 +1,14 @@
-package uk.gegc.kidsgptbackend.service.auth;
+package uk.gegc.kidsgptbackend.features.auth.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.springframework.security.core.userdetails.UserDetails;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -20,8 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
-@Execution(ExecutionMode.CONCURRENT)
-class CurrentUserResolverTest {
+class CurrentUserResolverTest extends BaseUnitTest {
 
     @Mock
     private UserRepository userRepository;
@@ -32,9 +29,10 @@ class CurrentUserResolverTest {
     @InjectMocks
     private CurrentUserResolver currentUserResolver;
 
+    @Override
     @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
+    protected void setUp() {
+        super.setUp();
     }
 
     @Test

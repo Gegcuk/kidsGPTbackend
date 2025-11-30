@@ -1,24 +1,23 @@
-package uk.gegc.kidsgptbackend.service.auth.impl;
+package uk.gegc.kidsgptbackend.features.auth.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gegc.kidsgptbackend.dto.auth.ForgotPasswordRequest;
-import uk.gegc.kidsgptbackend.dto.auth.PasswordResetResponse;
-import uk.gegc.kidsgptbackend.dto.auth.ResetPasswordRequest;
-import uk.gegc.kidsgptbackend.model.auth.PasswordResetToken;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.ForgotPasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.PasswordResetResponse;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.ResetPasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.domain.model.PasswordResetToken;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
+import uk.gegc.kidsgptbackend.features.auth.application.impl.PasswordResetServiceImpl;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -31,8 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@Execution(ExecutionMode.CONCURRENT)
-class PasswordResetServiceImplTest {
+class PasswordResetServiceImplTest extends BaseUnitTest {
 
     @Mock
     UserRepository userRepository;
@@ -55,9 +53,10 @@ class PasswordResetServiceImplTest {
     private User testUser;
     private PasswordResetToken testToken;
 
+    @Override
     @BeforeEach
-    void setUp() {
-        MockitoAnnotations.openMocks(this);
+    protected void setUp() {
+        super.setUp();
 
         // Set up clock mock
         when(clock.instant()).thenReturn(Instant.ofEpochMilli(1000L));

@@ -1,32 +1,23 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class AuthMeIntegrationTest {
+class AuthLogoutIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     MockMvc mockMvc;
@@ -48,8 +39,8 @@ class AuthMeIntegrationTest {
         });
 
         User u = new User();
-        u.setUsername("meuser");
-        u.setEmail("me@example.com");
+        u.setUsername("logoutuser");
+        u.setEmail("logout@example.com");
         u.setHashedPassword(passwordEncoder.encode("password123"));
         u.setActive(true);
         u.setRoles(java.util.Set.of(roleRepository.findByRole("ROLE_PARENT").get()));
@@ -57,7 +48,7 @@ class AuthMeIntegrationTest {
     }
 
     private String obtainAccessToken() throws Exception {
-        AuthLoginRequest req = new AuthLoginRequest("meuser", "password123");
+        AuthLoginRequest req = new AuthLoginRequest("logoutuser", "password123");
         String response = mockMvc.perform(post("/api/v1/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(req)))
@@ -68,22 +59,33 @@ class AuthMeIntegrationTest {
     }
 
     @Test
-    @DisplayName("GET /api/v1/auth/me with token → 200 and profile data")
-    void me_withToken_returnsProfile() throws Exception {
-        String token = obtainAccessToken();
-
-        String response = mockMvc.perform(get("/api/v1/auth/me")
-                        .header("Authorization", "Bearer " + token))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-
-        assertThat(response).contains("\"username\":\"meuser\"");
+    @DisplayName("POST /api/v1/auth/logout without token → 401 Unauthorized")
+    void logout_noToken_returnsUnauthorized() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
-    @DisplayName("GET /api/v1/auth/me without token → 401")
-    void me_noToken_returnsUnauthorized() throws Exception {
-        mockMvc.perform(get("/api/v1/auth/me"))
+    @DisplayName("POST /api/v1/auth/logout with token → 200 OK")
+    void logout_withToken_returnsOk() throws Exception {
+        String token = obtainAccessToken();
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("Logged out token should be rejected on subsequent requests")
+    void logout_revokesToken() throws Exception {
+        String token = obtainAccessToken();
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Authorization", "Bearer " + token))
                 .andExpect(status().isUnauthorized());
     }
 }

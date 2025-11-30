@@ -15,7 +15,7 @@ import org.springframework.security.core.userdetails.User;
 import uk.gegc.kidsgptbackend.dto.subscription.*;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.service.auth.CurrentUserResolver;
+import uk.gegc.kidsgptbackend.features.auth.application.CurrentUserResolver;
 import uk.gegc.kidsgptbackend.service.subscription.SubscriptionService;
 
 import java.math.BigDecimal;

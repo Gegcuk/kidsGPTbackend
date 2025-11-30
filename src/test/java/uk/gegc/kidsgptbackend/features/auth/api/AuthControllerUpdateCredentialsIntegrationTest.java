@@ -1,22 +1,19 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.auth.UpdateEmailRequest;
-import uk.gegc.kidsgptbackend.dto.auth.UpdatePasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.UpdateEmailRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.UpdatePasswordRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
@@ -30,11 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class AuthControllerUpdateCredentialsIntegrationTest {
+class AuthControllerUpdateCredentialsIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     MockMvc mockMvc;

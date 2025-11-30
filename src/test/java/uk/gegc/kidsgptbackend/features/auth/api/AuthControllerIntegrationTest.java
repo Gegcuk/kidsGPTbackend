@@ -1,47 +1,27 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
-import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class AuthControllerIntegrationTest {
-
-    @Autowired
-    MockMvc mockMvc;
-
-    @Autowired
-    ObjectMapper objectMapper;
+class AuthControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     UserRepository userRepository;
-    @Autowired
-    RoleRepository roleRepository;
 
-    @org.junit.jupiter.api.BeforeEach
-    void setupRole() {
-        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
-            r.setRole("ROLE_PARENT");
-            return roleRepository.save(r);
-        });
+    @Override
+    @BeforeEach
+    protected void setUp() throws Exception {
+        super.setUp();
     }
 
     @Test

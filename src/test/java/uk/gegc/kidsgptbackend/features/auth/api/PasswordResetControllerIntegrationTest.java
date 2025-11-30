@@ -1,21 +1,18 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.auth.ResetPasswordRequest;
-import uk.gegc.kidsgptbackend.model.auth.PasswordResetToken;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.ResetPasswordRequest;
+import uk.gegc.kidsgptbackend.features.auth.domain.model.PasswordResetToken;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
+import uk.gegc.kidsgptbackend.features.auth.domain.repository.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
@@ -26,11 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class PasswordResetControllerIntegrationTest {
+class PasswordResetControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     MockMvc mockMvc;

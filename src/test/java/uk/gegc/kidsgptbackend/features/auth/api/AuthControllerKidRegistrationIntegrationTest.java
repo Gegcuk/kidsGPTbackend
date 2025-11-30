@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.auth.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
-import uk.gegc.kidsgptbackend.dto.auth.AuthLoginRequest;
+import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
