@@ -3,11 +3,6 @@ name: Deploy to VPS
 on:
   push:
     branches: [ main, master ]
-  workflow_run:
-    workflows: ["Continuous Integration"]
-    types:
-      - completed
-    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       branch:
@@ -26,12 +21,6 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # Only deploy if CI succeeded (when triggered by workflow_run)
-    # For push/workflow_dispatch, deploy immediately
-    if: |
-      github.event_name == 'workflow_dispatch' || 
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
     
     steps:
     - name: Initialize deployment tracking
@@ -44,7 +33,7 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        ref: ${{ inputs.branch || github.event.workflow_run.head_branch || github.ref }}
+        ref: ${{ inputs.branch || github.ref }}
       
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -60,7 +49,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: ${{ secrets.DOCKER_USERNAME }}/kidsgptbackend:${{ github.event.workflow_run.head_sha || github.sha }}
+        tags: ${{ secrets.DOCKER_USERNAME }}/kidsgptbackend:${{ github.sha }}
         
     - name: Get previous deployment version
       id: previous_version
@@ -120,7 +109,7 @@ jobs:
           MYSQL_USER=${{ secrets.MYSQL_USER }}
           MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
           DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
-          APP_TAG=${{ github.event.workflow_run.head_sha || github.sha }}
+          APP_TAG=${{ github.sha }}
           EOF
           
           # Store previous tag for rollback
@@ -130,7 +119,7 @@ jobs:
           fi
           
           # Pull latest image and restart services
-          echo "🚀 Deploying version ${{ github.event.workflow_run.head_sha || github.sha }}..."
+          echo "🚀 Deploying version ${{ github.sha }}..."
           docker-compose pull
           docker-compose up -d
           
@@ -297,7 +286,7 @@ jobs:
             "end_time": "$DEPLOYMENT_END",
             "duration_seconds": $DEPLOYMENT_DURATION,
             "status": "$DEPLOYMENT_STATUS",
-            "version": "${{ github.event.workflow_run.head_sha || github.sha }}",
+            "version": "${{ github.sha }}",
             "previous_version": "$PREVIOUS_VERSION"
           },
           "health_check": {
@@ -320,7 +309,7 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "- **Status:** $DEPLOYMENT_STATUS" >> $GITHUB_STEP_SUMMARY
         echo "- **Duration:** ${DEPLOYMENT_DURATION} seconds" >> $GITHUB_STEP_SUMMARY
-        echo "- **Version:** ${{ github.event.workflow_run.head_sha || github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Version:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
         echo "- **Previous Version:** $PREVIOUS_VERSION" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         
@@ -355,15 +344,11 @@ jobs:
       run: |
         if [ "${{ steps.health_check.outcome }}" = "success" ]; then
           echo "✅ Deployment successful!"
-          echo "Version: ${{ github.event.workflow_run.head_sha || github.sha }}"
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            echo "Triggered by CI workflow: ${{ github.event.workflow_run.html_url }}"
-          else
-            echo "Commit: ${{ github.event.head_commit.message }}"
-            echo "Author: ${{ github.event.head_commit.author.name }}"
-          fi
+          echo "Version: ${{ github.sha }}"
+          echo "Commit: ${{ github.event.head_commit.message }}"
+          echo "Author: ${{ github.event.head_commit.author.name }}"
         else
           echo "❌ Deployment failed!"
-          echo "Attempted version: ${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "Attempted version: ${{ github.sha }}"
           echo "Check rollback step for previous version details"
         fi 
