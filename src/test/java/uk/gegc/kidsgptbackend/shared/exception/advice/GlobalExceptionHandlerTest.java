@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller.advice;
+package uk.gegc.kidsgptbackend.shared.exception.advice;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
