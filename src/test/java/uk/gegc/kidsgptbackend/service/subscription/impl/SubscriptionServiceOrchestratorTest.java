@@ -18,7 +18,7 @@ import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionPlanRepository
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
-import uk.gegc.kidsgptbackend.service.family.KidCountingService;
+import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.math.BigDecimal;
 import java.time.Instant;

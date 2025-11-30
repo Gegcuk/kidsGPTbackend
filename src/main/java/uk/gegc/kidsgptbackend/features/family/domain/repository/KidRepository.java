@@ -1,8 +1,8 @@
-package uk.gegc.kidsgptbackend.repository.family;
+package uk.gegc.kidsgptbackend.features.family.domain.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
-import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
 
 import java.util.List;
 import java.util.Optional;

@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.family;
+package uk.gegc.kidsgptbackend.features.family.application;
 
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileDto;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileUpdateRequest;

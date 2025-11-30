@@ -15,14 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
-import uk.gegc.kidsgptbackend.model.family.Kid;
-import uk.gegc.kidsgptbackend.model.family.Parent;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.family.KidRepository;
-import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 

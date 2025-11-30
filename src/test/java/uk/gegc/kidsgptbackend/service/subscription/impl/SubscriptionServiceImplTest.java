@@ -20,7 +20,7 @@ import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
-import uk.gegc.kidsgptbackend.service.family.KidCountingService;
+import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAcknowledger;
 import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionSaver;
 
