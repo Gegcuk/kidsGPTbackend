@@ -3,11 +3,8 @@ package uk.gegc.kidsgptbackend.global;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.mockito.junit.jupiter.MockitoSettings;
-import org.mockito.quality.Strictness;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
@@ -21,7 +18,6 @@ import uk.gegc.kidsgptbackend.features.family.application.impl.KidCountingServic
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -29,12 +25,9 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.doThrow;
 
 /**
  * Integration tests for KidCountingServiceImpl with realistic scenarios:
@@ -43,10 +36,8 @@ import static org.mockito.Mockito.doThrow;
  * - Edge cases and boundary conditions
  * - Real-world usage patterns
  */
-@ExtendWith(MockitoExtension.class)
-@MockitoSettings(strictness = Strictness.LENIENT)
 @DisplayName("KidCountingService Integration Tests")
-class KidCountingServiceIntegrationTest {
+class KidCountingServiceIntegrationTest extends BaseUnitTest {
 
     @Mock
     private KidRepository kidRepository;
@@ -87,9 +78,11 @@ class KidCountingServiceIntegrationTest {
     private KidCountingServiceImpl kidCountingService;
     private Clock fixedClock;
 
+    @Override
     @BeforeEach
-    void setUp() {
-        fixedClock = Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), ZoneOffset.UTC);
+    protected void setUp() {
+        super.setUp();
+        fixedClock = createDefaultFixedClock();
         kidCountingService = new KidCountingServiceImpl(kidRepository, parentRepository, userSubscriptionRepository);
         
         // Set up common mocks

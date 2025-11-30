@@ -3,13 +3,12 @@ package uk.gegc.kidsgptbackend.features.family.application;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileDto;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileUpdateRequest;
 import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
@@ -34,8 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-class KidProfileServiceTest {
+class KidProfileServiceTest extends BaseUnitTest {
 
     @Mock
     private KidRepository kidRepository;
@@ -60,8 +58,10 @@ class KidProfileServiceTest {
     private Kid testKid;
     private ChildProfileUpdateRequest updateRequest;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
+        super.setUp();
         // Setup test data
         testUser = new User();
         testUser.setId(UUID.randomUUID());
