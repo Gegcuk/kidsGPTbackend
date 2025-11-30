@@ -23,9 +23,16 @@ jobs:
         username: ${{ secrets.VPS_USER }}
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
-          VERSION="${{ inputs.version }}"
+          DEPLOY_DIR="${DEPLOY_DIR:-/opt/kidsgptbackend}"
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="$HOME/kidsgptbackend"
+          fi
+          if [ ! -d "$DEPLOY_DIR" ]; then
+            DEPLOY_DIR="."
+          fi
+          cd "$DEPLOY_DIR" || exit 1
           
-          echo "Rolling back to version: $VERSION"
+          VERSION="${{ inputs.version }}"
           
           if [ -f .env ]; then
             if grep -q "^APP_TAG=" .env; then
@@ -34,16 +41,21 @@ jobs:
               echo "APP_TAG=$VERSION" >> .env
             fi
           else
-            cat > .env << EOF
-          APP_TAG=$VERSION
-          DOCKER_USER=${{ secrets.DOCKER_USER }}
-          EOF
+            exit 1
           fi
           
-          docker-compose pull
-          docker-compose up -d
-          echo "✅ Rollback completed"
-          sleep 10
+          if [ -f docker-compose.yml ]; then
+            docker compose -f docker-compose.yml pull app
+            APP_TAG=$VERSION docker compose -f docker-compose.yml up -d --no-deps app
+          else
+            COMPOSE_FILE=$(find . -name "docker-compose.yml" -type f 2>/dev/null | head -1)
+            if [ -n "$COMPOSE_FILE" ]; then
+              docker compose -f "$COMPOSE_FILE" pull app
+              APP_TAG=$VERSION docker compose -f "$COMPOSE_FILE" up -d --no-deps app
+            else
+              exit 1
+            fi
+          fi
     
     - name: Verify rollback
       env:
