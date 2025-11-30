@@ -1,0 +1,86 @@
+name: Rollback Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version/tag to rollback to (e.g., commit SHA)'
+        required: true
+        type: string
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Rollback on VPS
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          VERSION="${{ inputs.version }}"
+          
+          echo "🔄 Rolling back to version: $VERSION"
+          
+          # Update .env with rollback version
+          if [ -f .env ]; then
+            sed -i "s/APP_TAG=.*/APP_TAG=$VERSION/" .env
+          else
+            echo "⚠️  .env file not found. Creating new one..."
+            cat > .env << EOF
+          APP_TAG=$VERSION
+          DOCKER_USER=${{ secrets.DOCKER_USERNAME }}
+          EOF
+          fi
+          
+          # Pull previous image and restart
+          docker-compose pull
+          docker-compose up -d
+          
+          echo "✅ Rollback completed to version: $VERSION"
+          
+          # Wait for services to start
+          echo "⏳ Waiting for services to start..."
+          sleep 10
+    
+    - name: Verify rollback
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        HEALTH_CHECK_URL: ${{ secrets.VPS_HEALTH_CHECK_URL }}
+      run: |
+        # Set health check URL if not provided
+        if [ -z "$HEALTH_CHECK_URL" ]; then
+          HEALTH_CHECK_URL="https://${VPS_HOST}/api/v1/system/status"
+        fi
+        
+        echo "🏥 Verifying rollback health..."
+        
+        MAX_RETRIES=6
+        RETRY_COUNT=0
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_CHECK_URL" || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            RESPONSE=$(curl -s --max-time 10 "$HEALTH_CHECK_URL" || echo "")
+            if echo "$RESPONSE" | grep -q '"overall":"UP"'; then
+              echo "✅ Rollback verification successful! Service is UP"
+              exit 0
+            fi
+          fi
+          
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⏳ Retrying in 10 seconds..."
+            sleep 10
+          fi
+        done
+        
+        echo "⚠️  Rollback verification: Service may still be starting or there may be an issue"
+        echo "Please check the service manually"
+

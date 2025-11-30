@@ -41,7 +41,28 @@ jobs:
         push: true
         tags: ${{ secrets.DOCKER_USERNAME }}/kidsgptbackend:${{ github.sha }}
         
+    - name: Get previous deployment version
+      id: previous_version
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Get current running image tag (if exists)
+          PREVIOUS_TAG=$(docker ps --filter "name=backend" --format "{{.Image}}" | grep -oP 'kidsgptbackend:\K.*' || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # Try to get from docker-compose or .env
+            if [ -f .env ]; then
+              PREVIOUS_TAG=$(grep -oP 'APP_TAG=\K.*' .env 2>/dev/null || echo "")
+            fi
+          fi
+          # Store in file for later use
+          echo "$PREVIOUS_TAG" > /tmp/previous_tag.txt
+          echo "Previous version: $PREVIOUS_TAG"
+    
     - name: Deploy to VPS
+      id: deploy
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VPS_HOST }}
@@ -80,6 +101,124 @@ jobs:
           APP_TAG=${{ github.sha }}
           EOF
           
+          # Store previous tag for rollback
+          if [ -f /tmp/previous_tag.txt ]; then
+            PREVIOUS_TAG=$(cat /tmp/previous_tag.txt)
+            echo "PREVIOUS_TAG=$PREVIOUS_TAG" >> .env
+          fi
+          
           # Pull latest image and restart services
+          echo "🚀 Deploying version ${{ github.sha }}..."
           docker-compose pull
-          docker-compose up -d 
+          docker-compose up -d
+          
+          # Wait for services to start
+          echo "⏳ Waiting for services to start..."
+          sleep 10
+    
+    - name: Health check
+      id: health_check
+      env:
+        VPS_HOST: ${{ secrets.VPS_HOST }}
+        HEALTH_CHECK_URL: ${{ secrets.VPS_HEALTH_CHECK_URL }}
+      run: |
+        # Set health check URL if not provided
+        if [ -z "$HEALTH_CHECK_URL" ]; then
+          HEALTH_CHECK_URL="https://${VPS_HOST}/api/v1/system/status"
+        fi
+        MAX_RETRIES=12
+        RETRY_DELAY=10
+        RETRY_COUNT=0
+        
+        echo "🏥 Starting health check..."
+        echo "Health check URL: $HEALTH_CHECK_URL"
+        
+        while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+          echo "Health check attempt $((RETRY_COUNT + 1))/$MAX_RETRIES..."
+          
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_CHECK_URL" || echo "000")
+          
+          if [ "$HTTP_CODE" = "200" ]; then
+            # Verify response contains "UP" status
+            RESPONSE=$(curl -s --max-time 10 "$HEALTH_CHECK_URL" || echo "")
+            if echo "$RESPONSE" | grep -q '"overall":"UP"'; then
+              echo "✅ Health check passed! Service is UP"
+              exit 0
+            else
+              echo "⚠️  Service responded but status is not UP"
+            fi
+          else
+            echo "❌ Health check failed with HTTP code: $HTTP_CODE"
+          fi
+          
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⏳ Retrying in ${RETRY_DELAY} seconds..."
+            sleep $RETRY_DELAY
+            RETRY_DELAY=$((RETRY_DELAY + 5))  # Exponential backoff
+          fi
+        done
+        
+        echo "❌ Health check failed after $MAX_RETRIES attempts"
+        exit 1
+    
+    - name: Rollback on failure
+      if: failure() && steps.health_check.outcome == 'failure'
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USERNAME }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          # Get previous tag from file
+          if [ -f /tmp/previous_tag.txt ]; then
+            PREVIOUS_TAG=$(cat /tmp/previous_tag.txt)
+          elif [ -f .env ]; then
+            PREVIOUS_TAG=$(grep -oP 'PREVIOUS_TAG=\K.*' .env 2>/dev/null || echo "")
+          else
+            PREVIOUS_TAG=""
+          fi
+          
+          if [ -z "$PREVIOUS_TAG" ] || [ "$PREVIOUS_TAG" = "" ]; then
+            echo "⚠️  No previous version found. Cannot rollback."
+            exit 1
+          fi
+          
+          echo "🔄 Rolling back to previous version: $PREVIOUS_TAG"
+          
+          # Update .env with previous tag
+          sed -i "s/APP_TAG=.*/APP_TAG=$PREVIOUS_TAG/" .env
+          
+          # Pull previous image and restart
+          docker-compose pull
+          docker-compose up -d
+          
+          echo "✅ Rollback completed to version: $PREVIOUS_TAG"
+          
+          # Wait and verify rollback
+          sleep 10
+          if [ -z "${{ secrets.VPS_HEALTH_CHECK_URL }}" ]; then
+            HEALTH_URL="https://${{ secrets.VPS_HOST }}/api/v1/system/status"
+          else
+            HEALTH_URL="${{ secrets.VPS_HEALTH_CHECK_URL }}"
+          fi
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_URL" || echo "000")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Rollback verification: Service is responding"
+          else
+            echo "⚠️  Rollback verification: Service may still be starting"
+          fi
+    
+    - name: Deployment notification
+      if: always()
+      run: |
+        if [ "${{ steps.health_check.outcome }}" = "success" ]; then
+          echo "✅ Deployment successful!"
+          echo "Version: ${{ github.sha }}"
+          echo "Commit: ${{ github.event.head_commit.message }}"
+          echo "Author: ${{ github.event.head_commit.author.name }}"
+        else
+          echo "❌ Deployment failed!"
+          echo "Attempted version: ${{ github.sha }}"
+          echo "Check rollback step for previous version details"
+        fi 

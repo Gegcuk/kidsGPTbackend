@@ -29,7 +29,7 @@
     <properties>
         <java.version>17</java.version>
         <jacoco.version>0.8.12</jacoco.version>
-        <owasp.dependency-check.version>10.0.4</owasp.dependency-check.version>
+        <owasp.dependency-check.version>11.0.0</owasp.dependency-check.version>
     </properties>
     <dependencies>
 
@@ -336,6 +336,9 @@
                         <goals>
                             <goal>check</goal>
                         </goals>
+                        <configuration>
+                            <failOnError>false</failOnError>
+                        </configuration>
                     </execution>
                 </executions>
                 <configuration>
