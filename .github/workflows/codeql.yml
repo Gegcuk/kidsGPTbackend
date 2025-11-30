@@ -16,10 +16,10 @@ permissions:
 
 jobs:
   analyze:
-            name: Analyze
-            runs-on: ubuntu-latest
+    name: Analyze
+    runs-on: ubuntu-latest
 
-            strategy:
+    strategy:
       fail-fast: false
       matrix:
         language: [ 'java' ]
