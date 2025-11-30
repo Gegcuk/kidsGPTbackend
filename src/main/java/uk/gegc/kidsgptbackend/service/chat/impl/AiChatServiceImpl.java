@@ -23,11 +23,11 @@ import uk.gegc.kidsgptbackend.shared.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.shared.exception.RateLimitException;
 import uk.gegc.kidsgptbackend.model.chat.ChatContext;
 import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
 import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.chat.AiChatService;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 

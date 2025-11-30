@@ -9,7 +9,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.dto.auth.*;
-import uk.gegc.kidsgptbackend.dto.user.*;
+import uk.gegc.kidsgptbackend.features.user.api.dto.*;
 import uk.gegc.kidsgptbackend.service.auth.AuthService;
 import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 

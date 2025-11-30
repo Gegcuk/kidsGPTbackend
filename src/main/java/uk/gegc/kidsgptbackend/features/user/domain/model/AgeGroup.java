@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.model.user;
+package uk.gegc.kidsgptbackend.features.user.domain.model;
 
 public enum AgeGroup {
     AGE_6_8(6, 8),

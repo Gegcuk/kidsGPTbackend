@@ -9,8 +9,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.security.core.userdetails.UserDetails;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.util.Optional;
 import java.util.UUID;

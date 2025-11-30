@@ -15,9 +15,9 @@ import uk.gegc.kidsgptbackend.dto.consent.VerificationInitiationResult;
 import uk.gegc.kidsgptbackend.model.consent.ParentVerification;
 import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
 import uk.gegc.kidsgptbackend.model.consent.VerificationStatus;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
 
 import java.time.Clock;

@@ -1,11 +1,11 @@
-package uk.gegc.kidsgptbackend.mapper;
+package uk.gegc.kidsgptbackend.features.user.infra.mapping;
 
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.dto.user.*;
+import uk.gegc.kidsgptbackend.features.user.api.dto.*;
 import uk.gegc.kidsgptbackend.model.family.Kid;
-import uk.gegc.kidsgptbackend.model.user.Role;
-import uk.gegc.kidsgptbackend.model.user.RoleName;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
+import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
 import java.util.stream.Collectors;
 
@@ -85,7 +85,7 @@ public class UserMapper {
         kid.setAvatarId(req.avatarId());
         // Set age group from age if possible
         try {
-            kid.setAgeGroup(uk.gegc.kidsgptbackend.model.user.AgeGroup.fromAge(req.age()));
+            kid.setAgeGroup(uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup.fromAge(req.age()));
         } catch (IllegalArgumentException e) {
             // Keep existing age group if provided age doesn't match any group
         }

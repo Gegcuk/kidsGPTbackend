@@ -15,7 +15,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.test.util.ReflectionTestUtils;
 import uk.gegc.kidsgptbackend.features.jokes.api.dto.DailyJokeDto;
 import uk.gegc.kidsgptbackend.features.jokes.application.impl.DailyJokeServiceImpl;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 

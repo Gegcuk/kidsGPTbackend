@@ -10,9 +10,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import uk.gegc.kidsgptbackend.model.user.Role;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.util.Optional;
 import java.util.Set;

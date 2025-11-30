@@ -1,6 +1,6 @@
-package uk.gegc.kidsgptbackend.dto.user;
+package uk.gegc.kidsgptbackend.features.user.api.dto;
 
-import uk.gegc.kidsgptbackend.model.user.RoleName;
+import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 
 import java.time.Instant;
 import java.util.UUID;

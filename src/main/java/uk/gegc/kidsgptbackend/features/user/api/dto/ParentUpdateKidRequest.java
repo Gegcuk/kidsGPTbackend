@@ -1,9 +1,9 @@
-package uk.gegc.kidsgptbackend.dto.user;
+package uk.gegc.kidsgptbackend.features.user.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 
 public record ParentUpdateKidRequest(
     @NotBlank(message = "Nickname must not be blank")

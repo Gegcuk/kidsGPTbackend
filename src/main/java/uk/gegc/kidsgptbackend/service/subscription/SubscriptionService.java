@@ -2,7 +2,7 @@ package uk.gegc.kidsgptbackend.service.subscription;
 
 import uk.gegc.kidsgptbackend.dto.subscription.*;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
 import java.time.Instant;
 import java.util.List;

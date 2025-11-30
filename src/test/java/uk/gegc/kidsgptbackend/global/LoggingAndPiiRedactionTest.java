@@ -19,7 +19,7 @@ import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAcknowledger
 import uk.gegc.kidsgptbackend.service.subscription.impl.WebhookProcessingServiceImpl;
 import uk.gegc.kidsgptbackend.service.googleplay.impl.GooglePlayClientImpl;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 
 import java.util.List;

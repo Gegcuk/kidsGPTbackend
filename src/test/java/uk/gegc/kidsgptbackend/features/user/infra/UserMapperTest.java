@@ -1,20 +1,20 @@
-package uk.gegc.kidsgptbackend.mapper;
+package uk.gegc.kidsgptbackend.features.user.infra;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.parallel.Execution;
-import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
-import uk.gegc.kidsgptbackend.dto.user.*;
+import uk.gegc.kidsgptbackend.features.user.api.dto.*;
 import uk.gegc.kidsgptbackend.model.family.Kid;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.model.user.Role;
-import uk.gegc.kidsgptbackend.model.user.RoleName;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
+import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.infra.mapping.UserMapper;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.time.Instant;
 import java.util.Set;
@@ -22,8 +22,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Execution(ExecutionMode.CONCURRENT)
-public class UserMapperTest {
+public class UserMapperTest extends BaseUnitTest {
 
     @Mock
     RoleRepository roleRepository;
@@ -33,8 +32,10 @@ public class UserMapperTest {
     @InjectMocks
     UserMapper mapper;
 
-    public UserMapperTest() {
-        MockitoAnnotations.openMocks(this);
+    @Override
+    @BeforeEach
+    protected void setUp() {
+        super.setUp();
     }
 
     @Test

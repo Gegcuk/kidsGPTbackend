@@ -19,10 +19,10 @@ import uk.gegc.kidsgptbackend.model.consent.ConsentSource;
 import uk.gegc.kidsgptbackend.model.consent.ConsentStatus;
 import uk.gegc.kidsgptbackend.model.consent.ConsentType;
 import uk.gegc.kidsgptbackend.model.consent.LawfulBasis;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -70,7 +70,7 @@ class ConsentControllerIntegrationTest {
     void setUp() {
         // Set up role and user
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.model.user.Role r = new uk.gegc.kidsgptbackend.model.user.Role();
+            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
             r.setRole("ROLE_PARENT");
             return roleRepository.save(r);
         });

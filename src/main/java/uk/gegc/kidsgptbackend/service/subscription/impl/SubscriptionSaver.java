@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.subscription.CreateSubscriptionRequest;
 import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionPlanRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;

@@ -1,6 +1,6 @@
 package uk.gegc.kidsgptbackend.service.subscription;
 
-import uk.gegc.kidsgptbackend.model.user.User;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
 public interface SubscriptionAccessService {
 

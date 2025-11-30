@@ -1,9 +1,9 @@
 package uk.gegc.kidsgptbackend.service.family;
 
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
-import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
-import uk.gegc.kidsgptbackend.dto.user.KidSelfUpdateRequest;
-import uk.gegc.kidsgptbackend.dto.user.ParentUpdateKidRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileDto;
+import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
 
 import java.util.UUID;
 

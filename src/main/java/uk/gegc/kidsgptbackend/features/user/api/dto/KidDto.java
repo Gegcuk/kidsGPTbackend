@@ -1,6 +1,6 @@
-package uk.gegc.kidsgptbackend.dto.user;
+package uk.gegc.kidsgptbackend.features.user.api.dto;
 
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 
 import java.util.UUID;
 

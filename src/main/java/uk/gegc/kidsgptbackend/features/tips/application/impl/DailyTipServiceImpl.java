@@ -12,7 +12,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
-import uk.gegc.kidsgptbackend.model.user.AgeGroup;
+import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.tips.application.DailyTipService;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 

@@ -14,9 +14,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.dto.consent.VerificationInitiateRequest;
 import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
-import uk.gegc.kidsgptbackend.model.user.User;
-import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
-import uk.gegc.kidsgptbackend.repository.user.UserRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.model.User;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.util.UUID;
 
@@ -49,7 +49,7 @@ class VerificationControllerIntegrationTest {
     void setUp() {
         // Create parent role if it doesn't exist
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.model.user.Role role = new uk.gegc.kidsgptbackend.model.user.Role();
+            uk.gegc.kidsgptbackend.features.user.domain.model.Role role = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
             role.setRole("ROLE_PARENT");
             return roleRepository.save(role);
         });

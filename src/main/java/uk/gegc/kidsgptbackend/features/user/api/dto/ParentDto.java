@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.user;
+package uk.gegc.kidsgptbackend.features.user.api.dto;
 
 import java.util.UUID;
 
