@@ -1,29 +1,25 @@
 package uk.gegc.kidsgptbackend.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
-import uk.gegc.kidsgptbackend.model.family.Kid;
-import uk.gegc.kidsgptbackend.model.family.Parent;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.family.KidRepository;
-import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
-import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.util.HashSet;
@@ -34,19 +30,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@Transactional
-class ProfileControllerIntegrationTest {
+class ProfileControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private WebApplicationContext context;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
 
     @Autowired
     private ParentRepository parentRepository;
@@ -55,7 +42,7 @@ class ProfileControllerIntegrationTest {
     private KidRepository kidRepository;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private UserRepository userRepository;
 
     private MockMvc mockMvc;
     private User testKidUser;
@@ -63,8 +50,10 @@ class ProfileControllerIntegrationTest {
     private Parent testParent;
     private Kid testKid;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() throws Exception {
+        super.setUp();
         mockMvc = MockMvcBuilders
                 .webAppContextSetup(context)
                 .apply(springSecurity())
@@ -74,20 +63,9 @@ class ProfileControllerIntegrationTest {
     }
 
     private void setupTestData() {
-        // Create roles
-        Role childRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setRole(RoleName.ROLE_CHILD.name());
-                    return roleRepository.save(role);
-                });
-        
-        Role parentRole = roleRepository.findByRole(RoleName.ROLE_PARENT.name())
-                .orElseGet(() -> {
-                    Role role = new Role();
-                    role.setRole(RoleName.ROLE_PARENT.name());
-                    return roleRepository.save(role);
-                });
+        // Get roles (already created by BaseIntegrationTest.setUp())
+        Role childRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name()).orElseThrow();
+        Role parentRole = roleRepository.findByRole(RoleName.ROLE_PARENT.name()).orElseThrow();
 
         // Create parent user
         testParentUser = new User();

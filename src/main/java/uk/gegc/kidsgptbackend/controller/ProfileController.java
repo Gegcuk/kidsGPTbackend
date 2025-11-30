@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileDto;
 import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
-import uk.gegc.kidsgptbackend.service.family.KidProfileService;
+import uk.gegc.kidsgptbackend.features.family.application.KidProfileService;
 
 import java.util.UUID;
 

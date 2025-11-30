@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.model.family;
+package uk.gegc.kidsgptbackend.features.family.domain.model;
 
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;

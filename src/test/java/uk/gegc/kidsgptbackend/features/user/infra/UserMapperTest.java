@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import uk.gegc.kidsgptbackend.features.user.api.dto.*;
-import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;

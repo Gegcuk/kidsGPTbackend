@@ -2,7 +2,7 @@ package uk.gegc.kidsgptbackend.features.user.infra.mapping;
 
 import org.springframework.stereotype.Component;
 import uk.gegc.kidsgptbackend.features.user.api.dto.*;
-import uk.gegc.kidsgptbackend.model.family.Kid;
+import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
