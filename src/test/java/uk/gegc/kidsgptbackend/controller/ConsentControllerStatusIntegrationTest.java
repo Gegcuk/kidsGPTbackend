@@ -21,7 +21,7 @@ import java.util.List;
 
 @WebMvcTest(controllers = ConsentController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(uk.gegc.kidsgptbackend.config.ClockConfig.class)
+@Import(uk.gegc.kidsgptbackend.shared.config.ClockConfig.class)
 class ConsentControllerStatusIntegrationTest {
 
     @Autowired
@@ -56,9 +56,9 @@ class ConsentControllerStatusIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.error").value("Invalid verification ID format"))
+           .andExpect(jsonPath("$.title").value("Bad Request"))
            .andExpect(jsonPath("$.status").value(400))
-           .andExpect(jsonPath("$.details[0]").value("Invalid verification ID format"));
+           .andExpect(jsonPath("$.detail").value("Invalid verification ID format"));
 
         // And: service was called and handled the UUID validation
         Mockito.verify(consentService).getConsentStatus(invalidVerificationId);
@@ -79,9 +79,9 @@ class ConsentControllerStatusIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isNotFound())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.error").value("Verification not found"))
+           .andExpect(jsonPath("$.title").value("Resource Not Found"))
            .andExpect(jsonPath("$.status").value(404))
-           .andExpect(jsonPath("$.details[0]").value("Verification not found"));
+           .andExpect(jsonPath("$.detail").value("Verification not found"));
 
         // And: service was called
         Mockito.verify(consentService).getConsentStatus(validUuid);
@@ -102,9 +102,9 @@ class ConsentControllerStatusIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isGone())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.error").value("Verification has expired"))
+           .andExpect(jsonPath("$.title").value("Gone"))
            .andExpect(jsonPath("$.status").value(410))
-           .andExpect(jsonPath("$.details[0]").value("Verification has expired"));
+           .andExpect(jsonPath("$.detail").value("Verification has expired"));
 
         // And: service was called
         Mockito.verify(consentService).getConsentStatus(validUuid);
@@ -125,9 +125,9 @@ class ConsentControllerStatusIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isConflict())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.error").value("Verification not completed"))
+           .andExpect(jsonPath("$.title").value("Conflict"))
            .andExpect(jsonPath("$.status").value(409))
-           .andExpect(jsonPath("$.details[0]").value("Verification not completed"));
+           .andExpect(jsonPath("$.detail").value("Verification not completed"));
 
         // And: service was called
         Mockito.verify(consentService).getConsentStatus(validUuid);
@@ -298,9 +298,9 @@ class ConsentControllerStatusIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isInternalServerError())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.error").value("Internal Server Error"))
+           .andExpect(jsonPath("$.title").value("Internal Server Error"))
            .andExpect(jsonPath("$.status").value(500))
-           .andExpect(jsonPath("$.details[0]").value("An unexpected error occurred"));
+           .andExpect(jsonPath("$.detail").value("An unexpected error occurred"));
 
         // And: service was called
         Mockito.verify(consentService).getConsentStatus(validUuid);

@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
 import uk.gegc.kidsgptbackend.dto.story.*;
-import uk.gegc.kidsgptbackend.exception.ResourceNotFoundException;
+import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.mapper.StoryMapper;
 import uk.gegc.kidsgptbackend.model.story.Story;
 import uk.gegc.kidsgptbackend.model.story.StoryMessage;
@@ -29,7 +29,7 @@ import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.story.StoryRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.story.StoryService;
-import uk.gegc.kidsgptbackend.util.ModerationUtil;
+import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

@@ -12,7 +12,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
 import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
-import uk.gegc.kidsgptbackend.exception.ValidationException;
+import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;

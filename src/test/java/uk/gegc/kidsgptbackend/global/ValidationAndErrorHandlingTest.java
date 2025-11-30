@@ -7,11 +7,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import uk.gegc.kidsgptbackend.controller.advice.GlobalExceptionHandler;
-import uk.gegc.kidsgptbackend.controller.advice.GlobalExceptionHandler.ErrorResponse;
 import org.junit.jupiter.api.BeforeEach;
-import uk.gegc.kidsgptbackend.exception.ResourceNotFoundException;
-import uk.gegc.kidsgptbackend.exception.ValidationException;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.context.request.WebRequest;
+import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
+import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
+import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;
@@ -26,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -47,6 +49,7 @@ class ValidationAndErrorHandlingTest {
 
     private GlobalExceptionHandler globalExceptionHandler;
     private IdempotencyServiceImpl idempotencyService;
+    private WebRequest webRequest;
 
     @BeforeEach
     void setUp() {
@@ -60,6 +63,9 @@ class ValidationAndErrorHandlingTest {
             throw new RuntimeException("Failed to inject clock", e);
         }
         
+        webRequest = mock(WebRequest.class);
+        when(webRequest.getDescription(false)).thenReturn("uri=/api/test");
+        
         idempotencyService = new IdempotencyServiceImpl(webhookEventRepository);
     }
 
@@ -70,19 +76,19 @@ class ValidationAndErrorHandlingTest {
         ResourceNotFoundException exception = new ResourceNotFoundException("User not found with ID: 123");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleNotFound(exception);
+        ProblemDetail response = globalExceptionHandler.handleNotFound(exception, webRequest);
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.status()).isEqualTo(404);
-        assertThat(response.error()).isEqualTo("Not Found");
-        assertThat(response.details()).contains("User not found with ID: 123");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getTitle()).isEqualTo("Resource Not Found");
+        assertThat(response.getDetail()).contains("User not found with ID: 123");
         
         // Verify no sensitive information is exposed
-        assertThat(response.details().toString()).doesNotContain("password");
-        assertThat(response.details().toString()).doesNotContain("token");
-        assertThat(response.details().toString()).doesNotContain("secret");
-        assertThat(response.details().toString()).doesNotContain("key");
+        assertThat(response.getDetail()).doesNotContain("password");
+        assertThat(response.getDetail()).doesNotContain("token");
+        assertThat(response.getDetail()).doesNotContain("secret");
+        assertThat(response.getDetail()).doesNotContain("key");
     }
 
     @Test
@@ -92,13 +98,13 @@ class ValidationAndErrorHandlingTest {
         ValidationException exception = new ValidationException("Invalid email format");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Bad Request");
-        assertThat(response.details()).contains("Invalid email format");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getDetail()).contains("Invalid email format");
     }
 
     @Test
@@ -108,13 +114,13 @@ class ValidationAndErrorHandlingTest {
         RuntimeException exception = new RuntimeException();
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Bad Request");
-        assertThat(response.details()).contains("Invalid request");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getDetail()).contains("Invalid request");
     }
 
     @Test
@@ -203,11 +209,11 @@ class ValidationAndErrorHandlingTest {
         ResourceNotFoundException exception = new ResourceNotFoundException("Test error");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleNotFound(exception);
+        ProblemDetail response = globalExceptionHandler.handleNotFound(exception, webRequest);
 
         // Then
-        assertThat(response.timestamp()).isNotNull();
-        assertThat(response.timestamp()).isEqualTo("2024-01-01T12:00:00");
+        assertThat(response.getProperties().get("timestamp")).isNotNull();
+        assertThat(response.getProperties().get("timestamp")).isEqualTo(Instant.parse("2024-01-01T12:00:00Z"));
     }
 
     @Test
@@ -217,13 +223,13 @@ class ValidationAndErrorHandlingTest {
         RuntimeException exception = new RuntimeException("Internal database connection failed");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
         // The error message should be sanitized to not expose internal details
-        assertThat(response.details().toString()).doesNotContain("database");
-        assertThat(response.details().toString()).doesNotContain("connection");
-        assertThat(response.details().toString()).doesNotContain("Internal");
+        assertThat(response.getDetail()).doesNotContain("database");
+        assertThat(response.getDetail()).doesNotContain("connection");
+        assertThat(response.getDetail()).doesNotContain("Internal");
     }
 
     @Test
@@ -233,12 +239,12 @@ class ValidationAndErrorHandlingTest {
         ValidationException exception = new ValidationException("Email address is required");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
-        assertThat(response.details()).contains("Email address is required");
-        assertThat(response.error()).isEqualTo("Bad Request");
-        assertThat(response.status()).isEqualTo(400);
+        assertThat(response.getDetail()).contains("Email address is required");
+        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getStatus()).isEqualTo(400);
     }
 
     @Test
@@ -250,24 +256,24 @@ class ValidationAndErrorHandlingTest {
         RuntimeException runtimeException = new RuntimeException("Unexpected error");
 
         // When
-        ErrorResponse notFoundResponse = globalExceptionHandler.handleNotFound(notFoundException);
-        ErrorResponse validationResponse = globalExceptionHandler.handleBadRequest(validationException);
-        ErrorResponse runtimeResponse = globalExceptionHandler.handleBadRequest(runtimeException);
+        ProblemDetail notFoundResponse = globalExceptionHandler.handleNotFound(notFoundException, webRequest);
+        ProblemDetail validationResponse = globalExceptionHandler.handleBadRequest(validationException, webRequest);
+        ProblemDetail runtimeResponse = globalExceptionHandler.handleBadRequest(runtimeException, webRequest);
 
         // Then
         // All responses should have consistent structure
-        assertThat(notFoundResponse.timestamp()).isNotNull();
-        assertThat(validationResponse.timestamp()).isNotNull();
-        assertThat(runtimeResponse.timestamp()).isNotNull();
+        assertThat(notFoundResponse.getProperties().get("timestamp")).isNotNull();
+        assertThat(validationResponse.getProperties().get("timestamp")).isNotNull();
+        assertThat(runtimeResponse.getProperties().get("timestamp")).isNotNull();
         
-        assertThat(notFoundResponse.details()).isNotNull();
-        assertThat(validationResponse.details()).isNotNull();
-        assertThat(runtimeResponse.details()).isNotNull();
+        assertThat(notFoundResponse.getDetail()).isNotNull();
+        assertThat(validationResponse.getDetail()).isNotNull();
+        assertThat(runtimeResponse.getDetail()).isNotNull();
         
         // Status codes should be appropriate
-        assertThat(notFoundResponse.status()).isEqualTo(404);
-        assertThat(validationResponse.status()).isEqualTo(400);
-        assertThat(runtimeResponse.status()).isEqualTo(400);
+        assertThat(notFoundResponse.getStatus()).isEqualTo(404);
+        assertThat(validationResponse.getStatus()).isEqualTo(400);
+        assertThat(runtimeResponse.getStatus()).isEqualTo(400);
     }
 
     @Test
@@ -296,15 +302,15 @@ class ValidationAndErrorHandlingTest {
         ValidationException exception = new ValidationException("Please provide a valid email address");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
-        assertThat(response.details()).contains("Please provide a valid email address");
-        assertThat(response.error()).isEqualTo("Bad Request");
+        assertThat(response.getDetail()).contains("Please provide a valid email address");
+        assertThat(response.getTitle()).isEqualTo("Bad Request");
         
         // Error should be actionable (tells user what to do)
-        assertThat(response.details().toString()).contains("provide");
-        assertThat(response.details().toString()).contains("valid");
+        assertThat(response.getDetail()).contains("provide");
+        assertThat(response.getDetail()).contains("valid");
     }
 
     @Test

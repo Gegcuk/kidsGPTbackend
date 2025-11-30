@@ -15,7 +15,7 @@ import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.image.ImageGenerationService;
-import uk.gegc.kidsgptbackend.util.ModerationUtil;
+import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 
 import java.security.Principal;
 import java.time.Clock;

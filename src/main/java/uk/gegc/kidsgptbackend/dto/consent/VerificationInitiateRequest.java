@@ -5,7 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
-import uk.gegc.kidsgptbackend.validation.ValidVerificationInitiateRequest;
+import uk.gegc.kidsgptbackend.shared.validation.ValidVerificationInitiateRequest;
 
 import java.util.UUID;
 

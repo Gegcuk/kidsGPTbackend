@@ -14,7 +14,7 @@ import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
-import uk.gegc.kidsgptbackend.util.ModerationUtil;
+import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;

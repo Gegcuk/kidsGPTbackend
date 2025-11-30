@@ -443,7 +443,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         );
 
         MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(serverIp,
+        req.setAttribute("requestContext", new uk.gegc.kidsgptbackend.shared.util.RequestContext(serverIp,
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
 
@@ -742,7 +742,7 @@ class ConsentGrantServiceTest extends ConsentServiceBaseTest {
         String capturedIp = "203.0.113.55";
         String capturedUa = "ServerUA/2.0";
         MockHttpServletRequest req = new MockHttpServletRequest();
-        req.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(capturedIp, capturedUa));
+        req.setAttribute("requestContext", new uk.gegc.kidsgptbackend.shared.util.RequestContext(capturedIp, capturedUa));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(req));
 
         ConsentLedger savedConsent = ConsentLedger.builder()

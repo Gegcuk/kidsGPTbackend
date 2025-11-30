@@ -16,7 +16,7 @@ import uk.gegc.kidsgptbackend.repository.auth.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
 import uk.gegc.kidsgptbackend.service.auth.PasswordResetService;
 import uk.gegc.kidsgptbackend.service.email.EmailService;
-import uk.gegc.kidsgptbackend.util.TokenGenerator;
+import uk.gegc.kidsgptbackend.shared.util.TokenGenerator;
 
 import java.time.Clock;
 import java.time.LocalDateTime;

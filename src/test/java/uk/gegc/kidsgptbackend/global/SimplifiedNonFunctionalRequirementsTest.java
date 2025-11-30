@@ -8,8 +8,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import uk.gegc.kidsgptbackend.controller.advice.GlobalExceptionHandler;
-import uk.gegc.kidsgptbackend.controller.advice.GlobalExceptionHandler.ErrorResponse;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.context.request.WebRequest;
+import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 
@@ -19,6 +20,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 /**
  * Simplified tests for core non-functional requirements that don't require complex webhook processing.
@@ -30,6 +32,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SimplifiedNonFunctionalRequirementsTest {
 
     private GlobalExceptionHandler globalExceptionHandler;
+    private WebRequest webRequest;
 
     @BeforeEach
     void setUp() {
@@ -44,6 +47,9 @@ class SimplifiedNonFunctionalRequirementsTest {
             // If reflection fails, use a default clock
             globalExceptionHandler = new GlobalExceptionHandler();
         }
+        
+        webRequest = mock(WebRequest.class);
+        when(webRequest.getDescription(false)).thenReturn("uri=/api/test");
     }
 
     @Test
@@ -53,14 +59,14 @@ class SimplifiedNonFunctionalRequirementsTest {
         RuntimeException exception = new RuntimeException("Internal database connection failed");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
         // The error message should be sanitized to not expose internal details
-        assertThat(response.details().toString()).doesNotContain("database");
-        assertThat(response.details().toString()).doesNotContain("connection");
-        assertThat(response.details().toString()).doesNotContain("Internal");
-        assertThat(response.details().toString()).contains("Invalid request");
+        assertThat(response.getDetail()).doesNotContain("database");
+        assertThat(response.getDetail()).doesNotContain("connection");
+        assertThat(response.getDetail()).doesNotContain("Internal");
+        assertThat(response.getDetail()).contains("Invalid request");
     }
 
     @Test
@@ -112,14 +118,14 @@ class SimplifiedNonFunctionalRequirementsTest {
         RuntimeException exception = new RuntimeException("Test error");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Bad Request");
-        assertThat(response.details()).isNotNull();
-        assertThat(response.timestamp()).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getDetail()).isNotNull();
+        assertThat(response.getProperties().get("timestamp")).isNotNull();
     }
 
     @Test
@@ -166,11 +172,11 @@ class SimplifiedNonFunctionalRequirementsTest {
             RuntimeException exception = new RuntimeException(message);
 
             // When
-            ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+            ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
             // Then
-            assertThat(response.details().toString()).contains("Invalid request");
-            assertThat(response.details().toString()).doesNotContain(message.toLowerCase());
+            assertThat(response.getDetail()).contains("Invalid request");
+            assertThat(response.getDetail()).doesNotContain(message.toLowerCase());
         }
     }
 
@@ -181,10 +187,10 @@ class SimplifiedNonFunctionalRequirementsTest {
         RuntimeException exception = new RuntimeException("User input validation failed");
 
         // When
-        ErrorResponse response = globalExceptionHandler.handleBadRequest(exception);
+        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
 
         // Then
-        assertThat(response.details().toString()).contains("User input validation failed");
-        assertThat(response.details().toString()).doesNotContain("Invalid request");
+        assertThat(response.getDetail()).contains("User input validation failed");
+        assertThat(response.getDetail()).doesNotContain("Invalid request");
     }
 }

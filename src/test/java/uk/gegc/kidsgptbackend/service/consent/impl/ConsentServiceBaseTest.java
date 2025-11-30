@@ -70,7 +70,7 @@ abstract class ConsentServiceBaseTest {
         lenient().when(parentVerificationRepository.findById(any(UUID.class))).thenReturn(Optional.empty());
 
         MockHttpServletRequest mockRequest = new MockHttpServletRequest();
-        mockRequest.setAttribute("requestContext", new uk.gegc.kidsgptbackend.util.RequestContext(serverIp, serverUa));
+        mockRequest.setAttribute("requestContext", new uk.gegc.kidsgptbackend.shared.util.RequestContext(serverIp, serverUa));
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(mockRequest));
 
         validRequest = new ConsentGrantRequest(
