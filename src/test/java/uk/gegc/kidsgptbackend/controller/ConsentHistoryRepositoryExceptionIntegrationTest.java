@@ -70,7 +70,7 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.title").value("Request Failed"))
+                .andExpect(jsonPath("$.title").value("Internal Server Error"))
                 .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
@@ -89,7 +89,7 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                 .andExpect(status().isInternalServerError())
                 .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                 .andExpect(jsonPath("$.status").value(500))
-                .andExpect(jsonPath("$.title").value("Request Failed"))
+                .andExpect(jsonPath("$.title").value("Internal Server Error"))
                 .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
@@ -131,7 +131,7 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                     .andExpect(status().isInternalServerError())
                     .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                     .andExpect(jsonPath("$.status").value(500))
-                    .andExpect(jsonPath("$.title").value("Request Failed"))
+                    .andExpect(jsonPath("$.title").value("Internal Server Error"))
                     .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"));
         }
     }
@@ -159,7 +159,7 @@ class ConsentHistoryRepositoryExceptionIntegrationTest {
                     .andExpect(status().isInternalServerError())
                     .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
                     .andExpect(jsonPath("$.status").value(500))
-                    .andExpect(jsonPath("$.title").value("Request Failed"))
+                    .andExpect(jsonPath("$.title").value("Internal Server Error"))
                     .andExpect(jsonPath("$.detail").value("Failed to retrieve consent history"))
                     .andExpect(jsonPath("$.timestamp").exists());
         }
