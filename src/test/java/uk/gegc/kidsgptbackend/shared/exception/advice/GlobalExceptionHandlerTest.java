@@ -3,39 +3,49 @@ package uk.gegc.kidsgptbackend.shared.exception.advice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.ProblemDetail;
+import org.springframework.web.context.request.WebRequest;
 import uk.gegc.kidsgptbackend.shared.exception.*;
-import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
-class GlobalExceptionHandlerTest {
+/**
+ * Tests for {@link GlobalExceptionHandler} using RFC 7807 Problem Details.
+ */
+class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTest {
 
     private GlobalExceptionHandler handler;
+    private WebRequest webRequest;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
+        super.setUp();
         Clock clock = Clock.fixed(Instant.ofEpochMilli(1000L), java.time.ZoneOffset.UTC);
         handler = new GlobalExceptionHandler();
         org.springframework.test.util.ReflectionTestUtils.setField(handler, "clock", clock);
+        webRequest = mock(WebRequest.class);
+        when(webRequest.getDescription(false)).thenReturn("uri=/api/test");
     }
 
     @Test
-    @DisplayName("handleBadRequest: returns 400 with validation errors")
+    @DisplayName("handleBadRequest: returns 400 with ProblemDetail")
     void handleBadRequest_returnsBadRequest() {
         ValidationException ex = new ValidationException("Field is required");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleBadRequest(ex);
+        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Bad Request");
-        assertThat(response.details()).contains("Field is required");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getDetail()).contains("Field is required");
+        assertThat(response.getType().toString()).contains("/bad-request");
+        assertThat(response.getProperties().get("timestamp")).isNotNull();
     }
 
     @Test
@@ -43,11 +53,12 @@ class GlobalExceptionHandlerTest {
     void handleUnauthorized_returnsUnauthorized() {
         UnauthorizedException ex = new UnauthorizedException("Invalid credentials");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleUnauthorized(ex);
+        ProblemDetail response = handler.handleUnauthorized(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(401);
-        assertThat(response.error()).isEqualTo("Unauthorized");
-        assertThat(response.details()).contains("Invalid credentials");
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(response.getTitle()).isEqualTo("Unauthorized");
+        assertThat(response.getDetail()).contains("Invalid credentials");
+        assertThat(response.getType().toString()).contains("/unauthorized");
     }
 
     @Test
@@ -55,11 +66,12 @@ class GlobalExceptionHandlerTest {
     void handleNotFound_returnsNotFound() {
         ResourceNotFoundException ex = new ResourceNotFoundException("User not found");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleNotFound(ex);
+        ProblemDetail response = handler.handleNotFound(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(404);
-        assertThat(response.error()).isEqualTo("Not Found");
-        assertThat(response.details()).contains("User not found");
+        assertThat(response.getStatus()).isEqualTo(404);
+        assertThat(response.getTitle()).isEqualTo("Resource Not Found");
+        assertThat(response.getDetail()).contains("User not found");
+        assertThat(response.getType().toString()).contains("/not-found");
     }
 
     @Test
@@ -67,11 +79,12 @@ class GlobalExceptionHandlerTest {
     void handleRateLimit_returnsTooManyRequests() {
         RateLimitException ex = new RateLimitException("Rate limit exceeded", null);
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleRateLimit(ex);
+        ProblemDetail response = handler.handleRateLimit(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(429);
-        assertThat(response.error()).isEqualTo("Too Many Requests");
-        assertThat(response.details()).contains("Rate limit exceeded");
+        assertThat(response.getStatus()).isEqualTo(429);
+        assertThat(response.getTitle()).isEqualTo("Too Many Requests");
+        assertThat(response.getDetail()).contains("Rate limit exceeded");
+        assertThat(response.getType().toString()).contains("/rate-limit");
     }
 
     @Test
@@ -79,11 +92,12 @@ class GlobalExceptionHandlerTest {
     void handleModerationUnavailable_returnsServiceUnavailable() {
         ModerationServiceException ex = new ModerationServiceException("Content violates guidelines", null);
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleModerationUnavailable(ex);
+        ProblemDetail response = handler.handleModerationUnavailable(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(503);
-        assertThat(response.error()).isEqualTo("Service Unavailable");
-        assertThat(response.details()).contains("Content violates guidelines");
+        assertThat(response.getStatus()).isEqualTo(503);
+        assertThat(response.getTitle()).isEqualTo("Service Unavailable");
+        assertThat(response.getDetail()).contains("Content violates guidelines");
+        assertThat(response.getType().toString()).contains("/service-unavailable");
     }
 
     @Test
@@ -91,11 +105,11 @@ class GlobalExceptionHandlerTest {
     void handleUnsupportedOperation_returnsBadRequest() {
         UnsupportedOperationException ex = new UnsupportedOperationException("Operation not supported");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleUnsupportedOperation(ex);
+        ProblemDetail response = handler.handleUnsupportedOperation(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Bad Request");
-        assertThat(response.details()).contains("Operation not supported");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Unsupported Operation");
+        assertThat(response.getDetail()).contains("Operation not supported");
     }
 
     @Test
@@ -103,9 +117,9 @@ class GlobalExceptionHandlerTest {
     void handleUnsupportedOperation_nullMessage_returnsDefaultMessage() {
         UnsupportedOperationException ex = new UnsupportedOperationException();
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleUnsupportedOperation(ex);
+        ProblemDetail response = handler.handleUnsupportedOperation(ex, webRequest);
 
-        assertThat(response.details()).contains("Operation not supported");
+        assertThat(response.getDetail()).contains("Operation not supported");
     }
 
     @Test
@@ -113,11 +127,11 @@ class GlobalExceptionHandlerTest {
     void handleIllegalArgument_returnsBadRequest() {
         IllegalArgumentException ex = new IllegalArgumentException("Invalid argument");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleIllegalArgument(ex);
+        ProblemDetail response = handler.handleIllegalArgument(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Bad request");
-        assertThat(response.details()).contains("Invalid argument");
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Invalid Argument");
+        assertThat(response.getDetail()).contains("Invalid argument");
     }
 
     @Test
@@ -125,11 +139,11 @@ class GlobalExceptionHandlerTest {
     void handleIllegalState_returnsConflict() {
         IllegalStateException ex = new IllegalStateException("State conflict");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleIllegalState(ex);
+        ProblemDetail response = handler.handleIllegalState(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(409);
-        assertThat(response.error()).isEqualTo("Conflict");
-        assertThat(response.details()).contains("State conflict");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getTitle()).isEqualTo("Conflict");
+        assertThat(response.getDetail()).contains("State conflict");
     }
 
     @Test
@@ -139,11 +153,11 @@ class GlobalExceptionHandlerTest {
                 new org.springframework.dao.DataIntegrityViolationException("Database constraint violation",
                         new RuntimeException("Unique constraint failed"));
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleDataIntegrity(ex);
+        ProblemDetail response = handler.handleDataIntegrity(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(409);
-        assertThat(response.error()).isEqualTo("Conflict");
-        assertThat(response.details()).contains("Database error: Unique constraint failed");
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getTitle()).isEqualTo("Data Integrity Violation");
+        assertThat(response.getDetail()).contains("Database constraint violation");
     }
 
     @Test
@@ -152,11 +166,11 @@ class GlobalExceptionHandlerTest {
         org.springframework.security.access.AccessDeniedException ex =
                 new org.springframework.security.access.AccessDeniedException("Access denied");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
+        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(403);
-        assertThat(response.error()).isEqualTo("Access Denied");
-        assertThat(response.details()).contains("Access denied");
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getTitle()).isEqualTo("Access Denied");
+        assertThat(response.getDetail()).contains("Access denied");
     }
 
     @Test
@@ -165,9 +179,9 @@ class GlobalExceptionHandlerTest {
         org.springframework.security.access.AccessDeniedException ex =
                 new org.springframework.security.access.AccessDeniedException(null);
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
+        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
 
-        assertThat(response.details()).contains("You do not have permission to access this resource");
+        assertThat(response.getDetail()).contains("You do not have permission to access this resource");
     }
 
     @Test
@@ -175,22 +189,21 @@ class GlobalExceptionHandlerTest {
     void handleAllOthers_returnsInternalServerError() {
         RuntimeException ex = new RuntimeException("Unexpected error");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleAllOthers(ex);
+        ProblemDetail response = handler.handleAllOthers(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(500);
-        assertThat(response.error()).isEqualTo("Internal Server Error");
-        assertThat(response.details()).contains("An unexpected error occurred");
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getTitle()).isEqualTo("Internal Server Error");
+        assertThat(response.getDetail()).contains("An unexpected error occurred");
     }
 
     @Test
-    @DisplayName("ErrorResponse: timestamp is set correctly")
-    void errorResponse_timestampIsSet() {
+    @DisplayName("ProblemDetail: timestamp is set correctly")
+    void problemDetail_timestampIsSet() {
         ValidationException ex = new ValidationException("Test");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleBadRequest(ex);
+        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
 
-        // Since we're using a fixed clock in the test, the timestamp should be exactly what we set
-        assertThat(response.timestamp()).isEqualTo(LocalDateTime.ofInstant(Instant.ofEpochMilli(1000L), java.time.ZoneOffset.UTC));
+        assertThat(response.getProperties().get("timestamp")).isEqualTo(Instant.ofEpochMilli(1000L));
     }
 
     @Test
@@ -200,13 +213,12 @@ class GlobalExceptionHandlerTest {
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.CONFLICT, "Conflict occurred");
 
-        org.springframework.http.ResponseEntity<GlobalExceptionHandler.ErrorResponse> response =
-                handler.handleResponseStatusException(ex);
+        org.springframework.http.ResponseEntity<ProblemDetail> response =
+                handler.handleResponseStatusException(ex, webRequest);
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
-        assertThat(response.getBody().status()).isEqualTo(409);
-        assertThat(response.getBody().error()).isEqualTo("Conflict occurred");
-        assertThat(response.getBody().details()).contains("Conflict occurred");
+        assertThat(response.getBody().getStatus()).isEqualTo(409);
+        assertThat(response.getBody().getDetail()).contains("Conflict occurred");
     }
 
     @Test
@@ -224,11 +236,14 @@ class GlobalExceptionHandlerTest {
                         Set.of(violation1, violation2)
                 );
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleConstraintViolation(ex);
+        ProblemDetail response = handler.handleConstraintViolation(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(400);
-        assertThat(response.error()).isEqualTo("Validation Failed");
-        assertThat(response.details()).hasSize(2);
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) response.getProperties().get("errors");
+        assertThat(errors).hasSize(2);
+        assertThat(errors).contains("Field is required", "Invalid format");
     }
 
     @Test
@@ -243,14 +258,14 @@ class GlobalExceptionHandlerTest {
                 ex,
                 org.springframework.http.HttpHeaders.EMPTY,
                 org.springframework.http.HttpStatusCode.valueOf(400),
-                mock(org.springframework.web.context.request.WebRequest.class)
+                webRequest
         );
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).isInstanceOf(GlobalExceptionHandler.ErrorResponse.class);
-        GlobalExceptionHandler.ErrorResponse errorResponse = (GlobalExceptionHandler.ErrorResponse) response.getBody();
-        assertThat(errorResponse.status()).isEqualTo(400);
-        assertThat(errorResponse.error()).isEqualTo("Malformed JSON");
+        assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
+        ProblemDetail problemDetail = (ProblemDetail) response.getBody();
+        assertThat(problemDetail.getStatus()).isEqualTo(400);
+        assertThat(problemDetail.getTitle()).isEqualTo("Malformed Request");
     }
 
     @Test
@@ -274,27 +289,55 @@ class GlobalExceptionHandlerTest {
                 ex,
                 org.springframework.http.HttpHeaders.EMPTY,
                 org.springframework.http.HttpStatusCode.valueOf(400),
-                mock(org.springframework.web.context.request.WebRequest.class)
+                webRequest
         );
 
         assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody()).isInstanceOf(GlobalExceptionHandler.ErrorResponse.class);
-        GlobalExceptionHandler.ErrorResponse errorResponse = (GlobalExceptionHandler.ErrorResponse) response.getBody();
-        assertThat(errorResponse.status()).isEqualTo(400);
-        assertThat(errorResponse.error()).isEqualTo("Validation Failed");
-        assertThat(errorResponse.details()).contains("username: Username is required", "email: Email is invalid");
+        assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
+        ProblemDetail problemDetail = (ProblemDetail) response.getBody();
+        assertThat(problemDetail.getStatus()).isEqualTo(400);
+        assertThat(problemDetail.getTitle()).isEqualTo("Validation Failed");
+        @SuppressWarnings("unchecked")
+        List<String> errors = (List<String>) problemDetail.getProperties().get("errors");
+        assertThat(errors).contains("username: Username is required", "email: Email is invalid");
     }
 
     @Test
     @DisplayName("handleAuthorizationDenied: returns 403")
     void handleAuthorizationDenied_returnsForbidden() {
-        org.springframework.security.authorization.AuthorizationDeniedException ex =
-                new org.springframework.security.authorization.AuthorizationDeniedException("Authorization denied");
+        // Use AccessDeniedException instead, which is also handled by handleAccessDenied
+        org.springframework.security.access.AccessDeniedException ex =
+                new org.springframework.security.access.AccessDeniedException("Authorization denied");
 
-        GlobalExceptionHandler.ErrorResponse response = handler.handleAccessDenied(ex);
+        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
 
-        assertThat(response.status()).isEqualTo(403);
-        assertThat(response.error()).isEqualTo("Access Denied");
-        assertThat(response.details()).contains("Authorization denied");
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(response.getTitle()).isEqualTo("Access Denied");
+        assertThat(response.getDetail()).contains("Authorization denied");
     }
-} 
+
+    @Test
+    @DisplayName("ProblemDetail: includes type and instance URIs")
+    void problemDetail_includesTypeAndInstance() {
+        ValidationException ex = new ValidationException("Test");
+
+        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+
+        assertThat(response.getType()).isNotNull();
+        assertThat(response.getType().toString()).startsWith("/errors/");
+        assertThat(response.getInstance()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("handleConversationFormat: returns 400")
+    void handleConversationFormat_returnsBadRequest() {
+        ConversationFormatException ex = new ConversationFormatException("Invalid conversation format");
+
+        ProblemDetail response = handler.handleConversationFormat(ex, webRequest);
+
+        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getTitle()).isEqualTo("Invalid Conversation Format");
+        assertThat(response.getDetail()).contains("Invalid conversation format");
+        assertThat(response.getType().toString()).contains("/conversation-format");
+    }
+}
