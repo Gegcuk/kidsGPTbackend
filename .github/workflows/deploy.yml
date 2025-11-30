@@ -146,28 +146,17 @@ jobs:
           echo "Pulling new image: ${{ secrets.DOCKER_USER }}/kidsgptbackend:${{ github.sha }}"
           docker pull ${{ secrets.DOCKER_USER }}/kidsgptbackend:${{ github.sha }}
           
-          echo "Stopping and removing old container..."
+          echo "Starting/updating container with tag: ${{ github.sha }}"
           if [ -f docker-compose.yml ]; then
-            docker compose -f docker-compose.yml stop app || true
-            docker compose -f docker-compose.yml rm -f app || true
+            APP_TAG=${{ github.sha }} docker compose -f docker-compose.yml up -d --force-recreate app
           else
-            echo "⚠️  docker-compose.yml not found, trying to find it..."
             COMPOSE_FILE=$(find . -name "docker-compose.yml" -type f 2>/dev/null | head -1)
             if [ -n "$COMPOSE_FILE" ]; then
-              echo "Found docker-compose.yml at: $COMPOSE_FILE"
-              docker compose -f "$COMPOSE_FILE" stop app || true
-              docker compose -f "$COMPOSE_FILE" rm -f app || true
+              APP_TAG=${{ github.sha }} docker compose -f "$COMPOSE_FILE" up -d --force-recreate app
             else
               echo "❌ docker-compose.yml not found"
               exit 1
             fi
-          fi
-          
-          echo "Starting new container with tag: ${{ github.sha }}"
-          if [ -f docker-compose.yml ]; then
-            APP_TAG=${{ github.sha }} docker compose -f docker-compose.yml up -d --no-deps app
-          else
-            APP_TAG=${{ github.sha }} docker compose -f "$COMPOSE_FILE" up -d --no-deps app
           fi
           
           echo "Verifying container started with correct image..."
