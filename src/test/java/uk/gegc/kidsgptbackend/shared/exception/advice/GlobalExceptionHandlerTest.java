@@ -3,7 +3,9 @@ package uk.gegc.kidsgptbackend.shared.exception.advice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.context.request.WebRequest;
 import uk.gegc.kidsgptbackend.shared.exception.*;
 
@@ -157,7 +159,8 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
 
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getTitle()).isEqualTo("Data Integrity Violation");
-        assertThat(response.getDetail()).contains("Database constraint violation");
+        assertThat(response.getDetail()).contains("Database error: Unique constraint failed");
+        assertThat(response.getProperties().get("errors")).isNotNull();
     }
 
     @Test
@@ -249,9 +252,12 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     @Test
     @DisplayName("handleHttpMessageNotReadable: returns malformed JSON error")
     void handleHttpMessageNotReadable_returnsMalformedJsonError() {
-        org.springframework.http.converter.HttpMessageNotReadableException ex =
-                new org.springframework.http.converter.HttpMessageNotReadableException(
-                        "Malformed JSON"
+        HttpInputMessage inputMessage = mock(HttpInputMessage.class);
+        HttpMessageNotReadableException ex =
+                new HttpMessageNotReadableException(
+                        "Malformed JSON",
+                        new RuntimeException("JSON parse error"),
+                        inputMessage
                 );
 
         org.springframework.http.ResponseEntity<Object> response = handler.handleHttpMessageNotReadable(

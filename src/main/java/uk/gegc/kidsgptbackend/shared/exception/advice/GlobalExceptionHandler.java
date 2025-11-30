@@ -163,14 +163,17 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     @ResponseStatus(HttpStatus.CONFLICT)
     public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, WebRequest request) {
+        String causeMessage = ex.getMostSpecificCause() != null ?
+                ex.getMostSpecificCause().getMessage() : "Database constraint violation";
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
                 HttpStatus.CONFLICT,
-                "Database constraint violation"
+                "Database error: " + causeMessage
         );
         problemDetail.setTitle("Data Integrity Violation");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/data-integrity"));
+        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/data-integrity-violation"));
         problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
         problemDetail.setProperty("timestamp", Instant.now(clock));
+        problemDetail.setProperty("errors", List.of("Database error: " + causeMessage));
         return problemDetail;
     }
 
