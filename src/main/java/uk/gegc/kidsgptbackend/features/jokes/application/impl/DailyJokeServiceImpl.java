@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.jokes.impl;
+package uk.gegc.kidsgptbackend.features.jokes.application.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,9 +11,9 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StreamUtils;
-import uk.gegc.kidsgptbackend.dto.jokes.DailyJokeDto;
+import uk.gegc.kidsgptbackend.features.jokes.api.dto.DailyJokeDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.service.jokes.DailyJokeService;
+import uk.gegc.kidsgptbackend.features.jokes.application.DailyJokeService;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 
 import java.io.IOException;

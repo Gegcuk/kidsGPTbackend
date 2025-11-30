@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.jokes;
+package uk.gegc.kidsgptbackend.features.jokes.api.dto;
 
 import lombok.Data;
 

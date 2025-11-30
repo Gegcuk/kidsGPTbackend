@@ -1,6 +1,6 @@
-package uk.gegc.kidsgptbackend.service.jokes;
+package uk.gegc.kidsgptbackend.features.jokes.application;
 
-import uk.gegc.kidsgptbackend.dto.jokes.DailyJokeDto;
+import uk.gegc.kidsgptbackend.features.jokes.api.dto.DailyJokeDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 
 public interface DailyJokeService {

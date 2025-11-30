@@ -15,7 +15,7 @@ import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;
 import uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository;
 import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
 import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
-import uk.gegc.kidsgptbackend.dto.jokes.DailyJokeDto;
+import uk.gegc.kidsgptbackend.features.jokes.api.dto.DailyJokeDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 
 import java.time.Clock;
