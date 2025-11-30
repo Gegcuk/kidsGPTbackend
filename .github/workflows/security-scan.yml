@@ -32,11 +32,9 @@ jobs:
         continue-on-error: true
         timeout-minutes: 30
         run: |
-                if [ -z "$NVD_API_KEY" ]; then
-                  echo "⚠️ NVD_API_KEY not set. Scan will be slower."
-                fi
-          # Pass API key as both environment variable and Maven property
-          # Note: continue-on-error handles failures, so we don't need || exit 0
+          if [ -z "$NVD_API_KEY" ]; then
+            echo "⚠️ NVD_API_KEY not set. Scan will be slower."
+          fi
           ./mvnw --batch-mode org.owasp:dependency-check-maven:check \
             -Dnvd.api.key="$NVD_API_KEY" \
             -Ddependency-check.nvd.apiKey="$NVD_API_KEY"

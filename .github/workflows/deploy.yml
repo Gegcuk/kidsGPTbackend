@@ -321,11 +321,11 @@ jobs:
         path: metrics/
         retention-days: 90
     
-            - name: Deployment notification
-              if: always()
-              run: |
-                if [ "${{ steps.health_check.outcome }}" = "success" ]; then
-                  echo "✅ Deployment successful"
-                else
-                  echo "❌ Deployment failed"
-                fi
+    - name: Deployment notification
+      if: always()
+      run: |
+        if [ "${{ steps.health_check.outcome }}" = "success" ]; then
+          echo "✅ Deployment successful"
+        else
+          echo "❌ Deployment failed"
+        fi
