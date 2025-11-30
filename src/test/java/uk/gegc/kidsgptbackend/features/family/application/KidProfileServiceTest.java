@@ -11,7 +11,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileDto;
 import uk.gegc.kidsgptbackend.features.user.api.dto.ChildProfileUpdateRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.KidSelfUpdateRequest;
+import uk.gegc.kidsgptbackend.features.user.api.dto.ParentUpdateKidRequest;
 import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
 import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
@@ -49,6 +52,9 @@ class KidProfileServiceTest extends BaseUnitTest {
 
     @Mock
     private Authentication authentication;
+
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private KidProfileServiceImpl kidProfileService;
@@ -293,5 +299,538 @@ class KidProfileServiceTest extends BaseUnitTest {
         verify(parentRepository, never()).findByEmail(any());
         verify(kidRepository, never()).findByUserId(any());
         verify(kidRepository, never()).findByParentId(any());
+    }
+
+    // ===== TESTS FOR updateKidSelfProfile() =====
+
+    @Test
+    @DisplayName("updateKidSelfProfile: Should successfully update avatar and return updated DTO")
+    void updateKidSelfProfile_SuccessfulUpdate_ReturnsUpdatedProfile() {
+        // Given
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("new_avatar_123");
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidSelfProfile(request);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(testKid.getAvatarId()).isEqualTo("new_avatar_123");
+        verify(kidRepository).save(testKid);
+    }
+
+    @Test
+    @DisplayName("updateKidSelfProfile: Should handle null avatarId correctly")
+    void updateKidSelfProfile_NullAvatarId_DoesNotUpdate() {
+        // Given
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest(null);
+        testKid.setAvatarId("existing_avatar");
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidSelfProfile(request);
+
+        // Then
+        assertThat(result).isNotNull();
+        // Avatar should remain unchanged when null is provided
+        verify(kidRepository).save(testKid);
+    }
+
+    @Test
+    @DisplayName("updateKidSelfProfile: Should throw ValidationException when user is not a child")
+    void updateKidSelfProfile_NonChildUser_ThrowsValidationException() {
+        // Given - Setup as parent user
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        testUser.setRoles(new HashSet<>(Set.of(parentRole)));
+        
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidSelfProfile(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only children can update their own profiles");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidSelfProfile: Should throw exception when user is not found")
+    void updateKidSelfProfile_UserNotFound_ThrowsException() {
+        // Given
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
+        when(authentication.getName()).thenReturn("nonexistentuser");
+        when(userRepository.findByUsername("nonexistentuser")).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidSelfProfile(request))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("User not found");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidSelfProfile: Should throw ValidationException when child profile is not found")
+    void updateKidSelfProfile_KidNotFound_ThrowsValidationException() {
+        // Given
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+        when(kidRepository.findByUserId(testUser.getId())).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidSelfProfile(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Child profile not found");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidSelfProfile: Should handle user with null roles")
+    void updateKidSelfProfile_UserWithNullRoles_ThrowsValidationException() {
+        // Given
+        testUser.setRoles(null);
+        KidSelfUpdateRequest request = new KidSelfUpdateRequest("avatar123");
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidSelfProfile(request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only children can update their own profiles");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    // ===== TESTS FOR updateKidProfileByParent() =====
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should successfully update all fields and return updated DTO")
+    void updateKidProfileByParent_SuccessfulUpdateAllFields_ReturnsUpdatedProfile() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                "newpassword123",
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(passwordEncoder.encode("newpassword123")).thenReturn("encoded_password");
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+        when(userRepository.save(any(User.class))).thenReturn(testKid.getUser());
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(testKid.getNickname()).isEqualTo("UpdatedNickname");
+        assertThat(testKid.getAgeGroup()).isEqualTo(AgeGroup.AGE_9_10);
+        verify(kidRepository).save(testKid);
+        verify(userRepository).save(testKid.getUser());
+        verify(passwordEncoder).encode("newpassword123");
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should update only nickname when password is null")
+    void updateKidProfileByParent_PartialUpdateNicknameOnly_UpdatesCorrectly() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "NewNickname",
+                null, // null password
+                AgeGroup.AGE_6_8 // ageGroup is required
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(testKid.getNickname()).isEqualTo("NewNickname");
+        verify(kidRepository).save(testKid);
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should update only ageGroup when nickname is unchanged")
+    void updateKidProfileByParent_UpdateAgeGroupOnly_UpdatesCorrectly() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        String originalNickname = testKid.getNickname();
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                originalNickname, // same nickname
+                null, // null password
+                AgeGroup.AGE_11_12 // different age group
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        assertThat(testKid.getNickname()).isEqualTo(originalNickname);
+        assertThat(testKid.getAgeGroup()).isEqualTo(AgeGroup.AGE_11_12);
+        verify(kidRepository).save(testKid);
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should use email lookup when userId lookup fails")
+    void updateKidProfileByParent_ParentLookupFallbackToEmail_UpdatesCorrectly() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null,
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.empty());
+        when(parentRepository.findByEmail(parentUser.getEmail())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        verify(parentRepository).findByUserId(parentUser.getId());
+        verify(parentRepository).findByEmail(parentUser.getEmail());
+        verify(kidRepository).save(testKid);
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should throw ValidationException when parent profile is not found")
+    void updateKidProfileByParent_ParentNotFound_ThrowsValidationException() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null,
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.empty());
+        when(parentRepository.findByEmail(parentUser.getEmail())).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidProfileByParent(testKid.getId(), request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Parent profile not found");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should throw ValidationException when kid is not found")
+    void updateKidProfileByParent_KidNotFound_ThrowsValidationException() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null,
+                AgeGroup.AGE_9_10
+        );
+        UUID nonExistentKidId = UUID.randomUUID();
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(nonExistentKidId)).thenReturn(Optional.empty());
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidProfileByParent(nonExistentKidId, request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Kid not found");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should throw ValidationException when kid belongs to different parent")
+    void updateKidProfileByParent_KidBelongsToDifferentParent_ThrowsValidationException() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        Parent otherParent = new Parent();
+        otherParent.setId(UUID.randomUUID());
+        testKid.setParent(otherParent); // Kid belongs to different parent
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null,
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidProfileByParent(testKid.getId(), request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("You can only update your own kids' profiles");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should throw ValidationException when user is not a parent")
+    void updateKidProfileByParent_NonParentUser_ThrowsValidationException() {
+        // Given - Setup as child user
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null,
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("testuser");
+        when(userRepository.findByUsername("testuser")).thenReturn(Optional.of(testUser));
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidProfileByParent(testKid.getId(), request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only parents can update their kids' profiles");
+
+        verify(kidRepository, never()).save(any());
+        verify(parentRepository, never()).findByUserId(any());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should not update password when password is null")
+    void updateKidProfileByParent_NullPassword_DoesNotUpdatePassword() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null, // null password
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should not update password when password is empty string")
+    void updateKidProfileByParent_EmptyPassword_DoesNotUpdatePassword() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                "", // empty password
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should not update password when password is whitespace only")
+    void updateKidProfileByParent_WhitespacePassword_DoesNotUpdatePassword() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                "   ", // whitespace only password
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+        when(kidRepository.save(any(Kid.class))).thenReturn(testKid);
+
+        // When
+        ChildProfileDto result = kidProfileService.updateKidProfileByParent(testKid.getId(), request);
+
+        // Then
+        assertThat(result).isNotNull();
+        verify(userRepository, never()).save(any(User.class));
+        verify(passwordEncoder, never()).encode(anyString());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should handle user with null roles")
+    void updateKidProfileByParent_UserWithNullRoles_ThrowsValidationException() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setRoles(null); // null roles
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                null,
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+
+        // When & Then
+        assertThatThrownBy(() -> kidProfileService.updateKidProfileByParent(testKid.getId(), request))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Only parents can update their kids' profiles");
+
+        verify(kidRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateKidProfileByParent: Should handle kid with null user when updating password")
+    void updateKidProfileByParent_KidWithNullUser_ThrowsException() {
+        // Given
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parentuser");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(new HashSet<>(Set.of(parentRole)));
+
+        testKid.setUser(null); // Kid has no user
+
+        ParentUpdateKidRequest request = new ParentUpdateKidRequest(
+                "UpdatedNickname",
+                "newpassword123",
+                AgeGroup.AGE_9_10
+        );
+
+        when(authentication.getName()).thenReturn("parentuser");
+        when(userRepository.findByUsername("parentuser")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(testParent));
+        when(kidRepository.findById(testKid.getId())).thenReturn(Optional.of(testKid));
+
+        // When & Then - Should throw NullPointerException when trying to access kid.getUser()
+        assertThatThrownBy(() -> kidProfileService.updateKidProfileByParent(testKid.getId(), request))
+                .isInstanceOf(NullPointerException.class);
+
+        verify(kidRepository, never()).save(any());
     }
 } 

@@ -46,16 +46,13 @@ public class EmailConfig {
     private boolean enabled = false;
 
     /**
-     * Helper class for email validation using Jakarta Validation
-     */
-    private static class EmailValidationTarget {
-        @Email(message = "From email must be a valid email address")
-        private final String email;
-
-        EmailValidationTarget(String email) {
-            this.email = email;
+         * Helper class for email validation using Jakarta Validation
+         */
+        private record EmailValidationTarget(@Email(message = "From email must be a valid email address") String email) {
+            private EmailValidationTarget(String email) {
+                this.email = email;
+            }
         }
-    }
 
     @PostConstruct
     public void validateConfiguration() {

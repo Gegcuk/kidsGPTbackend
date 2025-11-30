@@ -884,7 +884,7 @@ class ConsentWithdrawServiceTest extends ConsentServiceBaseTest {
                 .thenReturn(Optional.empty());
 
         // Act
-        List<ConsentStatusResponse.ConsentStatusByType> effectiveStatus = (List<ConsentStatusResponse.ConsentStatusByType>) ReflectionTestUtils.invokeMethod(
+        List<ConsentStatusResponse.ConsentStatusByType> effectiveStatus = ReflectionTestUtils.invokeMethod(
                 consentService, "buildEffectiveConsentStatus", testUserId);
 
         // Assert

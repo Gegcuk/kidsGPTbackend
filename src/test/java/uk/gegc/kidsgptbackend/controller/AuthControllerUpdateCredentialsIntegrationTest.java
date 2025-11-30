@@ -24,6 +24,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
 
 import java.util.HashSet;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -71,7 +72,7 @@ class AuthControllerUpdateCredentialsIntegrationTest {
         testUser.setEmail("test@example.com");
         testUser.setHashedPassword(passwordEncoder.encode("password123"));
         testUser.setActive(true);
-        testUser.setRoles(new HashSet<>(java.util.Arrays.asList(parentRole)));
+        testUser.setRoles(new HashSet<>(List.of(parentRole)));
         testUser = userRepository.save(testUser);
 
         // Generate JWT token
@@ -112,7 +113,7 @@ class AuthControllerUpdateCredentialsIntegrationTest {
         otherUser.setEmail("newemail@example.com");
         otherUser.setHashedPassword(passwordEncoder.encode("password123"));
         otherUser.setActive(true);
-        otherUser.setRoles(new HashSet<>(java.util.Arrays.asList(roleRepository.findByRole("ROLE_PARENT").get())));
+        otherUser.setRoles(new HashSet<>(List.of(roleRepository.findByRole("ROLE_PARENT").get())));
         userRepository.save(otherUser);
 
         UpdateEmailRequest request = new UpdateEmailRequest("newemail@example.com");
