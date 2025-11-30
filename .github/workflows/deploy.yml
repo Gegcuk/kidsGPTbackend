@@ -72,14 +72,14 @@ jobs:
           echo "Previous version: $PREVIOUS_TAG"
           echo "PREVIOUS_TAG=$PREVIOUS_TAG"
     
-            - name: Deploy to VPS
-              id: deploy
-              uses: appleboy/ssh-action@v1.2.4
-              with:
-                host: ${{ secrets.VPS_HOST }}
-                username: ${{ secrets.VPS_USER }}
-                key: ${{ secrets.VPS_SSH_KEY }}
-                script: |
+    - name: Deploy to VPS
+      id: deploy
+      uses: appleboy/ssh-action@v1.2.4
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
                   cat > .env << EOF
           # Database Configuration
           DB_URL=${{ secrets.DB_URL }}
