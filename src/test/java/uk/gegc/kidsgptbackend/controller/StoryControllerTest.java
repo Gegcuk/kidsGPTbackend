@@ -36,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = StoryController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(uk.gegc.kidsgptbackend.config.ClockConfig.class)
+@Import(uk.gegc.kidsgptbackend.shared.config.ClockConfig.class)
 class StoryControllerTest {
 
     @Autowired

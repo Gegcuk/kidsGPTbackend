@@ -22,7 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = JokeController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({JokeControllerTest.TestConfig.class, uk.gegc.kidsgptbackend.config.ClockConfig.class})
+@Import({JokeControllerTest.TestConfig.class, uk.gegc.kidsgptbackend.shared.config.ClockConfig.class})
 @DirtiesContext
 class JokeControllerTest {
 

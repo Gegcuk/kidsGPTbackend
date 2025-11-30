@@ -8,8 +8,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import uk.gegc.kidsgptbackend.controller.advice.GlobalExceptionHandler;
-import uk.gegc.kidsgptbackend.controller.advice.GlobalExceptionHandler.ErrorResponse;
+import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
+import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler.ErrorResponse;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 

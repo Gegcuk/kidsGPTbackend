@@ -21,7 +21,7 @@ import uk.gegc.kidsgptbackend.model.user.Role;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
-import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
+import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
 
 import java.util.HashSet;
 

@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller.advice;
+package uk.gegc.kidsgptbackend.shared.exception.advice;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -27,7 +27,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.beans.factory.annotation.Autowired;
-import uk.gegc.kidsgptbackend.exception.*;
+import uk.gegc.kidsgptbackend.shared.exception.*;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
@@ -53,7 +53,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler({
             jakarta.validation.ValidationException.class,
-            uk.gegc.kidsgptbackend.exception.ValidationException.class,
+            uk.gegc.kidsgptbackend.shared.exception.ValidationException.class,
             ApiError.class
     })
     @ResponseStatus(HttpStatus.BAD_REQUEST)

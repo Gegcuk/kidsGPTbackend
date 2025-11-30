@@ -22,8 +22,8 @@ import uk.gegc.kidsgptbackend.dto.user.KidDto;
 import uk.gegc.kidsgptbackend.dto.user.KidRegistrationRequest;
 import uk.gegc.kidsgptbackend.dto.user.RegisterUserRequest;
 import uk.gegc.kidsgptbackend.dto.user.UserDto;
-import uk.gegc.kidsgptbackend.exception.UnauthorizedException;
-import uk.gegc.kidsgptbackend.exception.ValidationException;
+import uk.gegc.kidsgptbackend.shared.exception.UnauthorizedException;
+import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
 import uk.gegc.kidsgptbackend.mapper.UserMapper;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;
@@ -35,7 +35,7 @@ import uk.gegc.kidsgptbackend.repository.family.KidRepository;
 import uk.gegc.kidsgptbackend.repository.family.ParentRepository;
 import uk.gegc.kidsgptbackend.repository.user.RoleRepository;
 import uk.gegc.kidsgptbackend.repository.user.UserRepository;
-import uk.gegc.kidsgptbackend.security.JwtTokenProvider;
+import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
 
 import java.util.*;
 

@@ -32,8 +32,8 @@ import uk.gegc.kidsgptbackend.repository.consent.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ConsentPoliciesRepository;
 import uk.gegc.kidsgptbackend.repository.consent.ParentVerificationRepository;
 import uk.gegc.kidsgptbackend.service.consent.ConsentService;
-import uk.gegc.kidsgptbackend.util.RequestContextUtil;
-import uk.gegc.kidsgptbackend.validation.SimpleConstraintViolation;
+import uk.gegc.kidsgptbackend.shared.util.RequestContextUtil;
+import uk.gegc.kidsgptbackend.shared.validation.SimpleConstraintViolation;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;

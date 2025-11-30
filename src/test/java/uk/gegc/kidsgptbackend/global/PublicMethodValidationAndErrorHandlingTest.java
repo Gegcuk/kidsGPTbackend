@@ -8,7 +8,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import uk.gegc.kidsgptbackend.exception.*;
+import uk.gegc.kidsgptbackend.shared.exception.*;
 import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
 import uk.gegc.kidsgptbackend.model.user.User;
 import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;

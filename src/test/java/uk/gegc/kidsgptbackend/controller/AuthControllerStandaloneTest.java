@@ -31,7 +31,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({AuthControllerStandaloneTest.TestConfig.class, uk.gegc.kidsgptbackend.config.ClockConfig.class})
+@Import({AuthControllerStandaloneTest.TestConfig.class, uk.gegc.kidsgptbackend.shared.config.ClockConfig.class})
 @DirtiesContext
 class AuthControllerStandaloneTest {
 

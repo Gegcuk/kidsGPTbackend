@@ -10,7 +10,7 @@ import uk.gegc.kidsgptbackend.dto.user.ChildProfileDto;
 import uk.gegc.kidsgptbackend.dto.user.ChildProfileUpdateRequest;
 import uk.gegc.kidsgptbackend.dto.user.KidSelfUpdateRequest;
 import uk.gegc.kidsgptbackend.dto.user.ParentUpdateKidRequest;
-import uk.gegc.kidsgptbackend.exception.ValidationException;
+import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
 import uk.gegc.kidsgptbackend.mapper.UserMapper;
 import uk.gegc.kidsgptbackend.model.family.Kid;
 import uk.gegc.kidsgptbackend.model.family.Parent;

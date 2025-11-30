@@ -3,7 +3,8 @@ package uk.gegc.kidsgptbackend.controller.advice;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import uk.gegc.kidsgptbackend.exception.*;
+import uk.gegc.kidsgptbackend.shared.exception.*;
+import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 
 import java.time.Clock;
 import java.time.Instant;

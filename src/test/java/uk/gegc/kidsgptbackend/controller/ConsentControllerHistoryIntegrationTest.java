@@ -38,7 +38,7 @@ import static org.hamcrest.Matchers.matchesPattern;
 
 @WebMvcTest(controllers = ConsentController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(uk.gegc.kidsgptbackend.config.ClockConfig.class)
+@Import(uk.gegc.kidsgptbackend.shared.config.ClockConfig.class)
 class ConsentControllerHistoryIntegrationTest {
 
     @Autowired
