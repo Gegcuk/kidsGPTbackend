@@ -123,15 +123,22 @@ jobs:
     
     - name: Health check
       id: health_check
+      continue-on-error: true
       env:
         VPS_HOST: ${{ secrets.VPS_HOST }}
         HEALTH_CHECK_URL: ${{ secrets.VPS_HEALTH_CHECK_URL }}
       run: |
         # Set health check URL if not provided
         if [ -z "$HEALTH_CHECK_URL" ]; then
-          # Try HTTPS first, fallback to HTTP on port 8080 (common backend port)
-          HEALTH_CHECK_URL="https://${VPS_HOST}/api/v1/system/status"
-          HTTP_FALLBACK_URL="http://${VPS_HOST}:8080/api/v1/system/status"
+          # Check if VPS_HOST is an IP address (contains only digits and dots)
+          if echo "$VPS_HOST" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+            # IP address - use HTTP on port 8080 directly (HTTPS won't work with IP)
+            HEALTH_CHECK_URL="http://${VPS_HOST}:8080/api/v1/system/status"
+          else
+            # Domain name - try HTTPS first, fallback to HTTP on port 8080
+            HEALTH_CHECK_URL="https://${VPS_HOST}/api/v1/system/status"
+            HTTP_FALLBACK_URL="http://${VPS_HOST}:8080/api/v1/system/status"
+          fi
         else
           HTTP_FALLBACK_URL=$(echo "$HEALTH_CHECK_URL" | sed 's|^https://|http://|' | sed 's|/api/|:8080/api/|')
         fi
@@ -145,7 +152,7 @@ jobs:
           REQUEST_START=$(date +%s%N)
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --connect-timeout 3 "$HEALTH_CHECK_URL" 2>&1 || echo "000")
           
-          if [ "$HTTP_CODE" = "000" ]; then
+          if [ "$HTTP_CODE" = "000" ] && [ -n "$HTTP_FALLBACK_URL" ]; then
             HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 --connect-timeout 3 "$HTTP_FALLBACK_URL" 2>&1 || echo "000")
             if [ "$HTTP_CODE" != "000" ]; then
               HEALTH_CHECK_URL="$HTTP_FALLBACK_URL"
@@ -179,12 +186,13 @@ jobs:
         
         HEALTH_CHECK_DURATION=$(( $(date +%s) - HEALTH_CHECK_START ))
         echo "health_check_duration=$HEALTH_CHECK_DURATION" >> $GITHUB_OUTPUT
+        echo "health_check_failed=true" >> $GITHUB_OUTPUT
         echo "❌ Health check failed after $MAX_RETRIES attempts"
-        exit 0
+        exit 1
     
     - name: Rollback on failure
       id: rollback
-      if: failure() && steps.health_check.outcome == 'failure'
+      if: steps.health_check.outcome == 'failure' || steps.health_check.outputs.health_check_failed == 'true'
       uses: appleboy/ssh-action@v1.2.4
       with:
         host: ${{ secrets.VPS_HOST }}
@@ -324,8 +332,8 @@ jobs:
     - name: Deployment notification
       if: always()
       run: |
-        if [ "${{ steps.health_check.outcome }}" = "success" ]; then
+        if [ "${{ steps.health_check.outcome }}" = "success" ] && [ "${{ steps.health_check.outputs.health_check_failed }}" != "true" ]; then
           echo "✅ Deployment successful"
         else
-          echo "❌ Deployment failed"
+          echo "❌ Deployment failed - health check did not pass"
         fi
