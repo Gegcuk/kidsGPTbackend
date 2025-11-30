@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.tips.api;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -6,9 +6,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
+import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
+import uk.gegc.kidsgptbackend.features.tips.application.DailyTipService;
 
 @RestController
 @RequestMapping("/api/v1/tips")

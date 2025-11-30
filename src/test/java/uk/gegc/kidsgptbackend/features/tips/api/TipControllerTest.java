@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.tips.api;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,16 +11,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
-import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
+import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
-import uk.gegc.kidsgptbackend.service.tips.DailyTipService;
+import uk.gegc.kidsgptbackend.features.tips.application.DailyTipService;
 
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(controllers = TipController.class)
+@WebMvcTest(controllers = uk.gegc.kidsgptbackend.features.tips.api.TipController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({TipControllerTest.TestConfig.class, uk.gegc.kidsgptbackend.shared.config.ClockConfig.class})
 @DirtiesContext

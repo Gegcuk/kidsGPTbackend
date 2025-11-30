@@ -1,6 +1,6 @@
-package uk.gegc.kidsgptbackend.service.tips;
+package uk.gegc.kidsgptbackend.features.tips.application;
 
-import uk.gegc.kidsgptbackend.dto.tips.DailyTipDto;
+import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
 import uk.gegc.kidsgptbackend.model.user.AgeGroup;
 
 public interface DailyTipService {
