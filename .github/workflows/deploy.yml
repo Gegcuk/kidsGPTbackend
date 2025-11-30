@@ -93,7 +93,14 @@ jobs:
           fi
           cd "$DEPLOY_DIR" || exit 1
           
+          DB_URL_VALUE="${{ secrets.DB_URL }}"
+          if [ -z "$DB_URL_VALUE" ]; then
+            DB_URL_VALUE="jdbc:mysql://db:3306/kidsgptdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC"
+          else
+            DB_URL_VALUE=$(echo "$DB_URL_VALUE" | sed 's|localhost:3306|db:3306|')
+          fi
           cat > .env << EOF
+          DB_URL=${DB_URL_VALUE}
           DB_USERNAME=${{ secrets.DB_USERNAME }}
           DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           JWT_SECRET=${{ secrets.JWT_SECRET }}
@@ -120,11 +127,11 @@ jobs:
           docker pull ${{ secrets.DOCKER_USER }}/kidsgptbackend:${{ github.sha }}
           
           if [ -f docker-compose.yml ]; then
-            APP_TAG=${{ github.sha }} docker compose -f docker-compose.yml up -d --force-recreate app
+            APP_TAG=${{ github.sha }} docker compose -f docker-compose.yml up -d --force-recreate --no-deps app
           else
             COMPOSE_FILE=$(find . -name "docker-compose.yml" -type f 2>/dev/null | head -1)
             if [ -n "$COMPOSE_FILE" ]; then
-              APP_TAG=${{ github.sha }} docker compose -f "$COMPOSE_FILE" up -d --force-recreate app
+              APP_TAG=${{ github.sha }} docker compose -f "$COMPOSE_FILE" up -d --force-recreate --no-deps app
             else
               echo "docker-compose.yml not found"
               exit 1
