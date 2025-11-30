@@ -29,7 +29,7 @@
     <properties>
         <java.version>17</java.version>
         <jacoco.version>0.8.12</jacoco.version>
-        <owasp.dependency-check.version>11.0.0</owasp.dependency-check.version>
+        <owasp.dependency-check.version>12.1.9</owasp.dependency-check.version>
     </properties>
     <dependencies>
 
