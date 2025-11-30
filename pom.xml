@@ -351,6 +351,9 @@
                     </suppressionFiles>
                     <format>ALL</format>
                     <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
+                    <nvdValidForHours>24</nvdValidForHours>
+                    <cveValidForHours>24</cveValidForHours>
+                    <dataDirectory>${project.basedir}/.owasp/data</dataDirectory>
                 </configuration>
             </plugin>
         </plugins>
