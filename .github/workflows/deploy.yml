@@ -190,6 +190,35 @@ jobs:
         echo "❌ Health check failed after $MAX_RETRIES attempts"
         exit 1
     
+    - name: Verify deployed version
+      if: steps.health_check.outcome == 'success'
+      uses: appleboy/ssh-action@v1.2.4
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        script: |
+          echo "Verifying deployed version..."
+          EXPECTED_TAG="${{ github.sha }}"
+          
+          # Get running container image tag
+          RUNNING_TAG=$(docker ps --filter "name=backend" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' || echo "")
+          
+          # If not found, check .env file
+          if [ -z "$RUNNING_TAG" ] && [ -f .env ]; then
+            RUNNING_TAG=$(grep '^APP_TAG=' .env 2>/dev/null | cut -d'=' -f2- || echo "")
+          fi
+          
+          echo "Expected version: $EXPECTED_TAG"
+          echo "Running version:  $RUNNING_TAG"
+          
+          if [ "$RUNNING_TAG" = "$EXPECTED_TAG" ]; then
+            echo "✅ Version verification passed - running correct version"
+          else
+            echo "⚠️  Version mismatch - expected $EXPECTED_TAG but running $RUNNING_TAG"
+            exit 1
+          fi
+    
     - name: Rollback on failure
       id: rollback
       if: steps.health_check.outcome == 'failure' || steps.health_check.outputs.health_check_failed == 'true'
