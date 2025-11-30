@@ -60,12 +60,12 @@ jobs:
         key: ${{ secrets.VPS_SSH_KEY }}
         script: |
           # Get current running image tag (if exists) - using POSIX-compliant approach
-          PREVIOUS_TAG=$(docker ps --filter "name=backend" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' || echo "")
+          PREVIOUS_TAG=$(docker ps --filter "ancestor=${{ secrets.DOCKER_USER }}/kidsgptbackend" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' | head -1 || echo "")
           if [ -z "$PREVIOUS_TAG" ]; then
-            # Try to get from docker-compose or .env
-            if [ -f .env ]; then
-              PREVIOUS_TAG=$(grep '^APP_TAG=' .env 2>/dev/null | cut -d'=' -f2- || echo "")
-            fi
+            PREVIOUS_TAG=$(docker ps --filter "name=app" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' | head -1 || echo "")
+          fi
+          if [ -z "$PREVIOUS_TAG" ] && [ -f .env ]; then
+            PREVIOUS_TAG=$(grep '^APP_TAG=' .env 2>/dev/null | cut -d'=' -f2- || echo "")
           fi
           # Store in file for later use
           echo "$PREVIOUS_TAG" > /tmp/previous_tag.txt
@@ -118,7 +118,7 @@ jobs:
           
           echo "Deploying version ${{ github.sha }}"
           docker-compose pull
-          docker-compose up -d
+          docker-compose up -d --force-recreate --no-deps app
           sleep 3
     
     - name: Health check
@@ -201,10 +201,15 @@ jobs:
           echo "Verifying deployed version..."
           EXPECTED_TAG="${{ github.sha }}"
           
-          # Get running container image tag
-          RUNNING_TAG=$(docker ps --filter "name=backend" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' || echo "")
+          # Get running container image tag (look for kidsgptbackend image)
+          RUNNING_TAG=$(docker ps --filter "ancestor=${{ secrets.DOCKER_USER }}/kidsgptbackend" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' | head -1 || echo "")
           
-          # If not found, check .env file
+          # If not found, try by container name (docker-compose creates containers with project prefix)
+          if [ -z "$RUNNING_TAG" ]; then
+            RUNNING_TAG=$(docker ps --filter "name=app" --format "{{.Image}}" | sed -n 's/.*kidsgptbackend:\(.*\)/\1/p' | head -1 || echo "")
+          fi
+          
+          # If still not found, check .env file
           if [ -z "$RUNNING_TAG" ] && [ -f .env ]; then
             RUNNING_TAG=$(grep '^APP_TAG=' .env 2>/dev/null | cut -d'=' -f2- || echo "")
           fi
