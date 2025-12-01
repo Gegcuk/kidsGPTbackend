@@ -356,12 +356,98 @@ class AiChatServiceImplTest extends BaseUnitTest {
         user.setAge(8);
         when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
         when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
         when(callSpec.chatResponse()).thenThrow(new RuntimeException("messages must alternate between user and assistant"));
 
         assertThatThrownBy(() -> service.chat(req, principal))
                 .isInstanceOf(ConversationFormatException.class)
                 .hasMessageContaining("Invalid conversation format")
                 .hasMessageContaining("Messages must alternate between user and assistant roles");
+    }
+
+    @Test
+    @DisplayName("chat: conversation format error with 'conversation' keyword throws ConversationFormatException")
+    void chat_conversationFormatError_withConversationKeyword_throwsException() {
+        ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("conversation error occurred"));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ConversationFormatException.class);
+    }
+
+    @Test
+    @DisplayName("chat: conversation format error with 'alternating' keyword throws ConversationFormatException")
+    void chat_conversationFormatError_withAlternatingKeyword_throwsException() {
+        ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("alternating roles required"));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ConversationFormatException.class);
+    }
+
+    @Test
+    @DisplayName("chat: conversation format error with 'consecutive' keyword throws ConversationFormatException")
+    void chat_conversationFormatError_withConsecutiveKeyword_throwsException() {
+        ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("consecutive messages error"));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ConversationFormatException.class);
+    }
+
+    @Test
+    @DisplayName("chat: conversation format error with 'role' keyword throws ConversationFormatException")
+    void chat_conversationFormatError_withRoleKeyword_throwsException() {
+        ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("role mismatch error"));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ConversationFormatException.class);
     }
 
     @Test

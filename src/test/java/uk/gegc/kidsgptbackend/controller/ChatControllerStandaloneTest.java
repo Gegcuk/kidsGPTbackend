@@ -150,4 +150,66 @@ class ChatControllerStandaloneTest {
 
         verify(messageService).getMessages(eq(id), any(), eq("alice"));
     }
+
+    @Test
+    @DisplayName("POST /api/v1/chat with context history logs correctly")
+    void chat_withContextHistory_logsCorrectly() throws Exception {
+        java.util.List<uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto> context = java.util.List.of(
+                new uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto(
+                        UUID.randomUUID(), "USER", "Hello", java.time.LocalDateTime.now()
+                )
+        );
+        ChatMessageRequest req = new ChatMessageRequest("hi", null, Tone.FRIENDLY, context);
+        ChatMessageResponse resp = new ChatMessageResponse("ok", "model", 1L, 1, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID());
+        when(chatService.chat(any(ChatMessageRequest.class), any(Principal.class))).thenReturn(resp);
+
+        User principal = new User(
+                "alice",
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        mockMvc.perform(post("/api/v1/chat")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk());
+
+        SecurityContextHolder.clearContext();
+        verify(chatService).chat(any(ChatMessageRequest.class), any(Principal.class));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/chat/{id}/messages with unpaged pageable logs correctly")
+    void getMessages_withUnpagedPageable_logsCorrectly() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(messageService.getMessages(any(), any(), any())).thenReturn(org.springframework.data.domain.Page.empty());
+
+        User principal = new User(
+                "alice",
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/chat/" + id + "/messages")
+                        .param("page", "0")
+                        .param("size", "20"))
+                .andExpect(status().isOk());
+
+        SecurityContextHolder.clearContext();
+        verify(messageService).getMessages(eq(id), any(), eq("alice"));
+    }
 }
