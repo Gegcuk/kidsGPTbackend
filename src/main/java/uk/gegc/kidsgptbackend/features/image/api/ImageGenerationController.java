@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.image.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,9 +11,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import uk.gegc.kidsgptbackend.dto.image.ImageGenerationRequest;
-import uk.gegc.kidsgptbackend.dto.image.ImageGenerationResponse;
-import uk.gegc.kidsgptbackend.service.image.ImageGenerationService;
+import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationRequest;
+import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationResponse;
+import uk.gegc.kidsgptbackend.features.image.application.ImageGenerationService;
 
 import java.security.Principal;
 
@@ -55,4 +55,5 @@ public class ImageGenerationController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
-} 
+}
+

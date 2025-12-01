@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.image;
+package uk.gegc.kidsgptbackend.features.image.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -11,4 +11,5 @@ public record ImageGenerationRequest(
         @Size(max = 100, message = "Style must be less than 100 characters")
         String style  // Optional style preference (e.g., "cartoon", "realistic", "colorful")
 ) {
-} 
+}
+

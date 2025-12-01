@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.image;
+package uk.gegc.kidsgptbackend.features.image.api.dto;
 
 public record ImageGenerationResponse(
         String imageUrl,
@@ -7,4 +7,5 @@ public record ImageGenerationResponse(
         long latencyMs,
         String ageGroup
 ) {
-} 
+}
+
