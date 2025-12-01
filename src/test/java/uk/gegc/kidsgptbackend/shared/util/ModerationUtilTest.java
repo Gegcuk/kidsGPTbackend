@@ -463,6 +463,20 @@ class ModerationUtilTest extends BaseUnitTest {
     }
 
     @Test
+    @DisplayName("validateContentWithAI: should handle UNSAFE response without colon")
+    void validateContentWithAI_unsafeResponseWithoutColon_usesDefaultReason() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("UNSAFE");
+
+        // Act & Assert - should use default error message when no colon present
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inappropriate for age group");
+    }
+
+    @Test
     @DisplayName("validateContentWithAI: should handle case-insensitive SAFE response")
     void validateContentWithAI_caseInsensitiveSafe_passes() {
         // Arrange
