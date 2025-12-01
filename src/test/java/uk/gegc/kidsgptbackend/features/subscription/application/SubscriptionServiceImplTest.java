@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.features.subscription.application.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +12,7 @@ import uk.gegc.kidsgptbackend.features.subscription.api.dto.CreateSubscriptionRe
 import uk.gegc.kidsgptbackend.features.subscription.api.dto.SubscriptionPlanDto;
 import uk.gegc.kidsgptbackend.features.subscription.api.dto.SubscriptionStatusDto;
 import uk.gegc.kidsgptbackend.features.subscription.api.dto.UserSubscriptionDto;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionServiceImpl;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;

@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.subscription;
+package uk.gegc.kidsgptbackend.features.subscription.api;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -9,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
+import uk.gegc.kidsgptbackend.features.subscription.api.dto.CreateSubscriptionRequest;
 
 import java.util.Set;
 import java.util.UUID;

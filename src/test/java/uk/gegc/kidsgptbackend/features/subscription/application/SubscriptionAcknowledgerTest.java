@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.features.subscription.application.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionAcknowledger;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 
 import static org.assertj.core.api.Assertions.assertThat;

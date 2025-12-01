@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.features.subscription.application.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.retry.annotation.EnableRetry;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionAcknowledger;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 
 import static org.assertj.core.api.Assertions.assertThat;

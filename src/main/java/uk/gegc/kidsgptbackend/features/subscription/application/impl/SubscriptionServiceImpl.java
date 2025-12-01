@@ -274,7 +274,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     
-    UserSubscription.SubscriptionStatus mapGooglePlayStatus(GooglePlaySubscriptionPurchase purchase) {
+    public UserSubscription.SubscriptionStatus mapGooglePlayStatus(GooglePlaySubscriptionPurchase purchase) {
         if (purchase.isPurchased() && !purchase.isExpired()) {
             return UserSubscription.SubscriptionStatus.ACTIVE;
         } else if (purchase.isCanceled()) {

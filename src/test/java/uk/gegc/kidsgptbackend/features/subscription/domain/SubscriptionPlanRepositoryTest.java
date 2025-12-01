@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.repository.subscription;
+package uk.gegc.kidsgptbackend.features.subscription.domain;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -8,6 +8,7 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionPlanRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;

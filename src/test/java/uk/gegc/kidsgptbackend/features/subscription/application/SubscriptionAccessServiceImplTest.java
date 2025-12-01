@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.features.subscription.application.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,6 +11,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionAccessServiceImpl;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionUsage;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
