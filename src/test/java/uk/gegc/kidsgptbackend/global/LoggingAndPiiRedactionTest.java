@@ -14,13 +14,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.slf4j.LoggerFactory;
-import uk.gegc.kidsgptbackend.service.payment.impl.GooglePlayPaymentService;
+import uk.gegc.kidsgptbackend.features.subscription.infra.payment.GooglePlayPaymentService;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionAcknowledger;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.WebhookProcessingServiceImpl;
-import uk.gegc.kidsgptbackend.service.googleplay.impl.GooglePlayClientImpl;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClientImpl;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 
 import java.util.List;
 import java.util.UUID;

@@ -15,7 +15,7 @@ import uk.gegc.kidsgptbackend.features.auth.domain.model.PasswordResetToken;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.auth.domain.repository.PasswordResetTokenRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.email.EmailService;
+import uk.gegc.kidsgptbackend.shared.util.email.EmailService;
 import uk.gegc.kidsgptbackend.features.auth.application.impl.PasswordResetServiceImpl;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 

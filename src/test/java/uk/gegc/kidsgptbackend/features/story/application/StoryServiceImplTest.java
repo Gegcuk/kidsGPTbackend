@@ -29,6 +29,11 @@ import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
 import java.time.Clock;
@@ -40,7 +45,9 @@ import java.util.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -498,6 +505,558 @@ class StoryServiceImplTest extends BaseUnitTest {
 
         // Then
         verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_9_10));
+    }
+
+    @Test
+    @DisplayName("startStory: should handle empty initialIdea")
+    void startStory_emptyInitialIdea_handlesCorrectly() {
+        // Given
+        StartStoryRequest request = new StartStoryRequest("My Story", "   ");
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        AssistantMessage assistantMessage = new AssistantMessage("Let's start!");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        StartStoryResponse response = storyService.startStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        verify(storyRepository, times(2)).save(any(Story.class));
+    }
+
+    @Test
+    @DisplayName("continueStory: should handle null age by defaulting to AGE_9_10")
+    void continueStory_nullAge_defaultsToAge9_10() {
+        // Given
+        testUser.setAge(null);
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue story",
+                Tone.FRIENDLY,
+                Collections.emptyList()
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        storyService.continueStory(request, principal);
+
+        // Then
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_9_10));
+    }
+
+    @Test
+    @DisplayName("continueStory: should handle null context")
+    void continueStory_nullContext_handlesCorrectly() {
+        // Given
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                null
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        verify(requestSpec).messages(anyList()); // Should be called with empty list
+    }
+
+    @Test
+    @DisplayName("continueStory: should handle empty context")
+    void continueStory_emptyContext_handlesCorrectly() {
+        // Given
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                Collections.emptyList()
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        verify(requestSpec).messages(anyList()); // Should be called with empty list
+    }
+
+    @Test
+    @DisplayName("startStory: should use AGE_15_16 prompt for age 15")
+    void startStory_age15_usesAge15_16Prompt() {
+        // Given
+        testUser.setAge(15); // AGE_15_16
+        StartStoryRequest request = new StartStoryRequest("Story", null);
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        storyService.startStory(request, principal);
+
+        // Then
+        verify(requestSpec).system(anyString()); // Prompt should be loaded
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_15_16));
+    }
+
+    @Test
+    @DisplayName("startStory: should use AGE_15_16 prompt for age 16")
+    void startStory_age16_usesAge15_16Prompt() {
+        // Given
+        testUser.setAge(16); // AGE_15_16
+        StartStoryRequest request = new StartStoryRequest("Story", null);
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        storyService.startStory(request, principal);
+
+        // Then
+        verify(requestSpec).system(anyString()); // Prompt should be loaded
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_15_16));
+    }
+
+    @Test
+    @DisplayName("continueStory: should build empty conversation history when context is null")
+    void continueStory_nullContext_buildsEmptyHistory() {
+        // Given
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                null // null context
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        // Verify that messages() was called - context was null, so buildConversationHistoryFromDto should create empty list
+        verify(requestSpec).messages(anyList());
+    }
+
+    @Test
+    @DisplayName("continueStory: should build empty conversation history when context is empty list")
+    void continueStory_emptyListContext_buildsEmptyHistory() {
+        // Given
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                new ArrayList<>() // empty list context
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        // Verify that messages() was called - context was empty, so buildConversationHistoryFromDto should create empty list
+        verify(requestSpec).messages(anyList());
+    }
+
+    @Test
+    @DisplayName("continueStory: should handle null age in generateAiResponseWithHistory")
+    void continueStory_nullAgeInGenerateAiResponse_handlesCorrectly() {
+        // Given
+        testUser.setAge(null);
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                Collections.emptyList()
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        // Verify that moderation was called with AGE_9_10 (default when age is null)
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_9_10));
+    }
+
+    @Test
+    @DisplayName("continueStory: should build conversation history with ASSISTANT messages")
+    void continueStory_withAssistantMessages_buildsHistory() {
+        // Given
+        UUID storyId = UUID.randomUUID();
+        List<StoryMessageDto> context = List.of(
+                new StoryMessageDto(UUID.randomUUID(), "ASSISTANT", "Hello there!", LocalDateTime.now())
+        );
+
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                context
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        storyService.continueStory(request, principal);
+
+        // Then
+        verify(requestSpec).messages(anyList()); // Should be called with conversation history including ASSISTANT message
+    }
+
+    @Test
+    @DisplayName("continueStory: should build conversation history with both USER and ASSISTANT messages")
+    void continueStory_withBothUserAndAssistantMessages_buildsHistory() {
+        // Given
+        UUID storyId = UUID.randomUUID();
+        List<StoryMessageDto> context = List.of(
+                new StoryMessageDto(UUID.randomUUID(), "USER", "Hello", LocalDateTime.now()),
+                new StoryMessageDto(UUID.randomUUID(), "ASSISTANT", "Hi there!", LocalDateTime.now()),
+                new StoryMessageDto(UUID.randomUUID(), "USER", "How are you?", LocalDateTime.now()),
+                new StoryMessageDto(UUID.randomUUID(), "ASSISTANT", "I'm great!", LocalDateTime.now())
+        );
+
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                context
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        storyService.continueStory(request, principal);
+
+        // Then
+        verify(requestSpec).messages(anyList()); // Should be called with conversation history including both USER and ASSISTANT messages
+    }
+
+    @Test
+    @DisplayName("continueStory: should handle non-null age in generateAiResponseWithHistory")
+    void continueStory_nonNullAgeInGenerateAiResponse_handlesCorrectly() {
+        // Given
+        testUser.setAge(12); // Non-null age
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                Collections.emptyList()
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        // Verify that moderation was called with the correct age group (non-null age branch)
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_11_12));
+    }
+
+    @Test
+    @DisplayName("continueStory: should handle AI response moderation failure with non-null age")
+    void continueStory_aiResponseFailsModerationWithNonNullAge_usesFallback() {
+        // Given
+        testUser.setAge(14); // Non-null age - AGE_13_14
+        UUID storyId = UUID.randomUUID();
+        ContinueStoryRequest request = new ContinueStoryRequest(
+                storyId,
+                "Continue",
+                Tone.FRIENDLY,
+                Collections.emptyList()
+        );
+
+        Story existingStory = new Story();
+        existingStory.setId(storyId);
+        existingStory.setUsername("testuser");
+
+        AssistantMessage assistantMessage = new AssistantMessage("Inappropriate content");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.findByIdAndUsername(storyId, "testuser")).thenReturn(Optional.of(existingStory));
+        when(storyRepository.save(any(Story.class))).thenReturn(existingStory);
+        // Make moderation fail for AI response (this triggers the ternary operator with non-null age)
+        when(moderationUtil.validateSafetyForAge(anyString(), eq(AgeGroup.AGE_13_14))).thenReturn(false);
+
+        // When
+        ContinueStoryResponse response = storyService.continueStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        assertThat(response.reply()).contains("different direction");
+        // Verify moderation was called with non-null age branch (AGE_13_14)
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_13_14));
+    }
+
+    @Test
+    @DisplayName("startStory: should use AGE_11_12 prompt for age 11")
+    void startStory_age11_usesAge11_12Prompt() {
+        // Given
+        testUser.setAge(11); // AGE_11_12
+        StartStoryRequest request = new StartStoryRequest("Story", null);
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        storyService.startStory(request, principal);
+
+        // Then
+        verify(requestSpec).system(anyString()); // Prompt should be loaded
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_11_12));
+    }
+
+    @Test
+    @DisplayName("startStory: should use AGE_13_14 prompt for age 13")
+    void startStory_age13_usesAge13_14Prompt() {
+        // Given
+        testUser.setAge(13); // AGE_13_14
+        StartStoryRequest request = new StartStoryRequest("Story", null);
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        storyService.startStory(request, principal);
+
+        // Then
+        verify(requestSpec).system(anyString()); // Prompt should be loaded
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_13_14));
+    }
+
+    @Test
+    @DisplayName("startStory: should use default prompt when resource loading fails")
+    void startStory_resourceLoadingFails_usesDefaultPrompt() throws Exception {
+        // Given
+        testUser.setAge(10);
+        StartStoryRequest request = new StartStoryRequest("Story", null);
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        // Create a resource that throws IOException
+        Resource failingResource = new Resource() {
+            @Override
+            public InputStream getInputStream() throws IOException {
+                throw new IOException("Resource not found");
+            }
+            @Override
+            public boolean exists() { return true; }
+            @Override
+            public boolean isReadable() { return true; }
+            @Override
+            public boolean isOpen() { return false; }
+            @Override
+            public boolean isFile() { return false; }
+            @Override
+            public URL getURL() throws IOException { throw new IOException(); }
+            @Override
+            public URI getURI() throws IOException { throw new IOException(); }
+            @Override
+            public File getFile() throws IOException { throw new IOException(); }
+            @Override
+            public long contentLength() throws IOException { return 0; }
+            @Override
+            public long lastModified() throws IOException { return 0; }
+            @Override
+            public Resource createRelative(String relativePath) throws IOException { throw new IOException(); }
+            @Override
+            public String getFilename() { return "test.txt"; }
+            @Override
+            public String getDescription() { return "test resource"; }
+        };
+
+        // Inject failing resource
+        ReflectionTestUtils.setField(storyService, "storyPrompt9_10", failingResource);
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        StartStoryResponse response = storyService.startStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        // Should still work with default prompt
+        verify(requestSpec).system(anyString());
+    }
+
+    @Test
+    @DisplayName("startStory: should use default prompt with null age when resource loading fails")
+    void startStory_resourceLoadingFailsWithNullAge_usesDefaultPrompt() throws Exception {
+        // Given
+        testUser.setAge(null);
+        StartStoryRequest request = new StartStoryRequest("Story", null);
+        Story savedStory = new Story();
+        savedStory.setId(UUID.randomUUID());
+        savedStory.setCreatedAt(LocalDateTime.now());
+
+        // Create a resource that throws IOException
+        Resource failingResource = new Resource() {
+            @Override
+            public InputStream getInputStream() throws IOException {
+                throw new IOException("Resource not found");
+            }
+            @Override
+            public boolean exists() { return true; }
+            @Override
+            public boolean isReadable() { return true; }
+            @Override
+            public boolean isOpen() { return false; }
+            @Override
+            public boolean isFile() { return false; }
+            @Override
+            public URL getURL() throws IOException { throw new IOException(); }
+            @Override
+            public URI getURI() throws IOException { throw new IOException(); }
+            @Override
+            public File getFile() throws IOException { throw new IOException(); }
+            @Override
+            public long contentLength() throws IOException { return 0; }
+            @Override
+            public long lastModified() throws IOException { return 0; }
+            @Override
+            public Resource createRelative(String relativePath) throws IOException { throw new IOException(); }
+            @Override
+            public String getFilename() { return "test.txt"; }
+            @Override
+            public String getDescription() { return "test resource"; }
+        };
+
+        // Inject failing resource
+        ReflectionTestUtils.setField(storyService, "storyPrompt9_10", failingResource);
+
+        AssistantMessage assistantMessage = new AssistantMessage("Response");
+        when(generation.getOutput()).thenReturn(assistantMessage);
+        when(chatResponse.getResult()).thenReturn(generation);
+        when(storyRepository.save(any(Story.class))).thenReturn(savedStory);
+
+        // When
+        StartStoryResponse response = storyService.startStory(request, principal);
+
+        // Then
+        assertThat(response).isNotNull();
+        // Should still work with default prompt (null age -> defaults to 9)
+        verify(requestSpec).system(anyString());
     }
 }
 

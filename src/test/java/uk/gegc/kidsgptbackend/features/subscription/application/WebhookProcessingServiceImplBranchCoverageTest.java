@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.WebhookProcessingServiceImpl;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.lang.reflect.Method;

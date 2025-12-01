@@ -10,7 +10,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionSaver;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.WebhookProcessingServiceImpl;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionServiceImpl;

@@ -127,5 +127,41 @@ class ImageGenerationControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
+
+    @Test
+    @DisplayName("Should return internal server error when service throws general exception")
+    @WithMockUser(username = "testuser")
+    void shouldReturnInternalServerErrorForGeneralException() throws Exception {
+        // Given
+        ImageGenerationRequest request = new ImageGenerationRequest(
+                "A cute cartoon cat",
+                "cartoon"
+        );
+
+        when(imageGenerationService.generateImage(eq(request), any(Principal.class)))
+                .thenThrow(new RuntimeException("Service unavailable"));
+
+        // When & Then
+        mockMvc.perform(post("/api/v1/generate-image")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isInternalServerError());
+    }
+
+    @Test
+    @DisplayName("Should return unauthorized when principal is null")
+    void shouldReturnUnauthorizedWhenPrincipalIsNull() throws Exception {
+        // Given
+        ImageGenerationRequest request = new ImageGenerationRequest(
+                "A cute cartoon cat",
+                "cartoon"
+        );
+
+        // When & Then - without @WithMockUser, principal will be null
+        mockMvc.perform(post("/api/v1/generate-image")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
 }
 

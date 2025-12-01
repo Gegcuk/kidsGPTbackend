@@ -90,6 +90,132 @@ class EmailConfigTest extends BaseUnitTest {
     }
 
     @Test
+    @DisplayName("validateConfiguration: when email enabled and port null then throws exception")
+    void validateConfiguration_emailEnabledPortNull_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("smtp.example.com");
+        emailConfig.setPort(null);
+        emailConfig.setUsername("user");
+        emailConfig.setPassword("pass");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Email port must be positive when email is enabled");
+    }
+
+    @Test
+    @DisplayName("validateConfiguration: when email enabled and port negative then throws exception")
+    void validateConfiguration_emailEnabledPortNegative_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("smtp.example.com");
+        emailConfig.setPort(-1);
+        emailConfig.setUsername("user");
+        emailConfig.setPassword("pass");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Email port must be positive when email is enabled");
+    }
+
+    @Test
+    @DisplayName("validateConfiguration: when email enabled and host empty string then throws exception")
+    void validateConfiguration_emailEnabledHostEmptyString_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("");
+        emailConfig.setPort(587);
+        emailConfig.setUsername("user");
+        emailConfig.setPassword("pass");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Email host is required when email is enabled");
+    }
+
+    @Test
+    @DisplayName("validateConfiguration: when email enabled and host whitespace only then throws exception")
+    void validateConfiguration_emailEnabledHostWhitespace_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("   ");
+        emailConfig.setPort(587);
+        emailConfig.setUsername("user");
+        emailConfig.setPassword("pass");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Email host is required when email is enabled");
+    }
+
+    @Test
+    @DisplayName("validateConfiguration: when email enabled and username empty string then throws exception")
+    void validateConfiguration_emailEnabledUsernameEmptyString_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("smtp.example.com");
+        emailConfig.setPort(587);
+        emailConfig.setUsername("");
+        emailConfig.setPassword("pass");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Email username is required when email is enabled");
+    }
+
+    @Test
+    @DisplayName("validateConfiguration: when email enabled and password empty string then throws exception")
+    void validateConfiguration_emailEnabledPasswordEmptyString_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("smtp.example.com");
+        emailConfig.setPort(587);
+        emailConfig.setUsername("user");
+        emailConfig.setPassword("");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("http://localhost:3000");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Email password is required when email is enabled");
+    }
+
+    @Test
+    @DisplayName("validateConfiguration: when email enabled and frontendUrl empty string then throws exception")
+    void validateConfiguration_emailEnabledFrontendUrlEmptyString_throwsException() {
+        // Given
+        emailConfig.setEnabled(true);
+        emailConfig.setHost("smtp.example.com");
+        emailConfig.setPort(587);
+        emailConfig.setUsername("user");
+        emailConfig.setPassword("pass");
+        emailConfig.setFrom("test@example.com");
+        emailConfig.setFrontendUrl("");
+
+        // When/Then
+        assertThatThrownBy(() -> emailConfig.validateConfiguration())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Frontend URL is required when email is enabled");
+    }
+
+    @Test
     @DisplayName("validateConfiguration: when email enabled and username missing then throws exception")
     void validateConfiguration_emailEnabledUsernameMissing_throwsException() {
         // Given

@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.retry.annotation.Backoff;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 
 @Component
 @RequiredArgsConstructor
