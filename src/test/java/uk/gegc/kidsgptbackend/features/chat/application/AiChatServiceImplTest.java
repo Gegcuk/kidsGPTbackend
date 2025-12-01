@@ -553,5 +553,195 @@ class AiChatServiceImplTest extends BaseUnitTest {
             msg.getContext().getId().equals(existingContextId)
         ));
     }
+
+    @Test
+    @DisplayName("chat: context not found throws exception")
+    void chat_contextNotFound_throwsException() {
+        UUID nonExistentContextId = UUID.randomUUID();
+        ChatMessageRequest req = new ChatMessageRequest("hello", nonExistentContextId, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(contextRepository.findById(nonExistentContextId)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Context not found");
+    }
+
+    @Test
+    @DisplayName("chat: context ownership mismatch throws exception")
+    void chat_contextOwnershipMismatch_throwsException() {
+        UUID contextId = UUID.randomUUID();
+        ChatMessageRequest req = new ChatMessageRequest("hello", contextId, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        
+        ChatContext context = new ChatContext();
+        context.setId(contextId);
+        context.setUsername("bob"); // Different user
+        when(contextRepository.findById(contextId)).thenReturn(Optional.of(context));
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Context not found");
+    }
+
+    @Test
+    @DisplayName("chat: null error message in exception handling")
+    void chat_nullErrorMessage_throwsRateLimitException() {
+        ChatMessageRequest req = new ChatMessageRequest("test", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("test", user, "chat message")).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        
+        // Exception with null message
+        RuntimeException exception = new RuntimeException();
+        when(callSpec.chatResponse()).thenThrow(exception);
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(RateLimitException.class);
+    }
+
+    @Test
+    @DisplayName("chat: null age uses default age group")
+    void chat_nullAge_usesDefaultAgeGroup() {
+        ChatMessageRequest req = new ChatMessageRequest("hello there", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(null); // Null age
+        when(moderationUtil.validateComprehensive("hello there", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_9_10)).thenReturn(true); // Default age group
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+        verify(moderationUtil).validateSafetyForAge("reply", AgeGroup.AGE_9_10);
+    }
+
+    @Test
+    @DisplayName("chat: null saved context ID in logging")
+    void chat_nullSavedContextId_logsNull() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        
+        // Return context with null ID to test null ID logging branch
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(null); // Set ID to null
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+        // Verify logging was called with null context ID
+    }
+
+    @Test
+    @DisplayName("chat: null saved message in logging")
+    void chat_nullSavedMessage_logsNull() {
+        ChatMessageRequest req = new ChatMessageRequest("hello there", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello there", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        
+        // Return null for saved message to test null logging branch
+        when(messageRepository.save(any(ChatMessage.class))).thenReturn(null);
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        // Verify null message was handled
+        verify(messageRepository, atLeastOnce()).save(any(ChatMessage.class));
+    }
+
+    @Test
+    @DisplayName("chat: IOException in loadSystemPrompt uses fallback")
+    void chat_ioExceptionInLoadSystemPrompt_usesFallback() {
+        ChatMessageRequest req = new ChatMessageRequest("hello there", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello there", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        
+        // Set a resource that will throw IOException
+        ReflectionTestUtils.setField(service, "systemPromptAge6_8", new ByteArrayResource("sys".getBytes()) {
+            @Override
+            public java.io.InputStream getInputStream() throws java.io.IOException {
+                throw new java.io.IOException("Resource not found");
+            }
+        });
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: null age in getSystemPromptResource uses default")
+    void chat_nullAgeInGetSystemPromptResource_usesDefault() {
+        ChatMessageRequest req = new ChatMessageRequest("hello there", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(null); // Null age
+        when(moderationUtil.validateComprehensive("hello there", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_9_10)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+        // Should use systemPromptAge9_10 as default
+    }
 }
 

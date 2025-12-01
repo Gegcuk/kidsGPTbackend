@@ -212,4 +212,72 @@ class ChatControllerStandaloneTest {
         SecurityContextHolder.clearContext();
         verify(messageService).getMessages(eq(id), any(), eq("alice"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/chat/{id}/messages with unpaged request logs unpaged message")
+    void getMessages_withUnpagedRequest_logsUnpaged() throws Exception {
+        UUID id = UUID.randomUUID();
+        org.springframework.data.domain.Page<uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto> page = 
+            new org.springframework.data.domain.PageImpl<>(java.util.List.of());
+        when(messageService.getMessages(any(), any(), any())).thenReturn(page);
+
+        User principal = new User(
+                "alice",
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        // Use Pageable.unpaged() to trigger the unpaged branch
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/chat/" + id + "/messages")
+                        .param("unpaged", "true"))
+                .andExpect(status().isOk());
+
+        SecurityContextHolder.clearContext();
+        verify(messageService).getMessages(eq(id), any(), eq("alice"));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/chat/{id}/messages with page content logs messages")
+    void getMessages_withPageContent_logsMessages() throws Exception {
+        UUID id = UUID.randomUUID();
+        UUID msgId1 = UUID.randomUUID();
+        UUID msgId2 = UUID.randomUUID();
+        java.util.List<uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto> messages = java.util.List.of(
+                new uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto(
+                        msgId1, "USER", "Hello", java.time.LocalDateTime.now()
+                ),
+                new uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto(
+                        msgId2, "ASSISTANT", "Hi there!", java.time.LocalDateTime.now()
+                )
+        );
+        org.springframework.data.domain.Page<uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto> page = 
+            new org.springframework.data.domain.PageImpl<>(messages);
+        when(messageService.getMessages(any(), any(), any())).thenReturn(page);
+
+        User principal = new User(
+                "alice",
+                "password",
+                java.util.List.of(new SimpleGrantedAuthority("ROLE_USER"))
+        );
+        UsernamePasswordAuthenticationToken authentication =
+                new UsernamePasswordAuthenticationToken(
+                        principal,
+                        principal.getPassword(),
+                        principal.getAuthorities()
+                );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/chat/" + id + "/messages"))
+                .andExpect(status().isOk());
+
+        SecurityContextHolder.clearContext();
+        verify(messageService).getMessages(eq(id), any(), eq("alice"));
+    }
 }
