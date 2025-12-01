@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.chat.impl;
+package uk.gegc.kidsgptbackend.features.chat.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,12 +12,13 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
-import uk.gegc.kidsgptbackend.mapper.ChatMessageMapper;
-import uk.gegc.kidsgptbackend.model.chat.ChatContext;
-import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
-import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
-import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto;
+import uk.gegc.kidsgptbackend.features.chat.infra.mapping.ChatMessageMapper;
+import uk.gegc.kidsgptbackend.features.chat.domain.model.ChatContext;
+import uk.gegc.kidsgptbackend.features.chat.domain.model.ChatMessage;
+import uk.gegc.kidsgptbackend.features.chat.domain.repository.ChatContextRepository;
+import uk.gegc.kidsgptbackend.features.chat.domain.repository.ChatMessageRepository;
+import uk.gegc.kidsgptbackend.features.chat.application.impl.ChatMessageServiceImpl;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -95,3 +96,4 @@ class ChatMessageServiceImplTest {
         assertThat(result.getContent()).containsExactly(dto);
     }
 }
+

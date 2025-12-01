@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.chat.impl;
+package uk.gegc.kidsgptbackend.features.chat.application;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -15,21 +15,22 @@ import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.test.util.ReflectionTestUtils;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 import uk.gegc.kidsgptbackend.shared.exception.ConversationFormatException;
 import uk.gegc.kidsgptbackend.shared.exception.ModerationServiceException;
 import uk.gegc.kidsgptbackend.shared.exception.RateLimitException;
-import uk.gegc.kidsgptbackend.model.chat.ChatContext;
-import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
+import uk.gegc.kidsgptbackend.features.chat.domain.model.ChatContext;
+import uk.gegc.kidsgptbackend.features.chat.domain.model.ChatMessage;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.chat.ChatContextRepository;
-import uk.gegc.kidsgptbackend.repository.chat.ChatMessageRepository;
+import uk.gegc.kidsgptbackend.features.chat.domain.repository.ChatContextRepository;
+import uk.gegc.kidsgptbackend.features.chat.domain.repository.ChatMessageRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
+import uk.gegc.kidsgptbackend.features.chat.application.impl.AiChatServiceImpl;
 
 import java.security.Principal;
 import java.time.Clock;
@@ -466,3 +467,4 @@ class AiChatServiceImplTest {
         ));
     }
 }
+

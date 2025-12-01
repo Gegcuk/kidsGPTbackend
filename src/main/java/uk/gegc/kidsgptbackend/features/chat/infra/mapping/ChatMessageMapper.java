@@ -1,8 +1,8 @@
-package uk.gegc.kidsgptbackend.mapper;
+package uk.gegc.kidsgptbackend.features.chat.infra.mapping;
 
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
-import uk.gegc.kidsgptbackend.model.chat.ChatMessage;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto;
+import uk.gegc.kidsgptbackend.features.chat.domain.model.ChatMessage;
 
 @Component
 public class ChatMessageMapper {
@@ -15,3 +15,4 @@ public class ChatMessageMapper {
         );
     }
 }
+

@@ -16,11 +16,12 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.context.annotation.Import;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
-import uk.gegc.kidsgptbackend.service.chat.AiChatService;
-import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
+import uk.gegc.kidsgptbackend.features.chat.application.AiChatService;
+import uk.gegc.kidsgptbackend.features.chat.application.ChatMessageService;
+import uk.gegc.kidsgptbackend.features.chat.api.ChatController;
 
 import java.security.Principal;
 import java.util.UUID;

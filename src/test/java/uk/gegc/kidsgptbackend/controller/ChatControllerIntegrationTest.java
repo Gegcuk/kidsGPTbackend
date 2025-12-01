@@ -13,14 +13,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.chat.AiChatService;
-import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
+import uk.gegc.kidsgptbackend.features.chat.application.AiChatService;
+import uk.gegc.kidsgptbackend.features.chat.application.ChatMessageService;
 
 import java.util.UUID;
 

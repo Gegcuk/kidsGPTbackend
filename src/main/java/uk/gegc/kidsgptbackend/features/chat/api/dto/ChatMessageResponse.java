@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.chat;
+package uk.gegc.kidsgptbackend.features.chat.api.dto;
 
 import java.util.UUID;
 
@@ -12,3 +12,4 @@ public record ChatMessageResponse(
         UUID repliedMessageId
 ) {
 }
+
