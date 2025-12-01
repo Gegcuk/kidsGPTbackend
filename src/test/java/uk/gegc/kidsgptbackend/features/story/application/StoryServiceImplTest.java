@@ -15,7 +15,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 import uk.gegc.kidsgptbackend.features.story.api.dto.*;
 import uk.gegc.kidsgptbackend.features.story.application.impl.StoryServiceImpl;
 import uk.gegc.kidsgptbackend.features.story.domain.model.Story;

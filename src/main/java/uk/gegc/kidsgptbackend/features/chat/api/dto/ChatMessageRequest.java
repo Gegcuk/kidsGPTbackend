@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.chat;
+package uk.gegc.kidsgptbackend.features.chat.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,3 +15,4 @@ public record ChatMessageRequest(
         List<ChatMessageDto> context
 ) {
 }
+

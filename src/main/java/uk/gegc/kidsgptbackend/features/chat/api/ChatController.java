@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.chat.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -11,11 +11,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageDto;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
-import uk.gegc.kidsgptbackend.service.chat.AiChatService;
-import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.features.chat.application.AiChatService;
+import uk.gegc.kidsgptbackend.features.chat.application.ChatMessageService;
 
 import java.security.Principal;
 
@@ -109,3 +109,4 @@ public class ChatController {
         return ResponseEntity.ok(page);
     }
 }
+

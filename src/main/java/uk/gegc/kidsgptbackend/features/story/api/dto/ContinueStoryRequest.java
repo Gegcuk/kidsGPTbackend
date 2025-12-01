@@ -3,7 +3,7 @@ package uk.gegc.kidsgptbackend.features.story.api.dto;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 
 import java.util.List;
 import java.util.UUID;

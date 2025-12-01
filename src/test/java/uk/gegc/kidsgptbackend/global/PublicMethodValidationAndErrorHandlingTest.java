@@ -14,15 +14,15 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;
 import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionServiceImpl;
 import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAccessServiceImpl;
-import uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl;
+import uk.gegc.kidsgptbackend.features.chat.application.impl.AiChatServiceImpl;
 import uk.gegc.kidsgptbackend.features.tips.application.impl.DailyTipServiceImpl;
 import uk.gegc.kidsgptbackend.features.jokes.application.impl.DailyJokeServiceImpl;
 import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository;
 import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.features.tips.api.dto.DailyTipDto;
 import uk.gegc.kidsgptbackend.features.jokes.api.dto.DailyJokeDto;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
@@ -247,7 +247,7 @@ class PublicMethodValidationAndErrorHandlingTest {
         ChatMessageRequest request = new ChatMessageRequest(
                 "inappropriate content", 
                 null, 
-                uk.gegc.kidsgptbackend.dto.chat.Tone.FRIENDLY, 
+                uk.gegc.kidsgptbackend.features.chat.api.dto.Tone.FRIENDLY, 
                 null
         );
 

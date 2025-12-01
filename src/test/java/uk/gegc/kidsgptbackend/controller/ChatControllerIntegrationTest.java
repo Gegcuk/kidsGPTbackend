@@ -13,14 +13,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageRequest;
-import uk.gegc.kidsgptbackend.dto.chat.ChatMessageResponse;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.chat.AiChatService;
-import uk.gegc.kidsgptbackend.service.chat.ChatMessageService;
+import uk.gegc.kidsgptbackend.features.chat.application.AiChatService;
+import uk.gegc.kidsgptbackend.features.chat.application.ChatMessageService;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import java.util.UUID;
 
@@ -30,29 +31,23 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class ChatControllerIntegrationTest {
+class ChatControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
-    MockMvc mockMvc;
-    @Autowired
-    ObjectMapper objectMapper;
-    @Autowired
     UserRepository userRepository;
-    @Autowired
-    RoleRepository roleRepository;
-    @Autowired
-    PasswordEncoder passwordEncoder;
 
     @MockitoBean
     AiChatService aiChatService;
     @MockitoBean
     ChatMessageService chatMessageService;
 
+    @Override
     @org.junit.jupiter.api.BeforeEach
+    protected void setUp() throws Exception {
+        super.setUp();
+        setupUser();
+    }
+
     void setupUser() {
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
             uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();

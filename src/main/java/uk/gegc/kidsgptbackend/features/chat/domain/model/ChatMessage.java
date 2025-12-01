@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.model.chat;
+package uk.gegc.kidsgptbackend.features.chat.domain.model;
 
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -33,3 +33,4 @@ public class ChatMessage {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }
+

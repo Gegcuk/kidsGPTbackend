@@ -74,7 +74,7 @@ class LogbackConfigurationTest {
     void chatFileAppender_shouldBeProperlyConfigured() {
         // Given & When
         // CHAT_FILE appender is attached to specific loggers, not root logger
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
         Appender<ILoggingEvent> chatFileAppender = chatControllerLogger.getAppender("CHAT_FILE");
 
         // Then
@@ -88,7 +88,7 @@ class LogbackConfigurationTest {
     void chatFileAppender_shouldHaveProperRollingPolicy() {
         // Given & When
         // CHAT_FILE appender is attached to specific loggers, not root logger
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
         RollingFileAppender<ILoggingEvent> chatFileAppender = 
             (RollingFileAppender<ILoggingEvent>) chatControllerLogger.getAppender("CHAT_FILE");
 
@@ -108,7 +108,7 @@ class LogbackConfigurationTest {
     @DisplayName("ChatController logger should be properly configured")
     void chatControllerLogger_shouldBeProperlyConfigured() {
         // Given & When
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
 
         // Then
         assertThat(chatControllerLogger).isNotNull();
@@ -122,7 +122,7 @@ class LogbackConfigurationTest {
     @DisplayName("AiChatServiceImpl logger should be properly configured")
     void aiChatServiceImplLogger_shouldBeProperlyConfigured() {
         // Given & When
-        Logger aiChatServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl");
+        Logger aiChatServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.application.impl.AiChatServiceImpl");
 
         // Then
         assertThat(aiChatServiceLogger).isNotNull();
@@ -136,7 +136,7 @@ class LogbackConfigurationTest {
     @DisplayName("ChatMessageServiceImpl logger should be properly configured")
     void chatMessageServiceImplLogger_shouldBeProperlyConfigured() {
         // Given & When
-        Logger chatMessageServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.service.chat.impl.ChatMessageServiceImpl");
+        Logger chatMessageServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.application.impl.ChatMessageServiceImpl");
 
         // Then
         assertThat(chatMessageServiceLogger).isNotNull();
@@ -177,9 +177,9 @@ class LogbackConfigurationTest {
     void logLevels_shouldBeAppropriateForProductionUse() {
         // Given & When
         Logger rootLogger = loggerContext.getLogger(Logger.ROOT_LOGGER_NAME);
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
-        Logger aiChatServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl");
-        Logger chatMessageServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.service.chat.impl.ChatMessageServiceImpl");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
+        Logger aiChatServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.application.impl.AiChatServiceImpl");
+        Logger chatMessageServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.application.impl.ChatMessageServiceImpl");
 
         // Then
         // Root logger should be at INFO level (not DEBUG to avoid excessive logging)
@@ -196,7 +196,7 @@ class LogbackConfigurationTest {
     void fileAppender_shouldHaveProperFilePathConfiguration() {
         // Given & When
         // CHAT_FILE appender is attached to specific loggers, not root logger
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
         RollingFileAppender<ILoggingEvent> chatFileAppender = 
             (RollingFileAppender<ILoggingEvent>) chatControllerLogger.getAppender("CHAT_FILE");
 
@@ -222,7 +222,7 @@ class LogbackConfigurationTest {
     void chatFileAppender_shouldHaveProperPatternConfiguration() {
         // Given & When
         // CHAT_FILE appender is attached to specific loggers, not root logger
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
         RollingFileAppender<ILoggingEvent> chatFileAppender = 
             (RollingFileAppender<ILoggingEvent>) chatControllerLogger.getAppender("CHAT_FILE");
 
@@ -236,7 +236,7 @@ class LogbackConfigurationTest {
     void loggerConfiguration_shouldSupportProperLogRotation() {
         // Given & When
         // CHAT_FILE appender is attached to specific loggers, not root logger
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
         RollingFileAppender<ILoggingEvent> chatFileAppender = 
             (RollingFileAppender<ILoggingEvent>) chatControllerLogger.getAppender("CHAT_FILE");
 
@@ -256,9 +256,9 @@ class LogbackConfigurationTest {
     @DisplayName("Logger configuration should be consistent across chat-related loggers")
     void loggerConfiguration_shouldBeConsistentAcrossChatRelatedLoggers() {
         // Given & When
-        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.controller.ChatController");
-        Logger aiChatServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl");
-        Logger chatMessageServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.service.chat.impl.ChatMessageServiceImpl");
+        Logger chatControllerLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.api.ChatController");
+        Logger aiChatServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.application.impl.AiChatServiceImpl");
+        Logger chatMessageServiceLogger = loggerContext.getLogger("uk.gegc.kidsgptbackend.features.chat.application.impl.ChatMessageServiceImpl");
 
         // Then
         // All chat-related loggers should have the same configuration

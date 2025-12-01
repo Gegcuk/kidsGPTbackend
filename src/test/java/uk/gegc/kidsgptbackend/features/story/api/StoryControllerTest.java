@@ -17,7 +17,7 @@ import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.context.annotation.Import;
-import uk.gegc.kidsgptbackend.dto.chat.Tone;
+import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 import uk.gegc.kidsgptbackend.features.story.api.dto.*;
 import uk.gegc.kidsgptbackend.features.story.domain.model.StoryStatus;
 import uk.gegc.kidsgptbackend.features.story.application.StoryService;

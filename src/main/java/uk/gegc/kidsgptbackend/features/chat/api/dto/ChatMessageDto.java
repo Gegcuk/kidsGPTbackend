@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.chat;
+package uk.gegc.kidsgptbackend.features.chat.api.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -10,3 +10,4 @@ public record ChatMessageDto(
         LocalDateTime createdAt
 ) {
 }
+
