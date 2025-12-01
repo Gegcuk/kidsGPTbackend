@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.model.story;
+package uk.gegc.kidsgptbackend.features.story.domain.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -45,4 +45,5 @@ public class Story {
         messages.add(message);
         message.setStory(this);
     }
-} 
+}
+

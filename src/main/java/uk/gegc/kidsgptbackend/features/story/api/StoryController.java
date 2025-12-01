@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.story.api;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,8 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
-import uk.gegc.kidsgptbackend.dto.story.*;
-import uk.gegc.kidsgptbackend.service.story.StoryService;
+import uk.gegc.kidsgptbackend.features.story.api.dto.*;
+import uk.gegc.kidsgptbackend.features.story.application.StoryService;
 
 import java.security.Principal;
 import java.util.UUID;
@@ -78,4 +78,5 @@ public class StoryController {
         Page<StoryListDto> stories = storyService.getStoriesByUser(p, pageable);
         return ResponseEntity.ok(stories);
     }
-} 
+}
+

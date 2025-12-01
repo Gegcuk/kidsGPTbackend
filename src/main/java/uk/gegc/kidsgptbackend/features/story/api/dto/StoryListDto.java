@@ -1,6 +1,6 @@
-package uk.gegc.kidsgptbackend.dto.story;
+package uk.gegc.kidsgptbackend.features.story.api.dto;
 
-import uk.gegc.kidsgptbackend.model.story.StoryStatus;
+import uk.gegc.kidsgptbackend.features.story.domain.model.StoryStatus;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -13,4 +13,5 @@ public record StoryListDto(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-} 
+}
+
