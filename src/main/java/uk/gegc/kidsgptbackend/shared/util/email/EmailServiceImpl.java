@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.email.impl;
+package uk.gegc.kidsgptbackend.shared.util.email;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,7 +7,6 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 import uk.gegc.kidsgptbackend.shared.config.EmailConfig;
-import uk.gegc.kidsgptbackend.service.email.EmailService;
 
 @Slf4j
 @Service
@@ -128,4 +127,5 @@ public class EmailServiceImpl implements EmailService {
             throw new RuntimeException("Failed to send verification email", e);
         }
     }
-} 
+}
+

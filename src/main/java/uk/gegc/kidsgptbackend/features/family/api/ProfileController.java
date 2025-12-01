@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.family.api;
 
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,4 +33,5 @@ public class ProfileController {
         ChildProfileDto updated = kidProfileService.updateKidProfileByParent(kidId, request);
         return ResponseEntity.ok(updated);
     }
-} 
+}
+

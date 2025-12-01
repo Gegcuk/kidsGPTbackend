@@ -19,7 +19,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.consent.domain.repository.ParentVerificationRepository;
 import uk.gegc.kidsgptbackend.features.consent.application.impl.ParentVerificationServiceImpl;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.email.EmailService;
+import uk.gegc.kidsgptbackend.shared.util.email.EmailService;
 
 import java.time.Clock;
 import java.time.Instant;

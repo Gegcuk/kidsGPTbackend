@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.consent.api;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -188,4 +188,5 @@ public class VerificationController {
                 .header("Expires", "0")
                 .body(response);
     }
-} 
+}
+

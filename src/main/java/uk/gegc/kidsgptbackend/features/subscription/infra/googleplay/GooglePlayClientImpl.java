@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.googleplay.impl;
+package uk.gegc.kidsgptbackend.features.subscription.infra.googleplay;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
@@ -11,8 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
@@ -239,3 +237,4 @@ public class GooglePlayClientImpl implements GooglePlayClient {
         }
     }
 }
+

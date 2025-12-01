@@ -11,7 +11,7 @@ import org.mockito.quality.Strictness;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.context.request.WebRequest;
 import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 
 import java.time.Clock;

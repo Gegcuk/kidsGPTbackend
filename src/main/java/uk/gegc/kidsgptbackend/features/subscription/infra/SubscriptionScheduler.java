@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.scheduler;
+package uk.gegc.kidsgptbackend.features.subscription.infra;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -56,3 +56,4 @@ public class SubscriptionScheduler {
         }
     }
 }
+

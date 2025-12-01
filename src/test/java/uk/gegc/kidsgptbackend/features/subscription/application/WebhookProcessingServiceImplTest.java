@@ -14,8 +14,8 @@ import uk.gegc.kidsgptbackend.features.subscription.application.impl.WebhookProc
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
-import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
+import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 
 import java.time.Instant;
 import java.util.Base64;

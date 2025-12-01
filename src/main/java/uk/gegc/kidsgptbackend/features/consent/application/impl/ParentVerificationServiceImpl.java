@@ -18,7 +18,7 @@ import uk.gegc.kidsgptbackend.features.consent.domain.model.VerificationStatus;
 import uk.gegc.kidsgptbackend.features.consent.domain.repository.ParentVerificationRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.features.consent.application.ParentVerificationService;
-import uk.gegc.kidsgptbackend.service.email.EmailService;
+import uk.gegc.kidsgptbackend.shared.util.email.EmailService;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;

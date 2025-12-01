@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.payment;
+package uk.gegc.kidsgptbackend.features.subscription.infra.payment;
 
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
@@ -19,3 +19,4 @@ public interface PaymentService {
      */
     boolean processRefund(String orderId, String reason);
 }
+

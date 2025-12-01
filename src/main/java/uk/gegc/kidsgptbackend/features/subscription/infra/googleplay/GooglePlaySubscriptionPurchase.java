@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.googleplay;
+package uk.gegc.kidsgptbackend.features.subscription.infra.googleplay;
 
 import lombok.Data;
 
@@ -43,3 +43,4 @@ public class GooglePlaySubscriptionPurchase {
         return System.currentTimeMillis() >= expiryTimeMillis;
     }
 }
+

@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.systemstatus.api;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -129,3 +129,4 @@ public class DiagnosticsController {
         return ResponseEntity.ok(response);
     }
 }
+

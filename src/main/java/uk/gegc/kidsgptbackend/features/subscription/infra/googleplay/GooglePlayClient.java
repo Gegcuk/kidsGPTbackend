@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.googleplay;
+package uk.gegc.kidsgptbackend.features.subscription.infra.googleplay;
 
 public interface GooglePlayClient {
 
@@ -18,3 +18,4 @@ public interface GooglePlayClient {
      */
     void acknowledgeSubscription(String productId, String purchaseToken, String developerPayload);
 }
+
