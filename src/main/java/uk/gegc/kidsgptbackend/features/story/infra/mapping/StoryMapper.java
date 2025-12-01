@@ -1,11 +1,11 @@
-package uk.gegc.kidsgptbackend.mapper;
+package uk.gegc.kidsgptbackend.features.story.infra.mapping;
 
 import org.springframework.stereotype.Component;
-import uk.gegc.kidsgptbackend.dto.story.StoryDto;
-import uk.gegc.kidsgptbackend.dto.story.StoryListDto;
-import uk.gegc.kidsgptbackend.dto.story.StoryMessageDto;
-import uk.gegc.kidsgptbackend.model.story.Story;
-import uk.gegc.kidsgptbackend.model.story.StoryMessage;
+import uk.gegc.kidsgptbackend.features.story.api.dto.StoryDto;
+import uk.gegc.kidsgptbackend.features.story.api.dto.StoryListDto;
+import uk.gegc.kidsgptbackend.features.story.api.dto.StoryMessageDto;
+import uk.gegc.kidsgptbackend.features.story.domain.model.Story;
+import uk.gegc.kidsgptbackend.features.story.domain.model.StoryMessage;
 
 import java.util.List;
 
@@ -56,4 +56,5 @@ public class StoryMapper {
                 .map(this::toListDto)
                 .toList();
     }
-} 
+}
+

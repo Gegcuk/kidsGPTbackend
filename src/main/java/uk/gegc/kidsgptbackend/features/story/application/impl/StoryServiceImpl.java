@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.story.impl;
+package uk.gegc.kidsgptbackend.features.story.application.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -18,17 +18,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
-import uk.gegc.kidsgptbackend.dto.story.*;
+import uk.gegc.kidsgptbackend.features.story.api.dto.*;
 import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
-import uk.gegc.kidsgptbackend.mapper.StoryMapper;
-import uk.gegc.kidsgptbackend.model.story.Story;
-import uk.gegc.kidsgptbackend.model.story.StoryMessage;
-import uk.gegc.kidsgptbackend.model.story.StoryStatus;
+import uk.gegc.kidsgptbackend.features.story.infra.mapping.StoryMapper;
+import uk.gegc.kidsgptbackend.features.story.domain.model.Story;
+import uk.gegc.kidsgptbackend.features.story.domain.model.StoryMessage;
+import uk.gegc.kidsgptbackend.features.story.domain.model.StoryStatus;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.story.StoryRepository;
+import uk.gegc.kidsgptbackend.features.story.domain.repository.StoryRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.story.StoryService;
+import uk.gegc.kidsgptbackend.features.story.application.StoryService;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 
 import java.io.IOException;
@@ -357,4 +357,5 @@ public class StoryServiceImpl implements StoryService {
         // This can be enhanced later with tone-specific template files
         return templates[random.nextInt(templates.length)];
     }
-} 
+}
+

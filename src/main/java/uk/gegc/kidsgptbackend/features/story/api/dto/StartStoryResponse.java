@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.story;
+package uk.gegc.kidsgptbackend.features.story.api.dto;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -12,4 +12,5 @@ public record StartStoryResponse(
         int tokensUsed,
         LocalDateTime createdAt
 ) {
-} 
+}
+

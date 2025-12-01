@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.story.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -18,9 +18,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.context.annotation.Import;
 import uk.gegc.kidsgptbackend.dto.chat.Tone;
-import uk.gegc.kidsgptbackend.dto.story.*;
-import uk.gegc.kidsgptbackend.model.story.StoryStatus;
-import uk.gegc.kidsgptbackend.service.story.StoryService;
+import uk.gegc.kidsgptbackend.features.story.api.dto.*;
+import uk.gegc.kidsgptbackend.features.story.domain.model.StoryStatus;
+import uk.gegc.kidsgptbackend.features.story.application.StoryService;
 
 import java.security.Principal;
 import java.time.LocalDateTime;
@@ -252,4 +252,5 @@ class StoryControllerTest {
 
         verify(storyService, never()).startStory(any(), any());
     }
-} 
+}
+

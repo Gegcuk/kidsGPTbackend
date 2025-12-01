@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.dto.story;
+package uk.gegc.kidsgptbackend.features.story.api.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -22,4 +22,5 @@ public record ContinueStoryRequest(
         // Context history provided by client (like chat API)
         List<StoryMessageDto> context
 ) {
-} 
+}
+

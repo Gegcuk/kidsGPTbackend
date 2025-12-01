@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.model.story;
+package uk.gegc.kidsgptbackend.features.story.domain.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
@@ -29,4 +29,5 @@ public class StoryMessage {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-} 
+}
+

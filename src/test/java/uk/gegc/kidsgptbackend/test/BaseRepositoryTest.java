@@ -55,7 +55,7 @@ public abstract class BaseRepositoryTest {
      * but should call {@code super.setUp()} if they override.
      */
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
         // Override in subclasses if needed
     }
 
