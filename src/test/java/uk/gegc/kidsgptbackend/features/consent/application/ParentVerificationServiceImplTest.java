@@ -197,7 +197,6 @@ class ParentVerificationServiceImplTest extends BaseUnitTest {
         when(userRepository.existsById(testParentId)).thenReturn(true);
         
         // Mock the hash computation - need to return the same hash for the same contact
-        byte[] contactHash = new byte[32];
         when(parentVerificationRepository.findPendingForParentMethodContact(
                 eq(testParentId), eq(VerificationMethod.SMS), any(byte[].class), eq(fixedTime)))
                 .thenReturn(Optional.of(existingVerification));
