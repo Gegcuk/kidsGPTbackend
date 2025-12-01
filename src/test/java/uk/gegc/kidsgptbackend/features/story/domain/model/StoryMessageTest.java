@@ -19,8 +19,10 @@ class StoryMessageTest extends BaseRepositoryTest {
 
     private Story testStory;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
+        super.setUp();
         // Create a test story
         testStory = new Story();
         testStory.setUsername("testuser");

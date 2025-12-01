@@ -18,8 +18,10 @@ class StoryTest extends BaseRepositoryTest {
 
     private String testUsername;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
+        super.setUp();
         testUsername = "testuser";
     }
 
