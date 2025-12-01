@@ -622,4 +622,90 @@ class ModerationUtilTest extends BaseUnitTest {
         // Assert
         assertThat(result).isFalse();
     }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle response starting with lowercase safe")
+    void validateContentWithAI_lowercaseSafe_passes() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("safe content is fine");
+
+        // Act & Assert
+        assertThatCode(() -> moderationUtil.validateContentWithAI(content, user))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle response with mixed case SAFE")
+    void validateContentWithAI_mixedCaseSafe_passes() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("SaFe - content is appropriate");
+
+        // Act & Assert
+        assertThatCode(() -> moderationUtil.validateContentWithAI(content, user))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle response that doesn't start with SAFE")
+    void validateContentWithAI_notStartingWithSafe_throwsException() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(callSpec.content()).thenReturn("APPROVED");
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("inappropriate for age group");
+    }
+
+    @Test
+    @DisplayName("validateContentWithAI: should handle IllegalArgumentException re-throw")
+    void validateContentWithAI_illegalArgumentException_rethrows() {
+        // Arrange
+        String content = "ab"; // Too short
+        User user = createTestUser(8);
+
+        // Act & Assert
+        assertThatThrownBy(() -> moderationUtil.validateContentWithAI(content, user))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: should handle general exception and return false")
+    void validateComprehensive_generalException_returnsFalse() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+        when(callSpec.content()).thenThrow(new IllegalArgumentException("Validation error"));
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(content, user, "test content");
+
+        // Assert
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("validateComprehensive: should handle non-chat message type")
+    void validateComprehensive_nonChatMessageType_callsValidateContentWithAI() {
+        // Arrange
+        String content = "Test content";
+        User user = createTestUser(8);
+        when(moderationModel.call(any(ModerationPrompt.class))).thenReturn(createSafeResponse());
+        when(callSpec.content()).thenReturn("SAFE");
+
+        // Act
+        boolean result = moderationUtil.validateComprehensive(content, user, "image prompt");
+
+        // Assert
+        assertThat(result).isTrue();
+        verify(moderationModel).call(any(ModerationPrompt.class));
+        verify(callSpec).content();
+    }
 } 
