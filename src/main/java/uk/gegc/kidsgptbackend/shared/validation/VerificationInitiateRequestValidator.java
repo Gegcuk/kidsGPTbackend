@@ -3,8 +3,8 @@ package uk.gegc.kidsgptbackend.shared.validation;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import org.springframework.util.StringUtils;
-import uk.gegc.kidsgptbackend.dto.consent.VerificationInitiateRequest;
-import uk.gegc.kidsgptbackend.model.consent.VerificationMethod;
+import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationInitiateRequest;
+import uk.gegc.kidsgptbackend.features.consent.domain.model.VerificationMethod;
 
 import java.util.regex.Pattern;
 

@@ -18,11 +18,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-import uk.gegc.kidsgptbackend.dto.consent.VerificationInitiateRequest;
-import uk.gegc.kidsgptbackend.dto.consent.VerificationInitiationResult;
-import uk.gegc.kidsgptbackend.dto.consent.VerificationStatusResponse;
-import uk.gegc.kidsgptbackend.dto.consent.VerificationVerifyRequest;
-import uk.gegc.kidsgptbackend.service.consent.ParentVerificationService;
+import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationInitiateRequest;
+import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationInitiationResult;
+import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationStatusResponse;
+import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationVerifyRequest;
+import uk.gegc.kidsgptbackend.features.consent.application.ParentVerificationService;
 
 import java.net.URI;
 import java.util.UUID;
