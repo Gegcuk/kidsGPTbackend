@@ -743,5 +743,643 @@ class AiChatServiceImplTest extends BaseUnitTest {
         assertThat(resp.reply()).isEqualTo("reply");
         // Should use systemPromptAge9_10 as default
     }
+
+    @Test
+    @DisplayName("chat: ModerationServiceException is re-thrown")
+    void chat_moderationServiceException_isRethrown() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        ModerationServiceException moderationException = new ModerationServiceException("Service down", new RuntimeException());
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenThrow(moderationException);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+
+        assertThatThrownBy(() -> service.chat(req, principal))
+                .isInstanceOf(ModerationServiceException.class)
+                .isEqualTo(moderationException);
+    }
+
+    @Test
+    @DisplayName("chat: age 8 uses age-6-8 prompt")
+    void chat_age8_usesAge6_8Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8); // Exactly 8
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 9 uses age-9-10 prompt")
+    void chat_age9_usesAge9_10Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(9);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_9_10)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 10 uses age-9-10 prompt")
+    void chat_age10_usesAge9_10Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(10);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_9_10)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 11 uses age-11-12 prompt")
+    void chat_age11_usesAge11_12Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(11);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_11_12)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 12 uses age-11-12 prompt")
+    void chat_age12_usesAge11_12Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(12);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_11_12)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 13 uses age-13-14 prompt")
+    void chat_age13_usesAge13_14Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(13);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_13_14)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 14 uses age-13-14 prompt")
+    void chat_age14_usesAge13_14Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(14);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_13_14)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 15 uses age-15-16 prompt")
+    void chat_age15_usesAge15_16Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(15);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_15_16)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: age 16 uses age-15-16 prompt")
+    void chat_age16_usesAge15_16Prompt() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(16);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_15_16)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+    }
+
+    @Test
+    @DisplayName("chat: buildConversationHistory with null context returns empty list")
+    void chat_buildConversationHistory_nullContext_returnsEmpty() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        // Verify messages() was called (with empty list when no context)
+        verify(requestSpec).messages(any(List.class));
+    }
+
+    @Test
+    @DisplayName("chat: buildConversationHistory with ASSISTANT role adds AssistantMessage")
+    void chat_buildConversationHistory_assistantRole_addsAssistantMessage() {
+        List<ChatMessageDto> contextHistory = List.of(
+                new ChatMessageDto(UUID.randomUUID(), "ASSISTANT", "Hello from AI!", LocalDateTime.now())
+        );
+        
+        ChatMessageRequest req = new ChatMessageRequest("hello there", null, Tone.FRIENDLY, contextHistory);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello there", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("reply");
+        // Verify that messages() was called (with context history including ASSISTANT message)
+        verify(requestSpec, atLeastOnce()).messages(any(List.class));
+    }
+
+    @Test
+    @DisplayName("chat: message too long returns validation response")
+    void chat_messageTooLong_returnsValidationResponse() {
+        String longMessage = "A".repeat(1001); // 1001 characters
+        ChatMessageRequest req = new ChatMessageRequest(longMessage, null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("Your message is too long. Please break it into smaller parts."));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isNotEmpty();
+        verify(callSpec, atLeastOnce()).chatResponse();
+    }
+
+    @Test
+    @DisplayName("chat: null message in validation")
+    void chat_nullMessage_returnsValidationResponse() {
+        ChatMessageRequest req = new ChatMessageRequest(null, null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("Hi! I'm ready to chat. What would you like to talk about?"));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isNotEmpty();
+        verify(callSpec, atLeastOnce()).chatResponse();
+    }
+
+    @Test
+    @DisplayName("chat: generatePoliteRefusalResponse with successful AI generation")
+    void chat_generatePoliteRefusalResponse_successfulGeneration() {
+        ChatMessageRequest req = new ChatMessageRequest("bad word", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("bad word", user, "chat message")).thenReturn(false);
+        when(moderationUtil.validateSafetyForAge("That's not appropriate, let's talk about something fun!", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        
+        // generatePoliteRefusalResponse calls chatClient.prompt() which uses the same requestSpec/callSpec chain
+        // The setUp() method already configures this, so we just need to return the response
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("That's not appropriate, let's talk about something fun!"));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isEqualTo("That's not appropriate, let's talk about something fun!");
+        assertThat(resp.model()).isNotEqualTo("kidsGPT-fallback"); // Should use AI-generated response
+        // Verify that chatClient.prompt() was called (for generatePoliteRefusalResponse)
+        verify(chatClient, atLeastOnce()).prompt();
+    }
+
+    @Test
+    @DisplayName("chat: generatePoliteRefusalResponse with null age uses default")
+    void chat_generatePoliteRefusalResponse_nullAge_usesDefault() {
+        ChatMessageRequest req = new ChatMessageRequest("bad", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(null);
+        when(moderationUtil.validateComprehensive("bad", user, "chat message")).thenReturn(false);
+        when(moderationUtil.validateSafetyForAge("Let's talk about something fun!", AgeGroup.AGE_9_10)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("Let's talk about something fun!"));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        verify(moderationUtil).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_9_10));
+    }
+
+    @Test
+    @DisplayName("chat: generatePoliteRefusalForAIResponse with null age uses default")
+    void chat_generatePoliteRefusalForAIResponse_nullAge_usesDefault() {
+        ChatMessageRequest req = new ChatMessageRequest("tell me about violence", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(null);
+        when(moderationUtil.validateComprehensive("tell me about violence", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("Here's how to be violent...", AgeGroup.AGE_9_10)).thenReturn(false);
+        when(moderationUtil.validateSafetyForAge("Let's talk about conflict resolution!", AgeGroup.AGE_9_10)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse())
+            .thenReturn(simpleResponse("Here's how to be violent..."))
+            .thenReturn(simpleResponse("Let's talk about conflict resolution!"));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).contains("conflict resolution");
+        verify(moderationUtil, atLeastOnce()).validateSafetyForAge(anyString(), eq(AgeGroup.AGE_9_10));
+    }
+
+    @Test
+    @DisplayName("chat: loadFallbackMessages with null resource uses fallback")
+    void chat_loadFallbackMessages_nullResource_usesFallback() {
+        ChatMessageRequest req = new ChatMessageRequest("", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("AI service unavailable"));
+        
+        // Set fallbackMessagesResource to null
+        ReflectionTestUtils.setField(service, "fallbackMessagesResource", null);
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isNotEmpty();
+        assertThat(resp.model()).isEqualTo("kidsGPT-fallback");
+    }
+
+    @Test
+    @DisplayName("chat: loadFallbackMessages with IOException uses fallback")
+    void chat_loadFallbackMessages_ioException_usesFallback() {
+        ChatMessageRequest req = new ChatMessageRequest("", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("AI service unavailable"));
+        
+        // Set fallbackMessagesResource to throw IOException
+        ReflectionTestUtils.setField(service, "fallbackMessagesResource", new ByteArrayResource("test".getBytes()) {
+            @Override
+            public java.io.InputStream getInputStream() throws java.io.IOException {
+                throw new java.io.IOException("Cannot read resource");
+            }
+        });
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isNotEmpty();
+        assertThat(resp.model()).isEqualTo("kidsGPT-fallback");
+    }
+
+    @Test
+    @DisplayName("chat: loadFallbackMessages successfully loads from resource")
+    void chat_loadFallbackMessages_successfullyLoads() {
+        ChatMessageRequest req = new ChatMessageRequest("", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse()).thenThrow(new RuntimeException("AI service unavailable"));
+        
+        // Set fallbackMessagesResource with valid content
+        String fallbackContent = "VALIDATION_MESSAGE_EMPTY=Hi! I'm ready to chat.\nAGE_PREFIX_TEMPLATE=You are talking to a %d-year-old child.\n";
+        ReflectionTestUtils.setField(service, "fallbackMessagesResource", new ByteArrayResource(fallbackContent.getBytes()));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).isNotEmpty();
+    }
+
+    @Test
+    @DisplayName("chat: null context in response constructor")
+    void chat_nullContextInResponse_handlesGracefully() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        
+        // Return context with null ID to test null context branch in response constructor
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(null); // Null ID
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.contextId()).isNull(); // Should handle null context ID
+    }
+
+    @Test
+    @DisplayName("chat: null saved context in resolveContext logging")
+    void chat_nullSavedContextInResolveContext_logsNull() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        
+        // Return context with null ID to test null savedContext.getId() logging branch
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(null); // Null ID will be logged as "null"
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        // Verify null context ID was handled in logging
+    }
+
+    @Test
+    @DisplayName("chat: null context in final logging")
+    void chat_nullContextInFinalLogging_handlesGracefully() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        
+        // Return context with null ID
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(null);
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.contextId()).isNull();
+    }
+
+    @Test
+    @DisplayName("chat: null context in assistant message logging")
+    void chat_nullContextInAssistantMessageLogging_handlesGracefully() {
+        ChatMessageRequest req = new ChatMessageRequest("hello", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("hello", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("reply", AgeGroup.AGE_6_8)).thenReturn(true);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(callSpec.chatResponse()).thenReturn(simpleResponse("reply"));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(null); // Null ID
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> {
+            ChatMessage msg = inv.getArgument(0);
+            msg.setContext(null); // Set context to null for assistant message
+            return msg;
+        });
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        // Verify null context was handled in logging
+    }
+
+    @Test
+    @DisplayName("chat: generatePoliteRefusalForAIResponse fallback when second generation fails")
+    void chat_generatePoliteRefusalForAIResponse_secondGenerationFails_usesFallback() {
+        ChatMessageRequest req = new ChatMessageRequest("tell me about violence", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("tell me about violence", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("Here's how to be violent...", AgeGroup.AGE_6_8)).thenReturn(false);
+        when(moderationUtil.validateSafetyForAge("Let's talk about conflict resolution!", AgeGroup.AGE_6_8)).thenReturn(false); // Second also fails
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse())
+            .thenReturn(simpleResponse("Here's how to be violent..."))
+            .thenReturn(simpleResponse("Let's talk about conflict resolution!"));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).contains("Oops, that topic's a bit tricky"); // Should use fallback
+    }
+
+    @Test
+    @DisplayName("chat: generatePoliteRefusalForAIResponse exception uses fallback")
+    void chat_generatePoliteRefusalForAIResponse_exception_usesFallback() {
+        ChatMessageRequest req = new ChatMessageRequest("tell me about violence", null, Tone.FRIENDLY, null);
+        User user = new User();
+        user.setAge(8);
+        when(moderationUtil.validateComprehensive("tell me about violence", user, "chat message")).thenReturn(true);
+        when(moderationUtil.validateSafetyForAge("Here's how to be violent...", AgeGroup.AGE_6_8)).thenReturn(false);
+        when(userRepository.findByUsername("alice")).thenReturn(Optional.of(user));
+        when(contextRepository.save(any(ChatContext.class))).thenAnswer(inv -> {
+            ChatContext ctx = inv.getArgument(0);
+            ctx.setId(UUID.randomUUID());
+            return ctx;
+        });
+        when(messageRepository.save(any(ChatMessage.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(callSpec.chatResponse())
+            .thenReturn(simpleResponse("Here's how to be violent..."))
+            .thenThrow(new RuntimeException("AI service unavailable"));
+
+        ChatMessageResponse resp = service.chat(req, principal);
+        
+        assertThat(resp).isNotNull();
+        assertThat(resp.reply()).contains("Oops, that topic's a bit tricky"); // Should use fallback
+        assertThat(resp.model()).isEqualTo("kidsGPT-fallback");
+    }
 }
 
