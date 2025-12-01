@@ -10,9 +10,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
-import uk.gegc.kidsgptbackend.service.subscription.IdempotencyService;
-import uk.gegc.kidsgptbackend.service.subscription.WebhookProcessingService;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.WebhookEvent;
+import uk.gegc.kidsgptbackend.features.subscription.application.IdempotencyService;
+import uk.gegc.kidsgptbackend.features.subscription.application.WebhookProcessingService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;

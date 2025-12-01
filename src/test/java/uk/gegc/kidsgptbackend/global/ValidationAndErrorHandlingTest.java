@@ -13,10 +13,10 @@ import org.springframework.web.context.request.WebRequest;
 import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
-import uk.gegc.kidsgptbackend.service.subscription.impl.IdempotencyServiceImpl;
-import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.IdempotencyServiceImpl;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.WebhookEvent;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -45,7 +45,7 @@ class ValidationAndErrorHandlingTest {
     private UserSubscriptionRepository userSubscriptionRepository;
 
     @Mock
-    private uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository webhookEventRepository;
+    private uk.gegc.kidsgptbackend.features.subscription.domain.repository.WebhookEventRepository webhookEventRepository;
 
     private GlobalExceptionHandler globalExceptionHandler;
     private IdempotencyServiceImpl idempotencyService;

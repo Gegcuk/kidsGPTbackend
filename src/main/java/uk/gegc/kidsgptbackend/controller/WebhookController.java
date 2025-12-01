@@ -6,9 +6,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
-import uk.gegc.kidsgptbackend.service.subscription.IdempotencyService;
-import uk.gegc.kidsgptbackend.service.subscription.WebhookProcessingService;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.WebhookEvent;
+import uk.gegc.kidsgptbackend.features.subscription.application.IdempotencyService;
+import uk.gegc.kidsgptbackend.features.subscription.application.WebhookProcessingService;
 
 @RestController
 @RequestMapping("/webhooks")
