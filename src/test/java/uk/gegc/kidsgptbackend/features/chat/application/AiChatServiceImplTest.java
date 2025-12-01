@@ -7,7 +7,7 @@ import org.junit.jupiter.api.parallel.Execution;
 import org.junit.jupiter.api.parallel.ExecutionMode;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockitoAnnotations;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.metadata.ChatResponseMetadata;
@@ -46,7 +46,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @Execution(ExecutionMode.CONCURRENT)
-class AiChatServiceImplTest {
+class AiChatServiceImplTest extends BaseUnitTest {
 
     @Mock
     ChatContextRepository contextRepository;
@@ -70,9 +70,10 @@ class AiChatServiceImplTest {
 
     Principal principal = () -> "alice";
 
+    @Override
     @BeforeEach
-    void setup() {
-        MockitoAnnotations.openMocks(this);
+    protected void setUp() {
+        super.setUp();
         // Set up all age-specific prompt resources
         ReflectionTestUtils.setField(service, "systemPromptAge6_8", new ByteArrayResource("sys".getBytes()));
         ReflectionTestUtils.setField(service, "systemPromptAge9_10", new ByteArrayResource("sys".getBytes()));
