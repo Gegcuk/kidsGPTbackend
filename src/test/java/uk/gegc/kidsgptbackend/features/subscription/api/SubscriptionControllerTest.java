@@ -4,12 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.User;
 import uk.gegc.kidsgptbackend.features.subscription.api.dto.*;
@@ -17,6 +14,7 @@ import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPla
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.auth.application.CurrentUserResolver;
 import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionService;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,9 +26,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 @DisplayName("SubscriptionController Tests")
-class SubscriptionControllerTest {
+class SubscriptionControllerTest extends BaseUnitTest {
 
     @Mock
     private SubscriptionService subscriptionService;
@@ -50,7 +47,7 @@ class SubscriptionControllerTest {
     private CreateSubscriptionRequest validRequest;
 
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
         objectMapper = new ObjectMapper();
 
         // Setup test principal
@@ -417,5 +414,412 @@ class SubscriptionControllerTest {
 
         verify(currentUserResolver).getCurrentUser(testPrincipal);
         verify(subscriptionService).canAddMoreKids(testUser);
+    }
+
+    @Test
+    @DisplayName("GET /api/subscriptions/history - returns 200 with subscription history")
+    void getSubscriptionHistory_returns200WithHistory() {
+        // Given
+        UserSubscriptionDto historyItem1 = new UserSubscriptionDto(
+                UUID.randomUUID(),
+                testUser.getId(),
+                plusPlan.id(),
+                "Plus Monthly",
+                UserSubscription.SubscriptionStatus.ACTIVE,
+                Instant.now().minusSeconds(86400),
+                Instant.now().plusSeconds(86400),
+                Instant.now().plusSeconds(86400),
+                null,
+                null,
+                UserSubscription.PaymentProvider.GOOGLE_PLAY,
+                "external_sub_123",
+                null,
+                false,
+                true,
+                Instant.now().minusSeconds(86400),
+                Instant.now()
+        );
+        UserSubscriptionDto historyItem2 = new UserSubscriptionDto(
+                UUID.randomUUID(),
+                testUser.getId(),
+                freePlan.id(),
+                "Free",
+                UserSubscription.SubscriptionStatus.CANCELLED,
+                Instant.now().minusSeconds(172800),
+                Instant.now().minusSeconds(86400),
+                null,
+                Instant.now().minusSeconds(86400),
+                "User cancelled",
+                null,
+                null,
+                null,
+                false,
+                false,
+                Instant.now().minusSeconds(172800),
+                Instant.now().minusSeconds(86400)
+        );
+        List<UserSubscriptionDto> history = List.of(historyItem1, historyItem2);
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.getUserSubscriptionHistory(testUser)).thenReturn(history);
+
+        // When
+        ResponseEntity<List<UserSubscriptionDto>> response = subscriptionController.getSubscriptionHistory(testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(2);
+        assertThat(response.getBody().get(0).status()).isEqualTo(UserSubscription.SubscriptionStatus.ACTIVE);
+        assertThat(response.getBody().get(1).status()).isEqualTo(UserSubscription.SubscriptionStatus.CANCELLED);
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).getUserSubscriptionHistory(testUser);
+    }
+
+    @Test
+    @DisplayName("GET /api/subscriptions/history - returns 200 with empty list when no history")
+    void getSubscriptionHistory_returns200WithEmptyList() {
+        // Given
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.getUserSubscriptionHistory(testUser)).thenReturn(Collections.emptyList());
+
+        // When
+        ResponseEntity<List<UserSubscriptionDto>> response = subscriptionController.getSubscriptionHistory(testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEmpty();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).getUserSubscriptionHistory(testUser);
+    }
+
+    @Test
+    @DisplayName("GET /api/subscriptions/history - returns 401 when principal is null")
+    void getSubscriptionHistory_returns401WhenPrincipalIsNull() {
+        // When
+        ResponseEntity<List<UserSubscriptionDto>> response = subscriptionController.getSubscriptionHistory(null);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNull();
+
+        verifyNoInteractions(currentUserResolver);
+        verifyNoInteractions(subscriptionService);
+    }
+
+    @Test
+    @DisplayName("GET /api/subscriptions/history - returns 500 when service throws exception")
+    void getSubscriptionHistory_returns500WhenServiceThrowsException() {
+        // Given
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.getUserSubscriptionHistory(testUser))
+                .thenThrow(new RuntimeException("Database error"));
+
+        // When
+        ResponseEntity<List<UserSubscriptionDto>> response = subscriptionController.getSubscriptionHistory(testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).isNull();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).getUserSubscriptionHistory(testUser);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/cancel - returns 200 with cancelled subscription")
+    void cancelSubscription_returns200WithCancelledSubscription() {
+        // Given
+        String reason = "User requested cancellation";
+        UserSubscriptionDto cancelledDto = new UserSubscriptionDto(
+                testSubscription.getId(),
+                testUser.getId(),
+                plusPlan.id(),
+                "Plus Monthly",
+                UserSubscription.SubscriptionStatus.CANCELLED,
+                testSubscription.getStartDate(),
+                Instant.now().plusSeconds(86400),
+                Instant.now().plusSeconds(86400),
+                Instant.now(),
+                reason,
+                UserSubscription.PaymentProvider.GOOGLE_PLAY,
+                "external_sub_123",
+                null,
+                false,
+                false,
+                testSubscription.getCreatedAt(),
+                Instant.now()
+        );
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.cancelSubscription(testUser, reason)).thenReturn(cancelledDto);
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.cancelSubscription(reason, testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(UserSubscription.SubscriptionStatus.CANCELLED);
+        assertThat(response.getBody().cancellationReason()).isEqualTo(reason);
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).cancelSubscription(testUser, reason);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/cancel - returns 200 when reason is null")
+    void cancelSubscription_returns200WhenReasonIsNull() {
+        // Given
+        UserSubscriptionDto cancelledDto = new UserSubscriptionDto(
+                testSubscription.getId(),
+                testUser.getId(),
+                plusPlan.id(),
+                "Plus Monthly",
+                UserSubscription.SubscriptionStatus.CANCELLED,
+                testSubscription.getStartDate(),
+                Instant.now().plusSeconds(86400),
+                Instant.now().plusSeconds(86400),
+                Instant.now(),
+                null,
+                UserSubscription.PaymentProvider.GOOGLE_PLAY,
+                "external_sub_123",
+                null,
+                false,
+                false,
+                testSubscription.getCreatedAt(),
+                Instant.now()
+        );
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.cancelSubscription(testUser, null)).thenReturn(cancelledDto);
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.cancelSubscription(null, testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(UserSubscription.SubscriptionStatus.CANCELLED);
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).cancelSubscription(testUser, null);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/cancel - returns 401 when principal is null")
+    void cancelSubscription_returns401WhenPrincipalIsNull() {
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.cancelSubscription("reason", null);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNull();
+
+        verifyNoInteractions(currentUserResolver);
+        verifyNoInteractions(subscriptionService);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/cancel - returns 400 when no active subscription")
+    void cancelSubscription_returns400WhenNoActiveSubscription() {
+        // Given
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.cancelSubscription(testUser, "reason"))
+                .thenThrow(new IllegalStateException("No active subscription found"));
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.cancelSubscription("reason", testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).cancelSubscription(testUser, "reason");
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/cancel - returns 500 when service throws unexpected exception")
+    void cancelSubscription_returns500WhenServiceThrowsUnexpectedException() {
+        // Given
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.cancelSubscription(testUser, "reason"))
+                .thenThrow(new RuntimeException("Database error"));
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.cancelSubscription("reason", testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).isNull();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).cancelSubscription(testUser, "reason");
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/reactivate - returns 200 with reactivated subscription")
+    void reactivateSubscription_returns200WithReactivatedSubscription() {
+        // Given
+        UserSubscriptionDto reactivatedDto = new UserSubscriptionDto(
+                testSubscription.getId(),
+                testUser.getId(),
+                plusPlan.id(),
+                "Plus Monthly",
+                UserSubscription.SubscriptionStatus.ACTIVE,
+                testSubscription.getStartDate(),
+                Instant.now().plusSeconds(86400),
+                Instant.now().plusSeconds(86400),
+                null,
+                null,
+                UserSubscription.PaymentProvider.GOOGLE_PLAY,
+                "external_sub_123",
+                null,
+                false,
+                true,
+                testSubscription.getCreatedAt(),
+                Instant.now()
+        );
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.reactivateSubscription(testUser)).thenReturn(reactivatedDto);
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.reactivateSubscription(testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().status()).isEqualTo(UserSubscription.SubscriptionStatus.ACTIVE);
+        assertThat(response.getBody().autoRenew()).isTrue();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).reactivateSubscription(testUser);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/reactivate - returns 401 when principal is null")
+    void reactivateSubscription_returns401WhenPrincipalIsNull() {
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.reactivateSubscription(null);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isNull();
+
+        verifyNoInteractions(currentUserResolver);
+        verifyNoInteractions(subscriptionService);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/reactivate - returns 400 when no cancelled subscription")
+    void reactivateSubscription_returns400WhenNoCancelledSubscription() {
+        // Given
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.reactivateSubscription(testUser))
+                .thenThrow(new IllegalStateException("No cancelled subscription found"));
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.reactivateSubscription(testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNull();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).reactivateSubscription(testUser);
+    }
+
+    @Test
+    @DisplayName("POST /api/subscriptions/reactivate - returns 500 when service throws unexpected exception")
+    void reactivateSubscription_returns500WhenServiceThrowsUnexpectedException() {
+        // Given
+        when(currentUserResolver.getCurrentUser(testPrincipal)).thenReturn(testUser);
+        when(subscriptionService.reactivateSubscription(testUser))
+                .thenThrow(new RuntimeException("Database error"));
+
+        // When
+        ResponseEntity<UserSubscriptionDto> response = subscriptionController.reactivateSubscription(testPrincipal);
+
+        // Then
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response.getBody()).isNull();
+
+        verify(currentUserResolver).getCurrentUser(testPrincipal);
+        verify(subscriptionService).reactivateSubscription(testUser);
+    }
+
+    @Test
+    @DisplayName("mapToUserSubscriptionDto - maps subscription with all fields including trial")
+    void mapToUserSubscriptionDto_mapsSubscriptionWithAllFieldsIncludingTrial() throws Exception {
+        // Given
+        testSubscription.setStatus(UserSubscription.SubscriptionStatus.TRIALING);
+        testSubscription.setTrialEndDate(Instant.now().plusSeconds(86400));
+        testSubscription.setTrial(true);
+        testSubscription.setCancelledAt(null);
+        testSubscription.setCancellationReason(null);
+        testSubscription.setPaymentProvider(UserSubscription.PaymentProvider.GOOGLE_PLAY);
+        testSubscription.setExternalSubscriptionId("external_sub_123");
+        testSubscription.setAutoRenew(true);
+        testSubscription.setCurrentPeriodEnd(Instant.now().plusSeconds(86400));
+
+        // When - use reflection to access private method
+        java.lang.reflect.Method method = SubscriptionController.class.getDeclaredMethod("mapToUserSubscriptionDto", UserSubscription.class);
+        method.setAccessible(true);
+        UserSubscriptionDto dto = (UserSubscriptionDto) method.invoke(subscriptionController, testSubscription);
+
+        // Then
+        assertThat(dto).isNotNull();
+        assertThat(dto.id()).isEqualTo(testSubscription.getId());
+        assertThat(dto.userId()).isEqualTo(testUser.getId());
+        assertThat(dto.planId()).isEqualTo(plusPlan.id());
+        assertThat(dto.planName()).isEqualTo("Plus Monthly");
+        assertThat(dto.status()).isEqualTo(UserSubscription.SubscriptionStatus.TRIALING);
+        assertThat(dto.isTrial()).isTrue();
+        assertThat(dto.autoRenew()).isTrue();
+        assertThat(dto.paymentProvider()).isEqualTo(UserSubscription.PaymentProvider.GOOGLE_PLAY);
+        assertThat(dto.externalSubscriptionId()).isEqualTo("external_sub_123");
+    }
+
+    @Test
+    @DisplayName("mapToUserSubscriptionDto - maps subscription with null trial end date")
+    void mapToUserSubscriptionDto_mapsSubscriptionWithNullTrialEndDate() throws Exception {
+        // Given
+        testSubscription.setStatus(UserSubscription.SubscriptionStatus.ACTIVE);
+        testSubscription.setTrialEndDate(null);
+        testSubscription.setTrial(false);
+        testSubscription.setCancelledAt(Instant.now());
+        testSubscription.setCancellationReason("User cancelled");
+        testSubscription.setAutoRenew(false);
+
+        // When - use reflection to access private method
+        java.lang.reflect.Method method = SubscriptionController.class.getDeclaredMethod("mapToUserSubscriptionDto", UserSubscription.class);
+        method.setAccessible(true);
+        UserSubscriptionDto dto = (UserSubscriptionDto) method.invoke(subscriptionController, testSubscription);
+
+        // Then
+        assertThat(dto).isNotNull();
+        assertThat(dto.isTrial()).isFalse();
+        assertThat(dto.trialEndDate()).isNull();
+        assertThat(dto.autoRenew()).isFalse();
+        assertThat(dto.cancelledAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("mapToUserSubscriptionDto - maps subscription with expired trial")
+    void mapToUserSubscriptionDto_mapsSubscriptionWithExpiredTrial() throws Exception {
+        // Given
+        testSubscription.setStatus(UserSubscription.SubscriptionStatus.ACTIVE);
+        testSubscription.setTrialEndDate(Instant.now().minusSeconds(86400)); // Expired
+        testSubscription.setTrial(true);
+        testSubscription.setAutoRenew(true);
+
+        // When - use reflection to access private method
+        java.lang.reflect.Method method = SubscriptionController.class.getDeclaredMethod("mapToUserSubscriptionDto", UserSubscription.class);
+        method.setAccessible(true);
+        UserSubscriptionDto dto = (UserSubscriptionDto) method.invoke(subscriptionController, testSubscription);
+
+        // Then
+        assertThat(dto).isNotNull();
+        assertThat(dto.isTrial()).isFalse(); // Should be false because trialEndDate is in the past
+        assertThat(dto.trialEndDate()).isNotNull();
     }
 }

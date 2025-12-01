@@ -38,7 +38,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class SubscriptionServiceImplTest {
+@DisplayName("SubscriptionServiceImpl Unit Tests")
+class SubscriptionServiceImplTest extends uk.gegc.kidsgptbackend.test.BaseUnitTest {
 
     @Mock
     private SubscriptionPlanRepository subscriptionPlanRepository;
@@ -71,7 +72,7 @@ class SubscriptionServiceImplTest {
     private UserSubscription existingSubscription;
 
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
         // Create test user
         testUser = new User();
         testUser.setId(UUID.randomUUID());
@@ -700,5 +701,148 @@ class SubscriptionServiceImplTest {
                 Instant.now().plusSeconds(2592000)
         )).isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Subscription not found");
+    }
+
+    @Test
+    @DisplayName("getMaxKidsForUser - returns 1 for free tier when no active subscription")
+    void getMaxKidsForUser_returns1ForFreeTierWhenNoActiveSubscription() {
+        // Given
+        when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser))
+                .thenReturn(Optional.empty());
+
+        // When
+        Integer result = subscriptionService.getMaxKidsForUser(testUser);
+
+        // Then
+        assertThat(result).isEqualTo(1);
+        verify(userSubscriptionRepository).findActiveSubscriptionByUser(testUser);
+    }
+
+    @Test
+    @DisplayName("getMaxKidsForUser - returns plan maxKids when active subscription exists")
+    void getMaxKidsForUser_returnsPlanMaxKidsWhenActiveSubscriptionExists() {
+        // Given
+        UserSubscription activeSubscription = new UserSubscription();
+        activeSubscription.setUser(testUser);
+        activeSubscription.setSubscriptionPlan(plusMonthlyPlan);
+        activeSubscription.setStatus(UserSubscription.SubscriptionStatus.ACTIVE);
+        
+        when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser))
+                .thenReturn(Optional.of(activeSubscription));
+
+        // When
+        Integer result = subscriptionService.getMaxKidsForUser(testUser);
+
+        // Then
+        assertThat(result).isEqualTo(10); // plusMonthlyPlan has maxKids = 10
+        verify(userSubscriptionRepository).findActiveSubscriptionByUser(testUser);
+    }
+
+    @Test
+    @DisplayName("getMaxKidsForUser - returns -1 for unlimited plan")
+    void getMaxKidsForUser_returnsNegativeOneForUnlimitedPlan() {
+        // Given
+        SubscriptionPlan unlimitedPlan = new SubscriptionPlan();
+        unlimitedPlan.setId(UUID.randomUUID());
+        unlimitedPlan.setMaxKids(-1); // Unlimited
+        
+        UserSubscription activeSubscription = new UserSubscription();
+        activeSubscription.setUser(testUser);
+        activeSubscription.setSubscriptionPlan(unlimitedPlan);
+        activeSubscription.setStatus(UserSubscription.SubscriptionStatus.ACTIVE);
+        
+        when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser))
+                .thenReturn(Optional.of(activeSubscription));
+
+        // When
+        Integer result = subscriptionService.getMaxKidsForUser(testUser);
+
+        // Then
+        assertThat(result).isEqualTo(-1);
+        verify(userSubscriptionRepository).findActiveSubscriptionByUser(testUser);
+    }
+
+    @Test
+    @DisplayName("getUserSubscriptionHistory - returns empty list when no subscriptions")
+    void getUserSubscriptionHistory_returnsEmptyListWhenNoSubscriptions() {
+        // Given
+        when(userSubscriptionRepository.findByUserAndStatusInOrderByCreatedAtDesc(
+                eq(testUser), any()))
+                .thenReturn(List.of());
+
+        // When
+        List<UserSubscriptionDto> result = subscriptionService.getUserSubscriptionHistory(testUser);
+
+        // Then
+        assertThat(result).isEmpty();
+        verify(userSubscriptionRepository).findByUserAndStatusInOrderByCreatedAtDesc(
+                eq(testUser), any());
+    }
+
+    @Test
+    @DisplayName("getUserSubscriptionHistory - returns all subscriptions ordered by createdAt desc")
+    void getUserSubscriptionHistory_returnsAllSubscriptionsOrderedByCreatedAtDesc() {
+        // Given
+        UserSubscription subscription1 = new UserSubscription();
+        subscription1.setId(UUID.randomUUID());
+        subscription1.setUser(testUser);
+        subscription1.setSubscriptionPlan(plusMonthlyPlan);
+        subscription1.setStatus(UserSubscription.SubscriptionStatus.ACTIVE);
+        subscription1.setStartDate(Instant.now().minusSeconds(86400));
+        subscription1.setCreatedAt(Instant.now().minusSeconds(86400));
+        
+        UserSubscription subscription2 = new UserSubscription();
+        subscription2.setId(UUID.randomUUID());
+        subscription2.setUser(testUser);
+        subscription2.setSubscriptionPlan(plusMonthlyPlan);
+        subscription2.setStatus(UserSubscription.SubscriptionStatus.CANCELLED);
+        subscription2.setStartDate(Instant.now().minusSeconds(172800));
+        subscription2.setCreatedAt(Instant.now().minusSeconds(172800));
+        
+        when(userSubscriptionRepository.findByUserAndStatusInOrderByCreatedAtDesc(
+                eq(testUser), any()))
+                .thenReturn(List.of(subscription1, subscription2));
+
+        // When
+        List<UserSubscriptionDto> result = subscriptionService.getUserSubscriptionHistory(testUser);
+
+        // Then
+        assertThat(result).hasSize(2);
+        assertThat(result.get(0).id()).isEqualTo(subscription1.getId());
+        assertThat(result.get(0).status()).isEqualTo(UserSubscription.SubscriptionStatus.ACTIVE);
+        assertThat(result.get(1).id()).isEqualTo(subscription2.getId());
+        assertThat(result.get(1).status()).isEqualTo(UserSubscription.SubscriptionStatus.CANCELLED);
+        verify(userSubscriptionRepository).findByUserAndStatusInOrderByCreatedAtDesc(
+                eq(testUser), any());
+    }
+
+    @Test
+    @DisplayName("canAddMoreKids - delegates to KidCountingService and returns true")
+    void canAddMoreKids_delegatesToKidCountingServiceAndReturnsTrue() {
+        // Given
+        when(kidCountingService.canAddMoreKids(testUser)).thenReturn(true);
+
+        // When
+        boolean result = subscriptionService.canAddMoreKids(testUser);
+
+        // Then
+        assertThat(result).isTrue();
+        verify(kidCountingService).canAddMoreKids(testUser);
+        verifyNoInteractions(userSubscriptionRepository);
+    }
+
+    @Test
+    @DisplayName("canAddMoreKids - delegates to KidCountingService and returns false")
+    void canAddMoreKids_delegatesToKidCountingServiceAndReturnsFalse() {
+        // Given
+        when(kidCountingService.canAddMoreKids(testUser)).thenReturn(false);
+
+        // When
+        boolean result = subscriptionService.canAddMoreKids(testUser);
+
+        // Then
+        assertThat(result).isFalse();
+        verify(kidCountingService).canAddMoreKids(testUser);
+        verifyNoInteractions(userSubscriptionRepository);
     }
 }

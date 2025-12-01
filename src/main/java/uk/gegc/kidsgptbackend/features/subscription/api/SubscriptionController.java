@@ -96,12 +96,14 @@ public class SubscriptionController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // Get user from principal (you'll need to implement this)
-        // uk.gegc.kidsgptbackend.features.user.domain.model.User user = getUserFromPrincipal(principal);
-        // List<UserSubscriptionDto> history = subscriptionService.getUserSubscriptionHistory(user);
-        // return ResponseEntity.ok(history);
-        
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        try {
+            User user = currentUserResolver.getCurrentUser(principal);
+            List<UserSubscriptionDto> history = subscriptionService.getUserSubscriptionHistory(user);
+            return ResponseEntity.ok(history);
+        } catch (Exception e) {
+            log.error("Error getting subscription history for user {}", principal.getUsername(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/cancel")
@@ -114,12 +116,17 @@ public class SubscriptionController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // Get user from principal (you'll need to implement this)
-        // uk.gegc.kidsgptbackend.features.user.domain.model.User user = getUserFromPrincipal(principal);
-        // UserSubscriptionDto cancelledSubscription = subscriptionService.cancelSubscription(user, reason);
-        // return ResponseEntity.ok(cancelledSubscription);
-        
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        try {
+            User user = currentUserResolver.getCurrentUser(principal);
+            UserSubscriptionDto cancelledSubscription = subscriptionService.cancelSubscription(user, reason);
+            return ResponseEntity.ok(cancelledSubscription);
+        } catch (IllegalStateException e) {
+            log.error("Error cancelling subscription for user {}: {}", principal.getUsername(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            log.error("Error cancelling subscription for user {}", principal.getUsername(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @PostMapping("/reactivate")
@@ -131,12 +138,17 @@ public class SubscriptionController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
 
-        // Get user from principal (you'll need to implement this)
-        // uk.gegc.kidsgptbackend.features.user.domain.model.User user = getUserFromPrincipal(principal);
-        // UserSubscriptionDto reactivatedSubscription = subscriptionService.reactivateSubscription(user);
-        // return ResponseEntity.ok(reactivatedSubscription);
-        
-        return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
+        try {
+            User user = currentUserResolver.getCurrentUser(principal);
+            UserSubscriptionDto reactivatedSubscription = subscriptionService.reactivateSubscription(user);
+            return ResponseEntity.ok(reactivatedSubscription);
+        } catch (IllegalStateException e) {
+            log.error("Error reactivating subscription for user {}: {}", principal.getUsername(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            log.error("Error reactivating subscription for user {}", principal.getUsername(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
 
