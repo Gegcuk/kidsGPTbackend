@@ -23,19 +23,19 @@
     </appender>
     
     <!-- Dedicated logger for ChatController with detailed message content -->
-    <logger name="uk.gegc.kidsgptbackend.controller.ChatController" level="INFO" additivity="false">
+    <logger name="uk.gegc.kidsgptbackend.features.chat.api.ChatController" level="INFO" additivity="false">
         <appender-ref ref="CHAT_FILE"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
     
     <!-- Dedicated logger for AiChatServiceImpl with detailed message content -->
-    <logger name="uk.gegc.kidsgptbackend.service.chat.impl.AiChatServiceImpl" level="INFO" additivity="false">
+    <logger name="uk.gegc.kidsgptbackend.features.chat.application.impl.AiChatServiceImpl" level="INFO" additivity="false">
         <appender-ref ref="CHAT_FILE"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
     
     <!-- Dedicated logger for ChatMessageServiceImpl with detailed message content -->
-    <logger name="uk.gegc.kidsgptbackend.service.chat.impl.ChatMessageServiceImpl" level="INFO" additivity="false">
+    <logger name="uk.gegc.kidsgptbackend.features.chat.application.impl.ChatMessageServiceImpl" level="INFO" additivity="false">
         <appender-ref ref="CHAT_FILE"/>
         <appender-ref ref="CONSOLE"/>
     </logger>
