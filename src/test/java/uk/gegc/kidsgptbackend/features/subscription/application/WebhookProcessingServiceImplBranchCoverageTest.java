@@ -39,6 +39,7 @@ class WebhookProcessingServiceImplBranchCoverageTest extends BaseUnitTest {
     private Method getPublicKeyMethod;
     private Method parsePublicKeyMethod;
 
+    @Override
     @BeforeEach
     protected void setUp() {
         try {

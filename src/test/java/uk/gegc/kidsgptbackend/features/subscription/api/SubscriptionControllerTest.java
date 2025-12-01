@@ -46,6 +46,7 @@ class SubscriptionControllerTest extends BaseUnitTest {
     private UserSubscription testSubscription;
     private CreateSubscriptionRequest validRequest;
 
+    @Override
     @BeforeEach
     protected void setUp() {
         objectMapper = new ObjectMapper();

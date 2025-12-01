@@ -71,6 +71,7 @@ class SubscriptionServiceImplTest extends uk.gegc.kidsgptbackend.test.BaseUnitTe
     private GooglePlaySubscriptionPurchase googlePurchase;
     private UserSubscription existingSubscription;
 
+    @Override
     @BeforeEach
     protected void setUp() {
         // Create test user

@@ -19,6 +19,7 @@ class SubscriptionUsageTest extends BaseRepositoryTest {
 
     private User testUser;
 
+    @Override
     @BeforeEach
     protected void setUp() {
         super.setUp();
