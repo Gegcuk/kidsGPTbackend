@@ -40,6 +40,8 @@ class EmailServiceImplTest {
         emailConfig.setUsername("testuser@test.com");
         emailConfig.setPassword("testpass");
         emailService = new EmailServiceImpl(mailSender, emailConfig);
+        // Set verificationTtlMinutes via reflection since it's a @Value field
+        org.springframework.test.util.ReflectionTestUtils.setField(emailService, "verificationTtlMinutes", 30);
     }
 
     @Test
@@ -186,6 +188,135 @@ class EmailServiceImplTest {
         doNothing().when(mailSender).send(any(SimpleMailMessage.class));
 
         emailService.sendPasswordResetConfirmation(to, username);
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("sendPasswordResetEmail: when email is disabled then skip sending")
+    void sendPasswordResetEmail_whenEmailDisabled_thenSkipSending() {
+        String to = "test@example.com";
+        String resetToken = "reset-token-123";
+        String username = "testuser";
+
+        emailConfig.setEnabled(false);
+
+        emailService.sendPasswordResetEmail(to, resetToken, username);
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("sendPasswordResetConfirmation: when email is disabled then skip sending")
+    void sendPasswordResetConfirmation_whenEmailDisabled_thenSkipSending() {
+        String to = "test@example.com";
+        String username = "testuser";
+
+        emailConfig.setEnabled(false);
+
+        emailService.sendPasswordResetConfirmation(to, username);
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("sendVerificationEmail: success")
+    void sendVerificationEmail_success() {
+        String to = "test@example.com";
+        String verificationCode = "123456";
+
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+        emailService.sendVerificationEmail(to, verificationCode);
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("sendVerificationEmail: verifies message content")
+    void sendVerificationEmail_verifiesMessageContent() {
+        String to = "test@example.com";
+        String verificationCode = "123456";
+
+        doAnswer(invocation -> {
+            SimpleMailMessage message = invocation.getArgument(0);
+            assertThat(message.getTo()).contains(to);
+            assertThat(message.getFrom()).isEqualTo("noreply@kidsgpt.com");
+            assertThat(message.getSubject()).isEqualTo("KidsGPT - Parent Verification Code");
+            assertThat(message.getText()).contains(verificationCode);
+            assertThat(message.getText()).contains("30"); // verificationTtlMinutes
+            return null;
+        }).when(mailSender).send(any(SimpleMailMessage.class));
+
+        emailService.sendVerificationEmail(to, verificationCode);
+    }
+
+    @Test
+    @DisplayName("sendVerificationEmail: when email is disabled then skip sending")
+    void sendVerificationEmail_whenEmailDisabled_thenSkipSending() {
+        String to = "test@example.com";
+        String verificationCode = "123456";
+
+        emailConfig.setEnabled(false);
+
+        emailService.sendVerificationEmail(to, verificationCode);
+
+        verify(mailSender, never()).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("sendVerificationEmail: handles mail sender exception")
+    void sendVerificationEmail_mailSenderException_throwsException() {
+        String to = "test@example.com";
+        String verificationCode = "123456";
+
+        doThrow(new RuntimeException("Mail server error")).when(mailSender).send(any(SimpleMailMessage.class));
+
+        assertThatThrownBy(() -> emailService.sendVerificationEmail(to, verificationCode))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessage("Failed to send verification email");
+    }
+
+    @Test
+    @DisplayName("maskEmail: handles null email")
+    void maskEmail_nullEmail_returnsUnknown() {
+        // Test the private maskEmail method indirectly through logging
+        String to = null;
+        String resetToken = "reset-token-123";
+        String username = "testuser";
+
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+        // Should not throw exception even with null email
+        emailService.sendPasswordResetEmail(to, resetToken, username);
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("maskEmail: handles email without @ symbol")
+    void maskEmail_emailWithoutAtSymbol_returnsUnknown() {
+        String to = "invalid-email";
+        String resetToken = "reset-token-123";
+        String username = "testuser";
+
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+        emailService.sendPasswordResetEmail(to, resetToken, username);
+
+        verify(mailSender).send(any(SimpleMailMessage.class));
+    }
+
+    @Test
+    @DisplayName("maskEmail: handles email with @ at start")
+    void maskEmail_emailWithAtAtStart_returnsUnknown() {
+        String to = "@example.com";
+        String resetToken = "reset-token-123";
+        String username = "testuser";
+
+        doNothing().when(mailSender).send(any(SimpleMailMessage.class));
+
+        emailService.sendPasswordResetEmail(to, resetToken, username);
 
         verify(mailSender).send(any(SimpleMailMessage.class));
     }
