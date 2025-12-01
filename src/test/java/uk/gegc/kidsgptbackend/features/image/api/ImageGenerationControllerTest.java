@@ -1,21 +1,20 @@
-package uk.gegc.kidsgptbackend.controller;
+package uk.gegc.kidsgptbackend.features.image.api;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockitoAnnotations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.context.annotation.Import;
-import uk.gegc.kidsgptbackend.dto.image.ImageGenerationRequest;
-import uk.gegc.kidsgptbackend.dto.image.ImageGenerationResponse;
-import uk.gegc.kidsgptbackend.service.image.ImageGenerationService;
+import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationRequest;
+import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationResponse;
+import uk.gegc.kidsgptbackend.features.image.application.ImageGenerationService;
 
 import java.security.Principal;
 
@@ -41,7 +40,7 @@ class ImageGenerationControllerTest {
 
     @BeforeEach
     void setUp() {
-        MockitoAnnotations.openMocks(this);
+        // Setup if needed
     }
 
     @Test
@@ -128,4 +127,5 @@ class ImageGenerationControllerTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest());
     }
-} 
+}
+

@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.image.impl;
+package uk.gegc.kidsgptbackend.features.image.application.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,12 +9,12 @@ import org.springframework.ai.image.ImageResponse;
 import org.springframework.ai.openai.OpenAiImageOptions;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.dto.image.ImageGenerationRequest;
-import uk.gegc.kidsgptbackend.dto.image.ImageGenerationResponse;
+import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationRequest;
+import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationResponse;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
-import uk.gegc.kidsgptbackend.service.image.ImageGenerationService;
+import uk.gegc.kidsgptbackend.features.image.application.ImageGenerationService;
 import uk.gegc.kidsgptbackend.shared.util.ModerationUtil;
 
 import java.security.Principal;
@@ -152,4 +152,5 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     }
 
     // Removed - now using ModerationUtil for all validation logic
-} 
+}
+
