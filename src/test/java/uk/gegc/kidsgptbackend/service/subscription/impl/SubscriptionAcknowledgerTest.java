@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.subscription.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application.impl;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

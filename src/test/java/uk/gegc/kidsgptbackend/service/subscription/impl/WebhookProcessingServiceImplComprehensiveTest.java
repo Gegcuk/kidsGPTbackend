@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.subscription.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application.impl;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
@@ -18,9 +18,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 

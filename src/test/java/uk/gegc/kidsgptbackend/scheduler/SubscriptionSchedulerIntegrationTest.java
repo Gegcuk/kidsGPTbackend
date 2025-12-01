@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.gegc.kidsgptbackend.service.subscription.SubscriptionService;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionService;
 
 import static org.mockito.Mockito.*;
 

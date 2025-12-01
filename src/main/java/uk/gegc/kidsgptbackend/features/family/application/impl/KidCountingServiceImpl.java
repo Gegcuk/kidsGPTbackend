@@ -4,12 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
-import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.time.Instant;

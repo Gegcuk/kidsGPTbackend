@@ -8,13 +8,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
-import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionSaver;
-import uk.gegc.kidsgptbackend.service.subscription.impl.WebhookProcessingServiceImpl;
-import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionServiceImpl;
-import uk.gegc.kidsgptbackend.service.subscription.impl.SubscriptionAccessServiceImpl;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionSaver;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.WebhookProcessingServiceImpl;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionServiceImpl;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionAccessServiceImpl;
 
 import java.time.Clock;
 import java.time.Instant;

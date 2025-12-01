@@ -12,11 +12,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.User;
-import uk.gegc.kidsgptbackend.dto.subscription.*;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.api.dto.*;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.auth.application.CurrentUserResolver;
-import uk.gegc.kidsgptbackend.service.subscription.SubscriptionService;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionService;
 
 import java.math.BigDecimal;
 import java.time.Instant;

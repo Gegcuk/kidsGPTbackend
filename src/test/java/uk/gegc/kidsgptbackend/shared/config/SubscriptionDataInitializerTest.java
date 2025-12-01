@@ -9,8 +9,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
-import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionPlanRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionPlanRepository;
 
 import java.math.BigDecimal;
 import java.util.Optional;

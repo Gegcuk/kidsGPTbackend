@@ -20,7 +20,7 @@ import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
 import uk.gegc.kidsgptbackend.service.payment.impl.GooglePlayPaymentService;
-import uk.gegc.kidsgptbackend.service.subscription.impl.WebhookProcessingServiceImpl;
+import uk.gegc.kidsgptbackend.features.subscription.application.impl.WebhookProcessingServiceImpl;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 

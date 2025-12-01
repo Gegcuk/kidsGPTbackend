@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.subscription.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application.impl;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -8,8 +8,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.gegc.kidsgptbackend.model.subscription.WebhookEvent;
-import uk.gegc.kidsgptbackend.repository.subscription.WebhookEventRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.WebhookEvent;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.WebhookEventRepository;
 
 import java.time.Instant;
 import java.util.Optional;

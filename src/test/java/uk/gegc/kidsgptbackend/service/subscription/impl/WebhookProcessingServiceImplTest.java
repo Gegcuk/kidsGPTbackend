@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.subscription.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,9 +10,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
-import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.service.googleplay.GooglePlaySubscriptionPurchase;
 

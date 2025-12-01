@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.subscription.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,12 +11,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionUsage;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionUsage;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
-import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionUsageRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.math.BigDecimal;

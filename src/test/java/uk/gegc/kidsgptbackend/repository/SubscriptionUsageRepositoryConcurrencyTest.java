@@ -8,9 +8,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionUsage;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionUsage;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionUsageRepository;
 
 import java.time.Instant;
 import java.util.concurrent.CompletableFuture;

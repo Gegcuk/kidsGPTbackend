@@ -1,4 +1,4 @@
-package uk.gegc.kidsgptbackend.service.subscription.impl;
+package uk.gegc.kidsgptbackend.features.subscription.application.impl;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -9,11 +9,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import uk.gegc.kidsgptbackend.model.subscription.SubscriptionPlan;
-import uk.gegc.kidsgptbackend.model.subscription.UserSubscription;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
+import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.repository.subscription.UserSubscriptionRepository;
-import uk.gegc.kidsgptbackend.repository.subscription.SubscriptionUsageRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.time.Instant;
@@ -95,9 +95,9 @@ class SubscriptionAccessServiceSerializationTest {
         // Mock no usage records by default - but allow creation (lenient to avoid unnecessary stubbing errors)
         lenient().when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(User.class), anyString(), anyString()))
                 .thenReturn(Optional.empty());
-        lenient().when(subscriptionUsageRepository.save(any(uk.gegc.kidsgptbackend.model.subscription.SubscriptionUsage.class)))
+        lenient().when(subscriptionUsageRepository.save(any(uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionUsage.class)))
                 .thenAnswer(invocation -> {
-                    uk.gegc.kidsgptbackend.model.subscription.SubscriptionUsage usage = invocation.getArgument(0);
+                    uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionUsage usage = invocation.getArgument(0);
                     usage.setId(java.util.UUID.randomUUID());
                     return usage;
                 });
