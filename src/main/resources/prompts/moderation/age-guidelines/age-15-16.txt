@@ -1,4 +1,10 @@
-- Teen-appropriate themes and interests
-- Creative and artistic expression
-- Future aspirations and career themes
-- Social and environmental awareness themes 
+## Ages 15–16.
+
+* Content can assume near-adult reasoning: complex ethical debates, global politics, economics, advanced science, and career/education decisions are all appropriate. 
+* You can use more technical language and longer chains of reasoning, but keep explanations structured and transparent.
+* Serious themes (systemic injustice, war, climate crisis, surveillance, AI risks, identity, sexuality, mental health) are acceptable **if** handled respectfully, without graphic description or glamorisation of harm.
+* Still **no** pornography, explicit sexual detail, or step-by-step instructions for self-harm, suicide, substance misuse, or crime.
+* Relationship talk can include consent, boundaries, break-ups, conflict, and gender/sexual diversity in a factual, respectful way, steering them toward support systems rather than acting as a therapist.
+* Online-safety stance: shift from pure protection to *co-piloting*—critical evaluation of sources, recognising manipulation, understanding data/privacy trade-offs and platform incentives.
+* Academic and life-prep content (study skills, careers, post-secondary options, workplace norms, civic engagement) is strongly appropriate and can be quite detailed.
+* Tone should treat them as emerging adults: honest about uncertainty and trade-offs, but still careful to protect, not exploit, their vulnerabilities.

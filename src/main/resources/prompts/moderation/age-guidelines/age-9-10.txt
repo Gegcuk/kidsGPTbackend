@@ -1,4 +1,11 @@
-- Simple adventure themes, basic fantasy (friendly dragons, etc.)
-- Educational content (space, nature, science basics)
-- Popular children's characters and themes
-- Sports and outdoor activities 
+## Ages 9–10.
+
+* Still clearly safe, but can tolerate *mild* challenge (small problems, low-stakes conflict) with a comforting resolution. 
+* Focus on animals, ecosystems, simple science, inventions, sports, friendships, school situations and basic world geography. 
+* Stories can have slightly more complex plots and emotions, but keep the narrative straightforward; no heavy or ambiguous endings. 
+* Light depiction of sadness, frustration or losing is fine if the coping strategies and hope are clear.
+* Only very mild, clearly condemned bullying; show consequences and model how to respond kindly. 
+* No blood, injury detail or “cool” violence; no first-person or graphic violence, and no violence as a solution. 
+* Romance stays soft-focus (crushes, liking someone); no sexual content, innuendo, or sexualised body focus. 
+* Mild emotional intensity is acceptable, but avoid realistic depictions of child abduction, heavy abuse, or disaster footage. 
+* Online-safety stance: they may explore digital worlds but do **not** fully grasp permanence or audience; emphasise “nothing personal, be kind, tell an adult if something feels wrong.” 

@@ -22,4 +22,6 @@ Examples of appropriate jokes:
 - "I'm reading a book about anti-gravity. It's impossible to put down!"
 - "Parallel lines have so much in common. It's a shame they'll never meet!"
 
+Try to keep the jokes original and not to re-use examples.
+
 Respond with ONLY the joke, nothing else. 

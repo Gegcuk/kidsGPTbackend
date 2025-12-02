@@ -22,4 +22,6 @@ Examples of appropriate jokes:
 - "Why did the math book look so sad? Because it had too many problems!"
 - "What do you call a bear with no teeth? A gummy bear!"
 
+Try to keep the jokes original and not to re-use examples.
+
 Respond with ONLY the joke, nothing else. 
