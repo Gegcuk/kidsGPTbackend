@@ -1,16 +1,21 @@
 package uk.gegc.kidsgptbackend.shared.exception.advice;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpInputMessage;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.context.request.WebRequest;
 import uk.gegc.kidsgptbackend.shared.exception.*;
+import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -18,35 +23,42 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests for {@link GlobalExceptionHandler} using RFC 7807 Problem Details.
+ * Tests for {@link GlobalExceptionHandler} using RFC 9457 Problem Details.
  */
-class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTest {
+class GlobalExceptionHandlerTest extends BaseUnitTest {
 
     private GlobalExceptionHandler handler;
+    private HttpServletRequest httpServletRequest;
     private WebRequest webRequest;
+    private Clock fixedClock;
 
     @Override
     @BeforeEach
     protected void setUp() {
         super.setUp();
-        Clock clock = Clock.fixed(Instant.ofEpochMilli(1000L), java.time.ZoneOffset.UTC);
-        handler = new GlobalExceptionHandler();
-        org.springframework.test.util.ReflectionTestUtils.setField(handler, "clock", clock);
+        fixedClock = Clock.fixed(Instant.ofEpochMilli(1000L), ZoneOffset.UTC);
+        handler = new GlobalExceptionHandler(fixedClock);
+        
+        httpServletRequest = mock(HttpServletRequest.class);
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/test");
+        
         webRequest = mock(WebRequest.class);
         when(webRequest.getDescription(false)).thenReturn("uri=/api/test");
     }
 
     @Test
-    @DisplayName("handleBadRequest: returns 400 with ProblemDetail")
-    void handleBadRequest_returnsBadRequest() {
+    @DisplayName("handleValidation: returns 400 with ProblemDetail")
+    void handleValidation_returnsBadRequest() {
         ValidationException ex = new ValidationException("Field is required");
 
-        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = handler.handleValidation(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
         assertThat(response.getDetail()).contains("Field is required");
-        assertThat(response.getType().toString()).contains("/bad-request");
+        assertThat(response.getType().toString()).contains("/validation-failed");
         assertThat(response.getProperties().get("timestamp")).isNotNull();
     }
 
@@ -55,8 +67,10 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleUnauthorized_returnsUnauthorized() {
         UnauthorizedException ex = new UnauthorizedException("Invalid credentials");
 
-        ProblemDetail response = handler.handleUnauthorized(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = handler.handleUnauthorized(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getTitle()).isEqualTo("Unauthorized");
         assertThat(response.getDetail()).contains("Invalid credentials");
@@ -64,16 +78,18 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     }
 
     @Test
-    @DisplayName("handleNotFound: returns 404")
-    void handleNotFound_returnsNotFound() {
+    @DisplayName("handleResourceNotFound: returns 404")
+    void handleResourceNotFound_returnsNotFound() {
         ResourceNotFoundException ex = new ResourceNotFoundException("User not found");
 
-        ProblemDetail response = handler.handleNotFound(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = handler.handleResourceNotFound(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(404);
         assertThat(response.getTitle()).isEqualTo("Resource Not Found");
         assertThat(response.getDetail()).contains("User not found");
-        assertThat(response.getType().toString()).contains("/not-found");
+        assertThat(response.getType().toString()).contains("/resource-not-found");
     }
 
     @Test
@@ -81,12 +97,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleRateLimit_returnsTooManyRequests() {
         RateLimitException ex = new RateLimitException("Rate limit exceeded", null);
 
-        ProblemDetail response = handler.handleRateLimit(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = handler.handleRateLimit(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(429);
-        assertThat(response.getTitle()).isEqualTo("Too Many Requests");
+        assertThat(response.getTitle()).isEqualTo("Rate Limit Exceeded");
         assertThat(response.getDetail()).contains("Rate limit exceeded");
-        assertThat(response.getType().toString()).contains("/rate-limit");
+        assertThat(response.getType().toString()).contains("/rate-limit-exceeded");
     }
 
     @Test
@@ -94,7 +112,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleModerationUnavailable_returnsServiceUnavailable() {
         ModerationServiceException ex = new ModerationServiceException("Content violates guidelines", null);
 
-        ProblemDetail response = handler.handleModerationUnavailable(ex, webRequest);
+        ProblemDetail response = handler.handleModerationUnavailable(ex, httpServletRequest).getBody();
 
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getTitle()).isEqualTo("Service Unavailable");
@@ -107,8 +125,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleUnsupportedOperation_returnsBadRequest() {
         UnsupportedOperationException ex = new UnsupportedOperationException("Operation not supported");
 
-        ProblemDetail response = handler.handleUnsupportedOperation(ex, webRequest);
+        ProblemDetail response = handler.handleUnsupportedOperation(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getTitle()).isEqualTo("Unsupported Operation");
         assertThat(response.getDetail()).contains("Operation not supported");
@@ -119,8 +138,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleUnsupportedOperation_nullMessage_returnsDefaultMessage() {
         UnsupportedOperationException ex = new UnsupportedOperationException();
 
-        ProblemDetail response = handler.handleUnsupportedOperation(ex, webRequest);
+        ProblemDetail response = handler.handleUnsupportedOperation(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getDetail()).contains("Operation not supported");
     }
 
@@ -129,22 +149,24 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleIllegalArgument_returnsBadRequest() {
         IllegalArgumentException ex = new IllegalArgumentException("Invalid argument");
 
-        ProblemDetail response = handler.handleIllegalArgument(ex, webRequest);
+        ProblemDetail response = handler.handleIllegalArgument(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getTitle()).isEqualTo("Invalid Argument");
         assertThat(response.getDetail()).contains("Invalid argument");
     }
 
     @Test
-    @DisplayName("handleIllegalState: returns 409")
-    void handleIllegalState_returnsConflict() {
+    @DisplayName("handleIllegalState: returns 422")
+    void handleIllegalState_returnsUnprocessableEntity() {
         IllegalStateException ex = new IllegalStateException("State conflict");
 
-        ProblemDetail response = handler.handleIllegalState(ex, webRequest);
+        ProblemDetail response = handler.handleIllegalState(ex, httpServletRequest).getBody();
 
-        assertThat(response.getStatus()).isEqualTo(409);
-        assertThat(response.getTitle()).isEqualTo("Conflict");
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(422);
+        assertThat(response.getTitle()).isEqualTo("Illegal State");
         assertThat(response.getDetail()).contains("State conflict");
     }
 
@@ -155,8 +177,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.dao.DataIntegrityViolationException("Database constraint violation",
                         new RuntimeException("Unique constraint failed"));
 
-        ProblemDetail response = handler.handleDataIntegrity(ex, webRequest);
+        ProblemDetail response = handler.handleDataIntegrity(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getTitle()).isEqualTo("Data Integrity Violation");
         assertThat(response.getDetail()).contains("Database error: Unique constraint failed");
@@ -169,8 +192,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.access.AccessDeniedException ex =
                 new org.springframework.security.access.AccessDeniedException("Access denied");
 
-        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
+        ProblemDetail response = handler.handleAccessDenied(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getTitle()).isEqualTo("Access Denied");
         assertThat(response.getDetail()).contains("Access denied");
@@ -182,7 +206,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.access.AccessDeniedException ex =
                 new org.springframework.security.access.AccessDeniedException(null);
 
-        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
+        ProblemDetail response = handler.handleAccessDenied(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).contains("You do not have permission to access this resource");
     }
@@ -192,8 +216,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleAllOthers_returnsInternalServerError() {
         RuntimeException ex = new RuntimeException("Unexpected error");
 
-        ProblemDetail response = handler.handleAllOthers(ex, webRequest);
+        ProblemDetail response = handler.handleAllOthers(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(500);
         assertThat(response.getTitle()).isEqualTo("Internal Server Error");
         assertThat(response.getDetail()).contains("An unexpected error occurred");
@@ -204,7 +229,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void problemDetail_timestampIsSet() {
         ValidationException ex = new ValidationException("Test");
 
-        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+        ProblemDetail response = handler.handleValidation(ex, httpServletRequest).getBody();
 
         assertThat(response.getProperties().get("timestamp")).isEqualTo(Instant.ofEpochMilli(1000L));
     }
@@ -216,12 +241,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.CONFLICT, "Conflict occurred");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
-        assertThat(response.getBody().getStatus()).isEqualTo(409);
-        assertThat(response.getBody().getDetail()).contains("Conflict occurred");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getDetail()).contains("Conflict occurred");
     }
 
     @Test
@@ -239,7 +266,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                         Set.of(violation1, violation2)
                 );
 
-        ProblemDetail response = handler.handleConstraintViolation(ex, webRequest);
+        ProblemDetail response = handler.handleConstraintViolation(ex, httpServletRequest).getBody();
 
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getTitle()).isEqualTo("Validation Failed");
@@ -315,8 +342,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.access.AccessDeniedException ex =
                 new org.springframework.security.access.AccessDeniedException("Authorization denied");
 
-        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
+        ProblemDetail response = handler.handleAccessDenied(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getTitle()).isEqualTo("Access Denied");
         assertThat(response.getDetail()).contains("Authorization denied");
@@ -327,7 +355,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void problemDetail_includesTypeAndInstance() {
         ValidationException ex = new ValidationException("Test");
 
-        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+        ProblemDetail response = handler.handleValidation(ex, httpServletRequest).getBody();
 
         assertThat(response.getType()).isNotNull();
         assertThat(response.getType().toString()).startsWith("/errors/");
@@ -339,8 +367,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleConversationFormat_returnsBadRequest() {
         ConversationFormatException ex = new ConversationFormatException("Invalid conversation format");
 
-        ProblemDetail response = handler.handleConversationFormat(ex, webRequest);
+        ProblemDetail response = handler.handleConversationFormat(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getTitle()).isEqualTo("Invalid Conversation Format");
         assertThat(response.getDetail()).contains("Invalid conversation format");
@@ -354,12 +383,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.BAD_REQUEST, "Bad request");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody().getTitle()).isEqualTo("Bad Request");
-        assertThat(response.getBody().getType().toString()).contains("/bad-request");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Unsupported Operation");
+        assertThat(response.getType().toString()).contains("/bad-request");
     }
 
     @Test
@@ -369,12 +400,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.UNAUTHORIZED, "Unauthorized");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
-        assertThat(response.getBody().getTitle()).isEqualTo("Unauthorized");
-        assertThat(response.getBody().getType().toString()).contains("/unauthorized");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.UNAUTHORIZED);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Unauthorized");
+        assertThat(response.getType().toString()).contains("/unauthorized");
     }
 
     @Test
@@ -384,12 +417,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.FORBIDDEN, "Forbidden");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
-        assertThat(response.getBody().getTitle()).isEqualTo("Forbidden");
-        assertThat(response.getBody().getType().toString()).contains("/forbidden");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Forbidden");
+        assertThat(response.getType().toString()).contains("/forbidden");
     }
 
     @Test
@@ -399,12 +434,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Not found");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
-        assertThat(response.getBody().getTitle()).isEqualTo("Resource Not Found");
-        assertThat(response.getBody().getType().toString()).contains("/not-found");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Resource Not Found");
+        assertThat(response.getType().toString()).contains("/not-found");
     }
 
     @Test
@@ -414,12 +451,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.GONE, "Gone");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.GONE);
-        assertThat(response.getBody().getTitle()).isEqualTo("Gone");
-        assertThat(response.getBody().getType().toString()).contains("/gone");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.GONE);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Gone");
+        assertThat(response.getType().toString()).contains("/gone");
     }
 
     @Test
@@ -429,12 +468,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Too many requests");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
-        assertThat(response.getBody().getTitle()).isEqualTo("Too Many Requests");
-        assertThat(response.getBody().getType().toString()).contains("/rate-limit");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Too Many Requests");
+        assertThat(response.getType().toString()).contains("/rate-limit");
     }
 
     @Test
@@ -444,12 +485,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR, "Internal error");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
-        assertThat(response.getBody().getTitle()).isEqualTo("Internal Server Error");
-        assertThat(response.getBody().getType().toString()).contains("/internal-server-error");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Internal Server Error");
+        assertThat(response.getType().toString()).contains("/internal-server-error");
     }
 
     @Test
@@ -459,12 +502,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.IM_USED, "Custom status");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.IM_USED);
-        assertThat(response.getBody().getTitle()).isEqualTo("Request Failed");
-        assertThat(response.getBody().getType().toString()).contains("/response-status");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.IM_USED);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Request Failed");
+        assertThat(response.getType().toString()).contains("/response-status");
     }
 
     @Test
@@ -474,10 +519,12 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.BAD_REQUEST, null);
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleResponseStatusException(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleResponseStatus(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getBody().getDetail()).isEqualTo("Unknown error");
+        assertThat(response).isNotNull();
+        assertThat(response.getDetail()).isEqualTo("Unknown error");
     }
 
     @Test
@@ -485,12 +532,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleCredentialUpdate_emailConflict_returnsConflict() {
         CredentialUpdateException ex = new CredentialUpdateException("Email already in use");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleCredentialUpdate(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleCredentialUpdate(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
-        assertThat(response.getBody().getTitle()).isEqualTo("Conflict");
-        assertThat(response.getBody().getType().toString()).contains("/credential-conflict");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Conflict");
+        assertThat(response.getType().toString()).contains("/credential-conflict");
     }
 
     @Test
@@ -498,12 +547,14 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleCredentialUpdate_notEmailConflict_returnsBadRequest() {
         CredentialUpdateException ex = new CredentialUpdateException("Password update failed");
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleCredentialUpdate(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleCredentialUpdate(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
-        assertThat(response.getBody().getTitle()).isEqualTo("Credential Update Failed");
-        assertThat(response.getBody().getType().toString()).contains("/credential-update-failed");
+        assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+        assertThat(response).isNotNull();
+        assertThat(response.getTitle()).isEqualTo("Credential Update Failed");
+        assertThat(response.getType().toString()).contains("/credential-update-failed");
     }
 
     @Test
@@ -511,10 +562,12 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleCredentialUpdate_nullMessage_usesDefault() {
         CredentialUpdateException ex = new CredentialUpdateException(null);
 
-        org.springframework.http.ResponseEntity<ProblemDetail> response =
-                handler.handleCredentialUpdate(ex, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity =
+                handler.handleCredentialUpdate(ex, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
-        assertThat(response.getBody().getDetail()).isEqualTo("Failed to update credentials");
+        assertThat(response).isNotNull();
+        assertThat(response.getDetail()).isEqualTo("Failed to update credentials");
     }
 
 
@@ -524,7 +577,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         jakarta.validation.ConstraintViolationException ex =
                 new jakarta.validation.ConstraintViolationException("Validation failed", Set.of());
 
-        ProblemDetail response = handler.handleConstraintViolation(ex, webRequest);
+        ProblemDetail response = handler.handleConstraintViolation(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Validation constraint violated");
         assertThat(response.getProperties().get("errors")).isNull();
@@ -558,8 +611,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
                 new org.springframework.web.method.annotation.MethodArgumentTypeMismatchException(
                         "param", null, "param", null, new RuntimeException());
 
-        ProblemDetail response = handler.handleMethodArgumentTypeMismatch(ex, webRequest);
+        ProblemDetail response = handler.handleTypeMismatch(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
         assertThat(response.getDetail()).contains("unknown");
         assertThat(response.getProperties().get("expectedType")).isEqualTo("unknown");
@@ -631,7 +685,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleBadRequest_sanitizesSensitiveTerms() {
         ValidationException ex = new ValidationException("Database connection failed");
 
-        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+        ProblemDetail response = handler.handleValidation(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Invalid request");
     }
@@ -641,7 +695,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleBadRequest_sanitizesNullMessage() {
         ValidationException ex = new ValidationException(null);
 
-        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+        ProblemDetail response = handler.handleValidation(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Invalid request");
     }
@@ -651,7 +705,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleBadRequest_sanitizesEmptyMessage() {
         ValidationException ex = new ValidationException("   ");
 
-        ProblemDetail response = handler.handleBadRequest(ex, webRequest);
+        ProblemDetail response = handler.handleValidation(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Invalid request");
     }
@@ -662,8 +716,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.authentication.BadCredentialsException ex =
                 new org.springframework.security.authentication.BadCredentialsException("Bad credentials");
 
-        ProblemDetail response = handler.handleAuthenticationException(ex, webRequest);
+        ProblemDetail response = handler.handleAuthenticationException(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getTitle()).isEqualTo("Unauthorized");
         assertThat(response.getType().toString()).contains("/authentication-failed");
@@ -675,8 +730,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.authentication.AuthenticationCredentialsNotFoundException ex =
                 new org.springframework.security.authentication.AuthenticationCredentialsNotFoundException("No credentials");
 
-        ProblemDetail response = handler.handleAuthenticationException(ex, webRequest);
+        ProblemDetail response = handler.handleAuthenticationException(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getTitle()).isEqualTo("Unauthorized");
     }
@@ -687,8 +743,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.authentication.InsufficientAuthenticationException ex =
                 new org.springframework.security.authentication.InsufficientAuthenticationException("Insufficient auth");
 
-        ProblemDetail response = handler.handleAuthenticationException(ex, webRequest);
+        ProblemDetail response = handler.handleAuthenticationException(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
         assertThat(response.getTitle()).isEqualTo("Unauthorized");
     }
@@ -701,8 +758,9 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.access.AccessDeniedException ex =
                 new org.springframework.security.access.AccessDeniedException("Access denied");
 
-        ProblemDetail response = handler.handleAccessDenied(ex, webRequest);
+        ProblemDetail response = handler.handleAccessDenied(ex, httpServletRequest).getBody();
 
+        assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(403);
         assertThat(response.getTitle()).isEqualTo("Access Denied");
     }
@@ -712,7 +770,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleNotFound_nullMessage_usesDefault() {
         ResourceNotFoundException ex = new ResourceNotFoundException(null);
 
-        ProblemDetail response = handler.handleNotFound(ex, webRequest);
+        ProblemDetail response = handler.handleResourceNotFound(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Resource not found");
     }
@@ -722,7 +780,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleIllegalArgument_nullMessage_usesDefault() {
         IllegalArgumentException ex = new IllegalArgumentException((String) null);
 
-        ProblemDetail response = handler.handleIllegalArgument(ex, webRequest);
+        ProblemDetail response = handler.handleIllegalArgument(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Invalid argument");
     }
@@ -732,7 +790,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleIllegalState_nullMessage_usesDefault() {
         IllegalStateException ex = new IllegalStateException((String) null);
 
-        ProblemDetail response = handler.handleIllegalState(ex, webRequest);
+        ProblemDetail response = handler.handleIllegalState(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Invalid state");
     }
@@ -742,7 +800,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleRateLimit_nullMessage_usesDefault() {
         RateLimitException ex = new RateLimitException(null, null);
 
-        ProblemDetail response = handler.handleRateLimit(ex, webRequest);
+        ProblemDetail response = handler.handleRateLimit(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Rate limit exceeded");
     }
@@ -752,7 +810,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleModerationUnavailable_nullMessage_usesDefault() {
         ModerationServiceException ex = new ModerationServiceException(null, null);
 
-        ProblemDetail response = handler.handleModerationUnavailable(ex, webRequest);
+        ProblemDetail response = handler.handleModerationUnavailable(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Moderation service unavailable");
     }
@@ -762,7 +820,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleConversationFormat_nullMessage_usesDefault() {
         ConversationFormatException ex = new ConversationFormatException(null);
 
-        ProblemDetail response = handler.handleConversationFormat(ex, webRequest);
+        ProblemDetail response = handler.handleConversationFormat(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Invalid conversation message sequence");
     }
@@ -772,7 +830,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
     void handleUnauthorized_nullMessage_usesDefault() {
         UnauthorizedException ex = new UnauthorizedException(null);
 
-        ProblemDetail response = handler.handleUnauthorized(ex, webRequest);
+        ProblemDetail response = handler.handleUnauthorized(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Authentication required");
     }
@@ -783,7 +841,7 @@ class GlobalExceptionHandlerTest extends uk.gegc.kidsgptbackend.test.BaseUnitTes
         org.springframework.security.authentication.BadCredentialsException ex =
                 new org.springframework.security.authentication.BadCredentialsException(null);
 
-        ProblemDetail response = handler.handleAuthenticationException(ex, webRequest);
+        ProblemDetail response = handler.handleAuthenticationException(ex, httpServletRequest).getBody();
 
         assertThat(response.getDetail()).isEqualTo("Authentication failed");
     }

@@ -5,6 +5,7 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,7 +16,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ProblemDetail;
-import org.springframework.web.context.request.WebRequest;
+import org.springframework.http.ResponseEntity;
 import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
@@ -50,11 +51,11 @@ class ErrorHandlingAndContextTest {
     @Mock
     private User user;
 
+    @Mock
+    private HttpServletRequest httpServletRequest;
+
     private GlobalExceptionHandler globalExceptionHandler;
     private GooglePlayPaymentService googlePlayPaymentService;
-    // Note: WebhookProcessingService removed due to complex dependencies
-    private WebRequest webRequest;
-
     private ListAppender<ILoggingEvent> listAppender;
     private Logger logger;
 
@@ -66,22 +67,15 @@ class ErrorHandlingAndContextTest {
         listAppender.setContext(loggerContext);
         listAppender.start();
 
-        // Initialize GlobalExceptionHandler with fixed clock
-        globalExceptionHandler = new GlobalExceptionHandler();
-        try {
-            java.lang.reflect.Field clockField = GlobalExceptionHandler.class.getDeclaredField("clock");
-            clockField.setAccessible(true);
-            clockField.set(globalExceptionHandler, Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), ZoneOffset.UTC));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject clock", e);
-        }
+        // Initialize GlobalExceptionHandler with fixed clock (using constructor injection)
+        Clock fixedClock = Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), ZoneOffset.UTC);
+        globalExceptionHandler = new GlobalExceptionHandler(fixedClock);
 
-        webRequest = mock(WebRequest.class);
-        when(webRequest.getDescription(false)).thenReturn("uri=/api/test");
+        // Mock HttpServletRequest
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/test");
 
         // Initialize services
         googlePlayPaymentService = new GooglePlayPaymentService(googlePlayClient);
-        // Note: WebhookProcessingServiceImpl requires many dependencies, so we'll test logging indirectly
 
         // Set up logger
         logger = loggerContext.getLogger(GooglePlayPaymentService.class);
@@ -101,7 +95,8 @@ class ErrorHandlingAndContextTest {
         );
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleNotFound(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleResourceNotFound(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
         assertThat(response).isNotNull();
@@ -112,7 +107,7 @@ class ErrorHandlingAndContextTest {
         assertThat(response.getDetail()).contains("User not found with ID: " + userId);
         
         // Note: The current implementation does not redact user-provided sensitive data from exception messages
-        // This is a design decision - the sanitizeErrorMessage method only redacts internal implementation details
+        // This is a design decision - exception messages are passed through as-is from the thrown exception
         // The actual message will contain the token as provided in the exception
         assertThat(response.getDetail()).contains(sensitiveToken);
     }
@@ -129,19 +124,19 @@ class ErrorHandlingAndContextTest {
         );
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleValidation(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
         
         // Should provide actionable context
         assertThat(response.getDetail()).contains("Invalid credentials");
         
-        // Note: The current implementation does not redact user-provided sensitive data from exception messages
-        // This is a design decision - the sanitizeErrorMessage method only redacts internal implementation details
-        // The actual message will contain the email as provided in the exception
+        // Note: Exception messages are NOT automatically sanitized to preserve useful error information
+        // Developers should avoid including sensitive data in exception messages at the throw site
         assertThat(response.getDetail()).contains(sensitiveEmail);
     }
 
@@ -232,11 +227,13 @@ class ErrorHandlingAndContextTest {
         ValidationException exception = new ValidationException("Please provide a valid email address");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleValidation(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
+        assertThat(response).isNotNull();
         assertThat(response.getDetail()).contains("Please provide a valid email address");
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
         
         // Error should be actionable (tells user what to do)
         assertThat(response.getDetail()).contains("provide");
@@ -250,9 +247,11 @@ class ErrorHandlingAndContextTest {
         ResourceNotFoundException exception = new ResourceNotFoundException("Test error");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleNotFound(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleResourceNotFound(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
+        assertThat(response).isNotNull();
         assertThat(response.getProperties().get("timestamp")).isNotNull();
         assertThat(response.getProperties().get("timestamp")).isEqualTo(Instant.parse("2024-01-01T12:00:00Z"));
     }
@@ -266,12 +265,20 @@ class ErrorHandlingAndContextTest {
         RuntimeException runtimeException = new RuntimeException("Unexpected error");
 
         // When
-        ProblemDetail notFoundResponse = globalExceptionHandler.handleNotFound(notFoundException, webRequest);
-        ProblemDetail validationResponse = globalExceptionHandler.handleBadRequest(validationException, webRequest);
-        ProblemDetail runtimeResponse = globalExceptionHandler.handleBadRequest(runtimeException, webRequest);
+        ResponseEntity<ProblemDetail> notFoundResponseEntity = globalExceptionHandler.handleResourceNotFound(notFoundException, httpServletRequest);
+        ResponseEntity<ProblemDetail> validationResponseEntity = globalExceptionHandler.handleValidation(validationException, httpServletRequest);
+        ResponseEntity<ProblemDetail> runtimeResponseEntity = globalExceptionHandler.handleRuntimeException(runtimeException, httpServletRequest);
+
+        ProblemDetail notFoundResponse = notFoundResponseEntity.getBody();
+        ProblemDetail validationResponse = validationResponseEntity.getBody();
+        ProblemDetail runtimeResponse = runtimeResponseEntity.getBody();
 
         // Then
         // All responses should have consistent structure
+        assertThat(notFoundResponse).isNotNull();
+        assertThat(validationResponse).isNotNull();
+        assertThat(runtimeResponse).isNotNull();
+        
         assertThat(notFoundResponse.getProperties().get("timestamp")).isNotNull();
         assertThat(validationResponse.getProperties().get("timestamp")).isNotNull();
         assertThat(runtimeResponse.getProperties().get("timestamp")).isNotNull();
@@ -283,7 +290,7 @@ class ErrorHandlingAndContextTest {
         // Status codes should be appropriate
         assertThat(notFoundResponse.getStatus()).isEqualTo(404);
         assertThat(validationResponse.getStatus()).isEqualTo(400);
-        assertThat(runtimeResponse.getStatus()).isEqualTo(400);
+        assertThat(runtimeResponse.getStatus()).isEqualTo(500);  // RuntimeException should be 500
     }
 
     @Test
@@ -339,20 +346,20 @@ class ErrorHandlingAndContextTest {
         );
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleRuntimeException(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.getStatus()).isEqualTo(400);
+        assertThat(response.getStatus()).isEqualTo(500);
         
-        // Should include meaningful context
-        assertThat(response.getDetail()).contains("operation");
-        assertThat(response.getDetail()).contains("user");
+        // RuntimeException returns generic error message for security
+        assertThat(response.getDetail()).isEqualTo("An unexpected error occurred");
         
-        // Note: The current implementation does not redact user-provided sensitive data from exception messages
-        // This is a design decision - the sanitizeErrorMessage method only redacts internal implementation details
-        // The actual message will contain the API key as provided in the exception
-        assertThat(response.getDetail()).contains(sensitiveApiKey);
+        // The generic error message does not expose the original exception details
+        assertThat(response.getDetail()).doesNotContain("operation");
+        assertThat(response.getDetail()).doesNotContain(sensitiveApiKey);
+        assertThat(response.getDetail()).doesNotContain(userId);
     }
 
     @Test
@@ -362,9 +369,12 @@ class ErrorHandlingAndContextTest {
         ValidationException exception = new ValidationException("Test validation error");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleValidation(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
+        assertThat(response).isNotNull();
+        
         // Verify consistent structure
         assertThat(response.getProperties().get("timestamp")).isNotNull();
         assertThat(response.getProperties().get("timestamp")).isInstanceOf(Instant.class);

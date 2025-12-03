@@ -25,6 +25,7 @@ class ProblemDetailBuilderTest {
         // Given
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/v1/test");
+        Instant fixedTime = Instant.parse("2024-01-01T12:00:00Z");
         
         // When
         ProblemDetail problem = ProblemDetailBuilder.create(
@@ -32,7 +33,8 @@ class ProblemDetailBuilderTest {
             ErrorTypes.RESOURCE_NOT_FOUND,
             "Resource Not Found",
             "The requested resource was not found",
-            request
+            request,
+            fixedTime
         );
         
         // Then
@@ -42,7 +44,7 @@ class ProblemDetailBuilderTest {
         assertThat(problem.getDetail()).isEqualTo("The requested resource was not found");
         assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/test"));
         assertThat(problem.getProperties()).containsKey("timestamp");
-        assertThat(problem.getProperties().get("timestamp")).isInstanceOf(Instant.class);
+        assertThat(problem.getProperties().get("timestamp")).isEqualTo(fixedTime);
     }
 
     @Test
@@ -70,18 +72,23 @@ class ProblemDetailBuilderTest {
     @Test
     @DisplayName("when creating with null HttpServletRequest then no instance field")
     void whenCreatingWithNullHttpServletRequest_thenNoInstanceField() {
+        // Given
+        Instant fixedTime = Instant.parse("2024-01-01T12:00:00Z");
+        
         // When
         ProblemDetail problem = ProblemDetailBuilder.create(
             HttpStatus.INTERNAL_SERVER_ERROR,
             ErrorTypes.INTERNAL_SERVER_ERROR,
             "Internal Server Error",
             "An error occurred",
-            (HttpServletRequest) null
+            (HttpServletRequest) null,
+            fixedTime
         );
         
         // Then
         assertThat(problem.getInstance()).isNull();
         assertThat(problem.getProperties()).containsKey("timestamp");
+        assertThat(problem.getProperties().get("timestamp")).isEqualTo(fixedTime);
     }
 
     @Test
@@ -91,6 +98,7 @@ class ProblemDetailBuilderTest {
         MockHttpServletRequest servletRequest = new MockHttpServletRequest();
         servletRequest.setRequestURI("/api/v1/users");
         WebRequest webRequest = new ServletWebRequest(servletRequest);
+        Instant fixedTime = Instant.parse("2024-01-01T12:00:00Z");
         
         // When
         ProblemDetail problem = ProblemDetailBuilder.create(
@@ -98,12 +106,14 @@ class ProblemDetailBuilderTest {
             ErrorTypes.ACCESS_DENIED,
             "Access Denied",
             "You don't have permission",
-            webRequest
+            webRequest,
+            fixedTime
         );
         
         // Then
         assertThat(problem.getStatus()).isEqualTo(403);
         assertThat(problem.getInstance()).isEqualTo(URI.create("/api/v1/users"));
+        assertThat(problem.getProperties()).containsKey("timestamp");
     }
 
     @Test
@@ -130,42 +140,6 @@ class ProblemDetailBuilderTest {
     }
 
     @Test
-    @DisplayName("when creating without request context then no instance field")
-    void whenCreatingWithoutRequestContext_thenNoInstanceField() {
-        // When
-        ProblemDetail problem = ProblemDetailBuilder.create(
-            HttpStatus.SERVICE_UNAVAILABLE,
-            ErrorTypes.SERVICE_UNAVAILABLE,
-            "Service Unavailable",
-            "Service is temporarily unavailable"
-        );
-        
-        // Then
-        assertThat(problem.getStatus()).isEqualTo(503);
-        assertThat(problem.getInstance()).isNull();
-        assertThat(problem.getProperties()).containsKey("timestamp");
-    }
-
-    @Test
-    @DisplayName("when creating simple then only status and detail")
-    void whenCreatingSimple_thenOnlyStatusAndDetail() {
-        // When
-        ProblemDetail problem = ProblemDetailBuilder.createSimple(
-            HttpStatus.BAD_REQUEST,
-            "Invalid request"
-        );
-        
-        // Then
-        assertThat(problem.getStatus()).isEqualTo(400);
-        assertThat(problem.getDetail()).isEqualTo("Invalid request");
-        // Note: Spring sets type to "about:blank" and title to status reason phrase by default
-        assertThat(problem.getType()).isEqualTo(URI.create("about:blank"));
-        assertThat(problem.getTitle()).isEqualTo("Bad Request");
-        assertThat(problem.getInstance()).isNull();
-        assertThat(problem.getProperties()).containsKey("timestamp");
-    }
-
-    @Test
     @DisplayName("when creating with properties then includes custom properties")
     void whenCreatingWithProperties_thenIncludesCustomProperties() {
         // Given
@@ -176,6 +150,7 @@ class ProblemDetailBuilderTest {
             "field", "email",
             "retryAfter", 60
         );
+        Instant fixedTime = Instant.parse("2024-01-01T12:00:00Z");
         
         // When
         ProblemDetail problem = ProblemDetailBuilder.createWithProperties(
@@ -184,7 +159,8 @@ class ProblemDetailBuilderTest {
             "Validation Failed",
             "Email format is invalid",
             request,
-            customProperties
+            customProperties,
+            fixedTime
         );
         
         // Then
@@ -193,6 +169,7 @@ class ProblemDetailBuilderTest {
         assertThat(problem.getProperties()).containsEntry("field", "email");
         assertThat(problem.getProperties()).containsEntry("retryAfter", 60);
         assertThat(problem.getProperties()).containsKey("timestamp");
+        assertThat(problem.getProperties().get("timestamp")).isEqualTo(fixedTime);
     }
 
     @Test
@@ -201,6 +178,7 @@ class ProblemDetailBuilderTest {
         // Given
         MockHttpServletRequest request = new MockHttpServletRequest();
         request.setRequestURI("/api/v1/test");
+        Instant fixedTime = Instant.parse("2024-01-01T12:00:00Z");
         
         // When
         ProblemDetail problem = ProblemDetailBuilder.createWithProperties(
@@ -209,11 +187,13 @@ class ProblemDetailBuilderTest {
             "Invalid Argument",
             "Invalid input",
             request,
-            null
+            null,
+            fixedTime
         );
         
         // Then
         assertThat(problem.getProperties()).containsKey("timestamp");
+        assertThat(problem.getProperties().get("timestamp")).isEqualTo(fixedTime);
         assertThat(problem.getProperties()).hasSize(1); // Only timestamp
     }
 

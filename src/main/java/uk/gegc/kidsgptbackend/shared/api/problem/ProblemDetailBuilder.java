@@ -24,33 +24,6 @@ public final class ProblemDetailBuilder {
     }
 
     /**
-     * Creates a {@link ProblemDetail} using the provided HTTP request to populate the {@code instance} field.
-     * 
-     * @param status HTTP status code
-     * @param type URI identifying the problem type
-     * @param title Short human-readable summary
-     * @param detail Detailed human-readable explanation
-     * @param request HTTP request to extract instance URI from
-     * @return Configured ProblemDetail instance
-     */
-    public static ProblemDetail create(
-            HttpStatus status,
-            URI type,
-            String title,
-            String detail,
-            HttpServletRequest request
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setType(type);
-        problem.setTitle(title);
-        if (request != null) {
-            problem.setInstance(URI.create(request.getRequestURI()));
-        }
-        problem.setProperty("timestamp", Instant.now());
-        return problem;
-    }
-
-    /**
      * Creates a {@link ProblemDetail} using the provided HTTP request and timestamp.
      * 
      * @param status HTTP status code
@@ -76,38 +49,6 @@ public final class ProblemDetailBuilder {
             problem.setInstance(URI.create(request.getRequestURI()));
         }
         problem.setProperty("timestamp", timestamp);
-        return problem;
-    }
-
-    /**
-     * Creates a {@link ProblemDetail} using Spring's {@link WebRequest} to populate the instance field.
-     * Useful inside Spring MVC override methods where an {@link HttpServletRequest} is not available.
-     * 
-     * @param status HTTP status code
-     * @param type URI identifying the problem type
-     * @param title Short human-readable summary
-     * @param detail Detailed human-readable explanation
-     * @param request Spring WebRequest to extract instance URI from
-     * @return Configured ProblemDetail instance
-     */
-    public static ProblemDetail create(
-            HttpStatus status,
-            URI type,
-            String title,
-            String detail,
-            WebRequest request
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setType(type);
-        problem.setTitle(title);
-        if (request != null) {
-            String description = request.getDescription(false);
-            if (description != null) {
-                String uri = description.startsWith("uri=") ? description.substring(4) : description;
-                problem.setInstance(URI.create(uri));
-            }
-        }
-        problem.setProperty("timestamp", Instant.now());
         return problem;
     }
 
@@ -145,41 +86,6 @@ public final class ProblemDetailBuilder {
     }
 
     /**
-     * Creates a {@link ProblemDetail} without any request context.
-     * 
-     * @param status HTTP status code
-     * @param type URI identifying the problem type
-     * @param title Short human-readable summary
-     * @param detail Detailed human-readable explanation
-     * @return Configured ProblemDetail instance
-     */
-    public static ProblemDetail create(
-            HttpStatus status,
-            URI type,
-            String title,
-            String detail
-    ) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setType(type);
-        problem.setTitle(title);
-        problem.setProperty("timestamp", Instant.now());
-        return problem;
-    }
-
-    /**
-     * Creates a minimal {@link ProblemDetail} with status + detail only.
-     * 
-     * @param status HTTP status code
-     * @param detail Detailed human-readable explanation
-     * @return Configured ProblemDetail instance
-     */
-    public static ProblemDetail createSimple(HttpStatus status, String detail) {
-        ProblemDetail problem = ProblemDetail.forStatusAndDetail(status, detail);
-        problem.setProperty("timestamp", Instant.now());
-        return problem;
-    }
-
-    /**
      * Creates a {@link ProblemDetail} and applies the supplied custom properties in a single call.
      * 
      * @param status HTTP status code
@@ -188,6 +94,7 @@ public final class ProblemDetailBuilder {
      * @param detail Detailed human-readable explanation
      * @param request HTTP request to extract instance URI from
      * @param properties Additional custom properties to include
+     * @param timestamp Instant to use for timestamp property
      * @return Configured ProblemDetail instance
      */
     public static ProblemDetail createWithProperties(
@@ -196,9 +103,10 @@ public final class ProblemDetailBuilder {
             String title,
             String detail,
             HttpServletRequest request,
-            Map<String, Object> properties
+            Map<String, Object> properties,
+            Instant timestamp
     ) {
-        ProblemDetail problem = create(status, type, title, detail, request);
+        ProblemDetail problem = create(status, type, title, detail, request, timestamp);
         if (properties != null) {
             properties.forEach(problem::setProperty);
         }
