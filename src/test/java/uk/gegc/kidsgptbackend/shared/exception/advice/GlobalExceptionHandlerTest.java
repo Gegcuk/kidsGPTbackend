@@ -116,7 +116,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(response.getStatus()).isEqualTo(503);
         assertThat(response.getTitle()).isEqualTo("Moderation Service Unavailable");
         assertThat(response.getDetail()).contains("Content violates guidelines");
-        assertThat(response.getType().toString()).contains("/service-unavailable");
+        assertThat(response.getType().toString()).contains("/moderation-failed");
     }
 
     @Test
@@ -181,8 +181,8 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(409);
         assertThat(response.getTitle()).isEqualTo("Data Conflict");
-        assertThat(response.getDetail()).contains("Database error: Unique constraint failed");
-        assertThat(response.getProperties().get("errors")).isNotNull();
+        // Database errors are sanitized for security
+        assertThat(response.getDetail()).isEqualTo("A data conflict occurred. Please check your input and try again.");
     }
 
     @Test
@@ -743,7 +743,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getTitle()).isEqualTo("Unauthorized");
+        assertThat(response.getTitle()).isEqualTo("Authentication Failed");
     }
 
     @Test

@@ -440,11 +440,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 ErrorTypes.MALFORMED_JSON,
                 "Malformed JSON",
-                "Request body is malformed or cannot be read",
+                msg,
                 request,
                 Instant.now(clock)
         );
-        problem.setProperty("parseError", msg);
         return new ResponseEntity<>(problem, headers, HttpStatus.BAD_REQUEST);
     }
 
