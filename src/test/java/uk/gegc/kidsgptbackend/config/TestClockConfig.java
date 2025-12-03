@@ -15,6 +15,10 @@ import java.time.ZoneId;
  * This configuration provides a fixed Clock for testing purposes,
  * allowing tests to have predictable time behavior and avoid
  * flaky tests due to timing issues.
+ * 
+ * Note: This configuration is active only in the test profile and provides
+ * the primary Clock bean to replace ClockConfig's clock() bean which is
+ * excluded from the test profile via @Profile("!test").
  */
 @TestConfiguration
 @Profile("test")
@@ -30,6 +34,9 @@ public class TestClockConfig {
      * 
      * This Clock always returns the same time, making tests predictable
      * and avoiding timing-related flakiness.
+     * 
+     * This bean is marked as @Primary to replace the production Clock bean
+     * from ClockConfig which is excluded from the test profile.
      * 
      * @return Fixed Clock instance for testing
      */

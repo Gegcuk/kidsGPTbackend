@@ -163,4 +163,34 @@ class ClockConfigTest extends BaseUnitTest {
         assertThat(utcClock.instant()).isBeforeOrEqualTo(now.plusSeconds(1));
         assertThat(systemClock.instant()).isBeforeOrEqualTo(now.plusSeconds(1));
     }
+
+    @Test
+    @DisplayName("when invalid timezone configured then falls back to UTC")
+    void whenInvalidTimezoneConfigured_thenFallsBackToUtc() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "Invalid/Timezone");
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then - should fallback to UTC and not throw exception
+        assertThat(clock).isNotNull();
+        assertThat(clock.getZone()).isIn(ZoneId.of("UTC"), ZoneId.of("Z"));
+    }
+
+    @Test
+    @DisplayName("when garbage timezone configured then falls back to UTC")
+    void whenGarbageTimezoneConfigured_thenFallsBackToUtc() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "NOT_A_REAL_TIMEZONE_12345");
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then - should fallback to UTC and not throw exception
+        assertThat(clock).isNotNull();
+        assertThat(clock.getZone()).isIn(ZoneId.of("UTC"), ZoneId.of("Z"));
+    }
 }

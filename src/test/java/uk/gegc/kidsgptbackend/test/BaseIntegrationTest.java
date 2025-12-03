@@ -5,10 +5,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import uk.gegc.kidsgptbackend.config.TestClockConfig;
 import uk.gegc.kidsgptbackend.features.user.domain.model.Role;
 import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
@@ -21,6 +23,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
  *   <li>Common Spring Boot test annotations</li>
  *   <li>Autowired MockMvc, ObjectMapper, and common repositories</li>
  *   <li>Helper methods for test data setup</li>
+ *   <li>TestClockConfig for fixed Clock bean (predictable time in tests)</li>
  * </ul>
  * <p>
  * Usage:
@@ -39,6 +42,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 @ActiveProfiles("test")
 @AutoConfigureMockMvc
 @Transactional
+@Import(TestClockConfig.class)
 public abstract class BaseIntegrationTest {
 
     @Autowired
