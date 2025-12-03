@@ -3,7 +3,9 @@ package uk.gegc.kidsgptbackend;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import uk.gegc.kidsgptbackend.config.TestClockConfig;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -12,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestClockConfig.class)
 class KidsGpTbackendApplicationTests {
 
     @Autowired

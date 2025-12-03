@@ -16,7 +16,9 @@ import uk.gegc.kidsgptbackend.features.auth.domain.repository.PasswordResetToken
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -36,6 +38,9 @@ class PasswordResetControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     RoleRepository roleRepository;
+
+    @Autowired
+    Clock clock;
 
     @Autowired
     PasswordResetTokenRepository tokenRepository;
@@ -66,11 +71,12 @@ class PasswordResetControllerIntegrationTest extends BaseIntegrationTest {
     @DisplayName("POST /api/v1/auth/reset-password → 200 for valid token and password")
     void resetPassword_validTokenAndPassword_returnsSuccess() throws Exception {
         // Create a valid token
+        // Use injected Clock to ensure token expires in the future relative to the Clock time
         PasswordResetToken token = new PasswordResetToken();
         token.setToken("valid-token-123");
         token.setUserId(testUser.getId());
         token.setEmail(testUser.getEmail());
-        token.setExpiresAt(LocalDateTime.now().plusHours(1));
+        token.setExpiresAt(LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).plusHours(1));
         tokenRepository.save(token);
 
         ResetPasswordRequest request = new ResetPasswordRequest("valid-token-123", "newPassword123");

@@ -7,8 +7,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
+import uk.gegc.kidsgptbackend.config.TestClockConfig;
 import uk.gegc.kidsgptbackend.features.family.domain.model.Kid;
 import uk.gegc.kidsgptbackend.features.family.domain.model.Parent;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
@@ -27,6 +29,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional
+@Import(TestClockConfig.class)
 @DisplayName("Database Schema Integration Tests")
 class DatabaseSchemaIntegrationTest {
 
