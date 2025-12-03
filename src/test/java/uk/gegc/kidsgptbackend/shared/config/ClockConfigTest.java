@@ -2,6 +2,7 @@ package uk.gegc.kidsgptbackend.shared.config;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 
 import java.time.Clock;
@@ -14,10 +15,81 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ClockConfigTest extends BaseUnitTest {
 
     @Test
-    @DisplayName("when clock created with UTC then returns system UTC clock")
-    void whenClockCreatedWithUtc_thenReturnsSystemUtcClock() {
+    @DisplayName("when timezone null then defaults to UTC")
+    void whenTimezoneNull_thenDefaultsToUtc() {
         // Given
         ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", null);
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("UTC"));
+    }
+
+    @Test
+    @DisplayName("when timezone blank then defaults to UTC")
+    void whenTimezoneBlank_thenDefaultsToUtc() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "   ");
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("UTC"));
+    }
+
+    @Test
+    @DisplayName("when timezone configured to UTC then uses UTC zone")
+    void whenTimezoneConfiguredToUtc_thenUsesUtcZone() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "UTC");
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("UTC"));
+    }
+
+    @Test
+    @DisplayName("when timezone configured to America/New_York then uses that zone")
+    void whenTimezoneConfiguredToNewYork_thenUsesThatZone() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "America/New_York");
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("America/New_York"));
+    }
+
+    @Test
+    @DisplayName("when timezone configured to Europe/London then uses that zone")
+    void whenTimezoneConfiguredToLondon_thenUsesThatZone() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "Europe/London");
+        
+        // When
+        Clock clock = config.clock();
+        
+        // Then
+        assertThat(clock.getZone()).isEqualTo(ZoneId.of("Europe/London"));
+    }
+
+    @Test
+    @DisplayName("when timezone configured with spaces then trims and uses zone")
+    void whenTimezoneConfiguredWithSpaces_thenTrimsAndUsesZone() {
+        // Given
+        ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "  UTC  ");
         
         // When
         Clock clock = config.clock();
@@ -57,6 +129,7 @@ class ClockConfigTest extends BaseUnitTest {
     void whenClockUsed_thenReturnsInstant() {
         // Given
         ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "UTC");
         Clock clock = config.clock();
         
         // When
@@ -72,6 +145,7 @@ class ClockConfigTest extends BaseUnitTest {
     void whenMultipleClocksCreated_thenAllWorkIndependently() {
         // Given
         ClockConfig config = new ClockConfig();
+        ReflectionTestUtils.setField(config, "timezone", "UTC");
         
         // When
         Clock primaryClock = config.clock();
