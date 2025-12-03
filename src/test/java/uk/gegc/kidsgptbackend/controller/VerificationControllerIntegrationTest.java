@@ -29,13 +29,7 @@ class VerificationControllerIntegrationTest extends BaseIntegrationTest {
     @BeforeEach
     @Override
     protected void setUp() throws Exception {
-        super.setUp(); // Ensure roles are created
-        // Create parent role if it doesn't exist
-        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.features.user.domain.model.Role role = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
-            role.setRole("ROLE_PARENT");
-            return roleRepository.save(role);
-        });
+        super.setUp(); // Ensure roles are created (ROLE_ADMIN, ROLE_PARENT, ROLE_CHILD)
 
         // Create a test parent user
         testParent = new User();

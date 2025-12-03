@@ -57,13 +57,7 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
     @BeforeEach
     @Override
     protected void setUp() throws Exception {
-        super.setUp(); // Ensure all roles are created
-        // Set up role and user
-        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
-            r.setRole("ROLE_PARENT");
-            return roleRepository.save(r);
-        });
+        super.setUp(); // Ensure all roles are created (ROLE_ADMIN, ROLE_PARENT, ROLE_CHILD)
 
         // Create a unique user for each test to avoid optimistic locking conflicts
         String uniqueId = String.valueOf(System.nanoTime());
