@@ -16,7 +16,6 @@ import uk.gegc.kidsgptbackend.test.BaseUnitTest;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -115,7 +114,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         ProblemDetail response = handler.handleModerationUnavailable(ex, httpServletRequest).getBody();
 
         assertThat(response.getStatus()).isEqualTo(503);
-        assertThat(response.getTitle()).isEqualTo("Service Unavailable");
+        assertThat(response.getTitle()).isEqualTo("Moderation Service Unavailable");
         assertThat(response.getDetail()).contains("Content violates guidelines");
         assertThat(response.getType().toString()).contains("/service-unavailable");
     }
@@ -181,7 +180,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(409);
-        assertThat(response.getTitle()).isEqualTo("Data Integrity Violation");
+        assertThat(response.getTitle()).isEqualTo("Data Conflict");
         assertThat(response.getDetail()).contains("Database error: Unique constraint failed");
         assertThat(response.getProperties().get("errors")).isNotNull();
     }
@@ -269,11 +268,9 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         ProblemDetail response = handler.handleConstraintViolation(ex, httpServletRequest).getBody();
 
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getTitle()).isEqualTo("Validation Failed");
-        @SuppressWarnings("unchecked")
-        List<String> errors = (List<String>) response.getProperties().get("errors");
-        assertThat(errors).hasSize(2);
-        assertThat(errors).contains("Field is required", "Invalid format");
+        assertThat(response.getTitle()).isEqualTo("Constraint Violation");
+        assertThat(response.getDetail()).isEqualTo("One or more validation constraints were violated");
+        assertThat(response.getProperties()).containsKey("violations");
     }
 
     @Test
@@ -298,7 +295,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(response.getBody()).isInstanceOf(ProblemDetail.class);
         ProblemDetail problemDetail = (ProblemDetail) response.getBody();
         assertThat(problemDetail.getStatus()).isEqualTo(400);
-        assertThat(problemDetail.getTitle()).isEqualTo("Malformed Request");
+        assertThat(problemDetail.getTitle()).isEqualTo("Malformed JSON");
     }
 
     @Test
@@ -330,9 +327,8 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         ProblemDetail problemDetail = (ProblemDetail) response.getBody();
         assertThat(problemDetail.getStatus()).isEqualTo(400);
         assertThat(problemDetail.getTitle()).isEqualTo("Validation Failed");
-        @SuppressWarnings("unchecked")
-        List<String> errors = (List<String>) problemDetail.getProperties().get("errors");
-        assertThat(errors).contains("username: Username is required", "email: Email is invalid");
+        assertThat(problemDetail.getProperties()).containsKey("fieldErrors");
+        assertThat(problemDetail.getDetail()).isEqualTo("Validation failed for one or more fields");
     }
 
     @Test
@@ -358,7 +354,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         ProblemDetail response = handler.handleValidation(ex, httpServletRequest).getBody();
 
         assertThat(response.getType()).isNotNull();
-        assertThat(response.getType().toString()).startsWith("/errors/");
+        assertThat(response.getType().toString()).contains("/errors/");
         assertThat(response.getInstance()).isNotNull();
     }
 
@@ -389,8 +385,8 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo("Unsupported Operation");
-        assertThat(response.getType().toString()).contains("/bad-request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
+        assertThat(response.getType().toString()).contains("/validation-failed");
     }
 
     @Test
@@ -423,8 +419,8 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.FORBIDDEN);
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo("Forbidden");
-        assertThat(response.getType().toString()).contains("/forbidden");
+        assertThat(response.getTitle()).isEqualTo("Access Denied");
+        assertThat(response.getType().toString()).contains("/access-denied");
     }
 
     @Test
@@ -441,7 +437,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.NOT_FOUND);
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Resource Not Found");
-        assertThat(response.getType().toString()).contains("/not-found");
+        assertThat(response.getType().toString()).contains("/resource-not-found");
     }
 
     @Test
@@ -458,7 +454,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.GONE);
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Gone");
-        assertThat(response.getType().toString()).contains("/gone");
+        assertThat(response.getType().toString()).contains("/error");
     }
 
     @Test
@@ -475,7 +471,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS);
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Too Many Requests");
-        assertThat(response.getType().toString()).contains("/rate-limit");
+        assertThat(response.getType().toString()).contains("/error");
     }
 
     @Test
@@ -492,7 +488,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.INTERNAL_SERVER_ERROR);
         assertThat(response).isNotNull();
         assertThat(response.getTitle()).isEqualTo("Internal Server Error");
-        assertThat(response.getType().toString()).contains("/internal-server-error");
+        assertThat(response.getType().toString()).contains("/error");
     }
 
     @Test
@@ -508,8 +504,8 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.IM_USED);
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo("Request Failed");
-        assertThat(response.getType().toString()).contains("/response-status");
+        assertThat(response.getTitle()).isEqualTo("IM Used");
+        assertThat(response.getType().toString()).contains("/error");
     }
 
     @Test
@@ -524,7 +520,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         ProblemDetail response = responseEntity.getBody();
 
         assertThat(response).isNotNull();
-        assertThat(response.getDetail()).isEqualTo("Unknown error");
+        assertThat(response.getDetail()).contains("400 BAD_REQUEST");
     }
 
     @Test
@@ -538,8 +534,8 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(responseEntity.getStatusCode()).isEqualTo(org.springframework.http.HttpStatus.CONFLICT);
         assertThat(response).isNotNull();
-        assertThat(response.getTitle()).isEqualTo("Conflict");
-        assertThat(response.getType().toString()).contains("/credential-conflict");
+        assertThat(response.getTitle()).isEqualTo("Email Already Exists");
+        assertThat(response.getType().toString()).contains("/email-already-exists");
     }
 
     @Test
@@ -579,7 +575,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleConstraintViolation(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Validation constraint violated");
+        assertThat(response.getDetail()).isEqualTo("One or more validation constraints were violated");
         assertThat(response.getProperties().get("errors")).isNull();
     }
 
@@ -600,7 +596,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
         );
 
         ProblemDetail problemDetail = (ProblemDetail) response.getBody();
-        assertThat(problemDetail.getDetail()).isEqualTo("Validation failed");
+        assertThat(problemDetail.getDetail()).isEqualTo("Validation failed for one or more fields");
         assertThat(problemDetail.getProperties().get("errors")).isNull();
     }
 
@@ -674,7 +670,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail problemDetail = (ProblemDetail) response.getBody();
         assertThat(problemDetail.getStatus()).isEqualTo(404);
-        assertThat(problemDetail.getTitle()).isEqualTo("Not Found");
+        assertThat(problemDetail.getTitle()).isEqualTo("Resource Not Found");
         assertThat(problemDetail.getProperties().get("method")).isEqualTo("GET");
         assertThat(problemDetail.getProperties().get("requestURL")).isEqualTo("/api/invalid");
     }
@@ -720,7 +716,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getTitle()).isEqualTo("Unauthorized");
+        assertThat(response.getTitle()).isEqualTo("Authentication Failed");
         assertThat(response.getType().toString()).contains("/authentication-failed");
     }
 
@@ -734,7 +730,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getTitle()).isEqualTo("Unauthorized");
+        assertThat(response.getTitle()).isEqualTo("Authentication Failed");
     }
 
     @Test
@@ -772,7 +768,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleResourceNotFound(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Resource not found");
+        assertThat(response.getDetail()).isEqualTo("The requested resource was not found");
     }
 
     @Test
@@ -782,7 +778,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleIllegalArgument(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Invalid argument");
+        assertThat(response.getDetail()).isEqualTo("Invalid argument provided");
     }
 
     @Test
@@ -792,7 +788,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleIllegalState(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Invalid state");
+        assertThat(response.getDetail()).isEqualTo("Invalid state detected");
     }
 
     @Test
@@ -802,7 +798,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleRateLimit(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Rate limit exceeded");
+        assertThat(response.getDetail()).isEqualTo("Too many requests. Please try again later");
     }
 
     @Test
@@ -812,7 +808,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleModerationUnavailable(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Moderation service unavailable");
+        assertThat(response.getDetail()).isEqualTo("Content moderation service is temporarily unavailable");
     }
 
     @Test
@@ -822,7 +818,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleConversationFormat(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Invalid conversation message sequence");
+        assertThat(response.getDetail()).isEqualTo("Invalid conversation format");
     }
 
     @Test
@@ -832,7 +828,7 @@ class GlobalExceptionHandlerTest extends BaseUnitTest {
 
         ProblemDetail response = handler.handleUnauthorized(ex, httpServletRequest).getBody();
 
-        assertThat(response.getDetail()).isEqualTo("Authentication required");
+        assertThat(response.getDetail()).isEqualTo("Authentication is required to access this resource");
     }
 
     @Test

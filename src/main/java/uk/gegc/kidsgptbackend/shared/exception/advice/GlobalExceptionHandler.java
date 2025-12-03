@@ -65,11 +65,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ProblemDetail> handleResourceNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "The requested resource was not found";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.NOT_FOUND,
                 ErrorTypes.RESOURCE_NOT_FOUND,
                 "Resource Not Found",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
@@ -112,11 +113,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ProblemDetail> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Invalid argument provided";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.BAD_REQUEST,
                 ErrorTypes.INVALID_ARGUMENT,
                 "Invalid Argument",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
@@ -125,11 +127,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<ProblemDetail> handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Invalid state detected";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.UNPROCESSABLE_ENTITY,
                 ErrorTypes.ILLEGAL_STATE,
                 "Illegal State",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
@@ -178,11 +181,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ConversationFormatException.class)
     public ResponseEntity<ProblemDetail> handleConversationFormat(ConversationFormatException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Invalid conversation format";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.BAD_REQUEST,
                 ErrorTypes.CONVERSATION_FORMAT_ERROR,
                 "Invalid Conversation Format",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
@@ -191,11 +195,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(ModerationServiceException.class)
     public ResponseEntity<ProblemDetail> handleModerationUnavailable(ModerationServiceException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Content moderation service is temporarily unavailable";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.SERVICE_UNAVAILABLE,
                 ErrorTypes.MODERATION_FAILED,
                 "Moderation Service Unavailable",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
@@ -206,11 +211,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<ProblemDetail> handleUnauthorized(UnauthorizedException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Authentication is required to access this resource";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.UNAUTHORIZED,
                 ErrorTypes.UNAUTHORIZED,
                 "Unauthorized",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
@@ -253,13 +259,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(CredentialUpdateException.class)
     public ResponseEntity<ProblemDetail> handleCredentialUpdate(CredentialUpdateException ex, HttpServletRequest request) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Failed to update credentials";
+        
         // Check if it's an email conflict error
-        if (ex.getMessage() != null && ex.getMessage().contains("Email already in use")) {
+        if (message.contains("Email already in use")) {
             ProblemDetail problem = ProblemDetailBuilder.create(
                     HttpStatus.CONFLICT,
                     ErrorTypes.EMAIL_ALREADY_EXISTS,
                     "Email Already Exists",
-                    ex.getMessage(),
+                    message,
                     request,
                     Instant.now(clock)
             );
@@ -271,7 +279,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 ErrorTypes.CREDENTIAL_UPDATE_FAILED,
                 "Credential Update Failed",
-                ex.getMessage() != null ? ex.getMessage() : "Failed to update credentials",
+                message,
                 request,
                 Instant.now(clock)
         );
@@ -318,11 +326,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(RateLimitException.class)
     public ResponseEntity<ProblemDetail> handleRateLimit(RateLimitException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Too many requests. Please try again later";
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.TOO_MANY_REQUESTS,
                 ErrorTypes.RATE_LIMIT_EXCEEDED,
                 "Rate Limit Exceeded",
-                ex.getMessage(),
+                detail,
                 request,
                 Instant.now(clock)
         );
