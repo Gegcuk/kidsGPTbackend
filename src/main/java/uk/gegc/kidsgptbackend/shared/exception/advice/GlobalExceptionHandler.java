@@ -283,7 +283,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ProblemDetail> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
         // Log the full technical error for debugging
-        log.error("Data integrity violation: {}", ex.getMostSpecificCause().getMessage(), ex);
+        String causeMessage = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        log.error("Data integrity violation: {}", causeMessage, ex);
         
         // Sanitize the error message for users
         String userFriendlyMessage = sanitizeDatabaseError(ex);
@@ -365,7 +366,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.error("RuntimeException occurred: {}", ex.getMessage(), ex);
         
         // Handle special runtime exception cases
-        if ("Access denied".equalsIgnoreCase(ex.getMessage())) {
+        if (ex.getMessage() != null && "Access denied".equalsIgnoreCase(ex.getMessage())) {
             ProblemDetail problem = ProblemDetailBuilder.create(
                     HttpStatus.FORBIDDEN,
                     ErrorTypes.ACCESS_DENIED,
@@ -577,7 +578,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      * Provides user-friendly messages without revealing schema, constraints, or binary data.
      */
     private String sanitizeDatabaseError(DataIntegrityViolationException ex) {
-        String technicalMessage = ex.getMostSpecificCause().getMessage();
+        Throwable specificCause = ex.getMostSpecificCause();
+        String technicalMessage = specificCause != null ? specificCause.getMessage() : null;
         
         if (technicalMessage == null) {
             return "A data conflict occurred. Please check your input and try again.";
