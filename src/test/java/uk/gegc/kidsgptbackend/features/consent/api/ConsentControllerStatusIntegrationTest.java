@@ -56,7 +56,7 @@ class ConsentControllerStatusIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.title").value("Bad Request"))
+           .andExpect(jsonPath("$.title").value("Validation Failed"))
            .andExpect(jsonPath("$.status").value(400))
            .andExpect(jsonPath("$.detail").value("Invalid verification ID format"));
 

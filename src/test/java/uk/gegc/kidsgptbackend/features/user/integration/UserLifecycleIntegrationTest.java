@@ -116,7 +116,7 @@ class UserLifecycleIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(unauthorizedKidRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Only parents can create kid accounts"));
     }
 

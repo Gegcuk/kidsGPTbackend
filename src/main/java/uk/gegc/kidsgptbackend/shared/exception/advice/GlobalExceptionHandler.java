@@ -337,7 +337,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
         String reason = ex.getReason() != null ? ex.getReason() : ex.getMessage();
         
-        // Map specific status codes to specific error types
+        // Map specific status codes to specific error types and titles
         var errorType = switch (status) {
             case UNAUTHORIZED -> ErrorTypes.UNAUTHORIZED;
             case FORBIDDEN -> ErrorTypes.ACCESS_DENIED;
@@ -348,10 +348,20 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             default -> ErrorTypes.GENERIC_ERROR;
         };
         
+        var title = switch (status) {
+            case UNAUTHORIZED -> "Unauthorized";
+            case FORBIDDEN -> "Access Denied";
+            case NOT_FOUND -> "Resource Not Found";
+            case CONFLICT -> "Conflict";
+            case UNPROCESSABLE_ENTITY -> "Illegal State";
+            case BAD_REQUEST -> "Validation Failed";
+            default -> status.getReasonPhrase();
+        };
+        
         ProblemDetail problem = ProblemDetailBuilder.create(
                 status,
                 errorType,
-                status.getReasonPhrase(),
+                title,
                 reason,
                 request,
                 Instant.now(clock)
@@ -537,7 +547,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.NOT_FOUND,
                 ErrorTypes.RESOURCE_NOT_FOUND,
-                "Not Found",
+                "Resource Not Found",
                 message,
                 request,
                 Instant.now(clock)
@@ -654,8 +664,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ViolationDetail toViolationDetail(ConstraintViolation<?> violation) {
+        String field = violation.getPropertyPath() != null 
+                ? violation.getPropertyPath().toString() 
+                : "unknown";
         return new ViolationDetail(
-                violation.getPropertyPath().toString(),
+                field,
                 violation.getMessage(),
                 violation.getInvalidValue()
         );

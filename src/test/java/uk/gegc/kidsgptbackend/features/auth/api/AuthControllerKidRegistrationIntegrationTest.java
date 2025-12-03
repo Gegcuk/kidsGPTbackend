@@ -139,7 +139,7 @@ class AuthControllerKidRegistrationIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Only parents can create kid accounts"));
     }
 
@@ -225,7 +225,7 @@ class AuthControllerKidRegistrationIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{ invalid json }"))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Malformed Request"));
+                .andExpect(jsonPath("$.title").value("Malformed JSON"));
     }
 
     @Test
@@ -348,7 +348,7 @@ class AuthControllerKidRegistrationIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + nonExistentKidId)
                         .header("Authorization", "Bearer " + parentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Kid not found"));
     }
 
@@ -440,7 +440,7 @@ class AuthControllerKidRegistrationIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
                         .header("Authorization", "Bearer " + secondParentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("You can only delete your own kids' accounts"));
     }
 

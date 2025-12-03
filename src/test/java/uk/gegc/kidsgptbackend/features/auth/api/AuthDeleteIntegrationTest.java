@@ -135,7 +135,7 @@ class AuthDeleteIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + nonExistentKidId)
                         .header("Authorization", "Bearer " + parentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Kid not found"));
     }
 
@@ -210,7 +210,7 @@ class AuthDeleteIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/kids/" + kidId)
                         .header("Authorization", "Bearer " + secondParentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("You can only delete your own kids' accounts"));
     }
 
@@ -248,7 +248,7 @@ class AuthDeleteIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(delete("/api/v1/auth/account")
                         .header("Authorization", "Bearer " + parentToken))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Cannot delete parent account with existing kids. Please delete all kids first."));
     }
 

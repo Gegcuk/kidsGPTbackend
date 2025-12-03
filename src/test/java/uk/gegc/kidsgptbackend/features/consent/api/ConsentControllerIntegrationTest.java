@@ -786,7 +786,7 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Invalid policyUrl: must be HTTPS and from allowed host"));
     }
 
@@ -816,7 +816,7 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value("Invalid policyUrl: must be HTTPS and from allowed host"));
     }
 
@@ -846,8 +846,9 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.title").value("Constraint Violation"))
+                .andExpect(jsonPath("$.detail").value("One or more validation constraints were violated"))
+                .andExpect(jsonPath("$.violations[?(@.message =~ /kids are required.*/i)]").exists());
     }
 
     @Test
@@ -876,8 +877,9 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.title").value("Constraint Violation"))
+                .andExpect(jsonPath("$.detail").value("One or more validation constraints were violated"))
+                .andExpect(jsonPath("$.violations[?(@.message =~ /kids are required.*/i)]").exists());
     }
 
     @Test
@@ -1155,7 +1157,9 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.title").value("Constraint Violation"))
+                .andExpect(jsonPath("$.detail").value("One or more validation constraints were violated"))
+                .andExpect(jsonPath("$.violations[?(@.message =~ /kids are required.*/i)]").exists());
     }
 
     @Test
@@ -1184,7 +1188,9 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.detail").value(containsString("kids are required")));
+                .andExpect(jsonPath("$.title").value("Constraint Violation"))
+                .andExpect(jsonPath("$.detail").value("One or more validation constraints were violated"))
+                .andExpect(jsonPath("$.violations[?(@.message =~ /kids are required.*/i)]").exists());
     }
 
     @Test
@@ -1669,7 +1675,7 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(withdrawRequest)))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Bad Request"))
+                .andExpect(jsonPath("$.title").value("Validation Failed"))
                 .andExpect(jsonPath("$.detail").value(containsString("Invalid userId format")));
     }
 
@@ -1693,7 +1699,8 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .content(requestJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.detail").value(containsString("Consent version is required")));
+                .andExpect(jsonPath("$.detail").value("Validation failed for one or more fields"))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'consentVersion')].message").value(org.hamcrest.Matchers.hasItem("Consent version is required")));
     }
 
     @Test
@@ -1717,7 +1724,8 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .content(requestJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.detail").value(containsString("Consent version is required")));
+                .andExpect(jsonPath("$.detail").value("Validation failed for one or more fields"))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'consentVersion')].message").value(org.hamcrest.Matchers.hasItem("Consent version is required")));
     }
 
     @Test
@@ -1740,7 +1748,8 @@ class ConsentControllerIntegrationTest extends BaseIntegrationTest {
                         .content(requestJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.detail").value(containsString("Consent type is required")));
+                .andExpect(jsonPath("$.detail").value("Validation failed for one or more fields"))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'consentType')].message").value(org.hamcrest.Matchers.hasItem("Consent type is required")));
     }
 
     @Test
