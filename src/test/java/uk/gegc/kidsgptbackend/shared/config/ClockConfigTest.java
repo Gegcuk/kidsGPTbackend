@@ -137,7 +137,11 @@ class ClockConfigTest extends BaseUnitTest {
         
         // Then
         assertThat(instant).isNotNull();
-        assertThat(instant).isBeforeOrEqualTo(Instant.now());
+        // Clock returns current system time in production
+        assertThat(instant).isBetween(
+            Instant.now().minusSeconds(5), 
+            Instant.now().plusSeconds(5)
+        );
     }
 
     @Test

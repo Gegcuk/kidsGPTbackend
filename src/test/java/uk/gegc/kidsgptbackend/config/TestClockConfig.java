@@ -19,15 +19,23 @@ import java.time.ZoneId;
  * Note: This configuration is active only in the test profile and provides
  * the primary Clock bean to replace ClockConfig's clock() bean which is
  * excluded from the test profile via @Profile("!test").
+ * 
+ * Important: The fixed time is set to a future date to ensure JWT tokens
+ * created in tests don't appear expired (jjwt library uses system time
+ * for expiration validation, not our injected Clock).
  */
 @TestConfiguration
 @Profile("test")
 public class TestClockConfig {
 
     /**
-     * Fixed instant for testing - January 1, 2024, 12:00:00 UTC
+     * Fixed instant for testing - January 1, 2030, 12:00:00 UTC
+     * 
+     * Using a future date ensures JWT tokens with 12-hour expiry
+     * (expires at 2030-01-02T00:00:00Z) won't appear expired when
+     * validated by jjwt library using system time.
      */
-    private static final Instant FIXED_INSTANT = Instant.parse("2024-01-01T12:00:00Z");
+    private static final Instant FIXED_INSTANT = Instant.parse("2030-01-01T12:00:00Z");
 
     /**
      * Creates a fixed Clock for testing.
