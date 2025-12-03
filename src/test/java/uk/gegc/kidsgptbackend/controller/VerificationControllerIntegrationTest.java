@@ -1,22 +1,16 @@
 package uk.gegc.kidsgptbackend.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationInitiateRequest;
 import uk.gegc.kidsgptbackend.features.consent.domain.model.VerificationMethod;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import java.util.UUID;
 
@@ -24,29 +18,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class VerificationControllerIntegrationTest {
-
-    @Autowired
-    MockMvc mockMvc;
-
-    @Autowired
-    ObjectMapper objectMapper;
+class VerificationControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     UserRepository userRepository;
-
-    @Autowired
-    RoleRepository roleRepository;
 
     private User testParent;
     private UUID parentId;
 
     @BeforeEach
-    void setUp() {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp(); // Ensure roles are created
         // Create parent role if it doesn't exist
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
             uk.gegc.kidsgptbackend.features.user.domain.model.Role role = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();

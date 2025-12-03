@@ -1,17 +1,11 @@
 package uk.gegc.kidsgptbackend.features.consent.api;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.auth.api.dto.AuthLoginRequest;
 import uk.gegc.kidsgptbackend.features.consent.api.dto.ConsentGrantRequest;
 import uk.gegc.kidsgptbackend.features.consent.api.dto.ConsentWithdrawRequest;
@@ -23,7 +17,9 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.consent.domain.repository.ConsentLedgerRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -36,17 +32,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class ConsentControllerIntegrationTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
+class ConsentControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     private UserRepository userRepository;
@@ -60,14 +46,18 @@ class ConsentControllerIntegrationTest {
     @Autowired
     private ConsentLedgerRepository consentLedgerRepository;
 
+    @Autowired
+    private Clock clock;
+
     private UUID testUserId;
     private UUID testVerificationId;
     private List<UUID> testKids;
     private String accessToken;
 
     @BeforeEach
-    @Transactional
-    void setUp() {
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp(); // Ensure all roles are created
         // Set up role and user
         roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
             uk.gegc.kidsgptbackend.features.user.domain.model.Role r = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
@@ -2090,7 +2080,8 @@ class ConsentControllerIntegrationTest {
                 .getContentAsString();
 
         // Record the time after the withdrawal operation completes
-        LocalDateTime afterWithdrawal = LocalDateTime.now(ZoneOffset.UTC);
+        // Use injected Clock for consistent time in tests
+        LocalDateTime afterWithdrawal = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
 
         // Extract the withdrawal ID from the response
         JsonNode responseNode = objectMapper.readTree(response);
@@ -2109,14 +2100,15 @@ class ConsentControllerIntegrationTest {
                    withdrawalTimestamp.isEqual(afterWithdrawal),
                    "Withdrawal timestamp should not be significantly after the operation completed");
 
-        // Verify the timestamp is within 5 seconds of the current system time (UTC)
-        LocalDateTime nowUtc = LocalDateTime.now(ZoneOffset.UTC);
+        // Verify the timestamp is within 5 seconds of the clock time (UTC)
+        // Note: In tests, clock is fixed, so this verifies timestamps use the injected Clock
+        LocalDateTime nowUtc = LocalDateTime.now(clock.withZone(ZoneOffset.UTC));
         long secondsDifference = Math.abs(ChronoUnit.SECONDS.between(withdrawalTimestamp, nowUtc));
         assertTrue(secondsDifference <= 5, 
-                   "Withdrawal timestamp should be within 5 seconds of system time. " +
+                   "Withdrawal timestamp should be within 5 seconds of clock time. " +
                    "Difference: " + secondsDifference + " seconds, " +
                    "Withdrawal timestamp: " + withdrawalTimestamp + ", " +
-                   "Current time (UTC): " + nowUtc);
+                   "Clock time (UTC): " + nowUtc);
     }
 
     @Test
