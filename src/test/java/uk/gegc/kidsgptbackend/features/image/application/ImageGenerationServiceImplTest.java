@@ -13,6 +13,7 @@ import org.springframework.ai.image.ImageResponse;
 import org.springframework.ai.image.ImageResponseMetadata;
 import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationRequest;
 import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationResponse;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
@@ -46,6 +47,9 @@ class ImageGenerationServiceImplTest extends BaseUnitTest {
     @Mock
     private Clock clock;
 
+    @Mock
+    private SubscriptionAccessService subscriptionAccessService;
+
     @InjectMocks
     private ImageGenerationServiceImpl imageGenerationService;
 
@@ -71,6 +75,9 @@ class ImageGenerationServiceImplTest extends BaseUnitTest {
         when(clock.instant())
                 .thenReturn(testStartTime)
                 .thenReturn(testEndTime);
+
+        when(subscriptionAccessService.hasFeatureAccess(any(User.class), eq("image_generation"))).thenReturn(true);
+        doNothing().when(subscriptionAccessService).incrementUsage(any(User.class), eq("image_generation"));
     }
 
     @Test
@@ -491,4 +498,3 @@ class ImageGenerationServiceImplTest extends BaseUnitTest {
         verify(imageModel).call(any(ImagePrompt.class));
     }
 }
-

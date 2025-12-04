@@ -22,6 +22,7 @@ import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscr
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -35,6 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.lenient;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SubscriptionService Orchestrator Tests")
@@ -58,6 +60,9 @@ class SubscriptionServiceOrchestratorTest {
     @Mock
     private SubscriptionAcknowledger subscriptionAcknowledger;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private SubscriptionServiceImpl subscriptionService;
 
@@ -76,6 +81,7 @@ class SubscriptionServiceOrchestratorTest {
         testUser.setUsername("testuser");
         testUser.setEmail("test@example.com");
         testUser.setCreatedAt(Instant.now().minus(1, ChronoUnit.DAYS));
+        lenient().when(userRepository.findByIdWithRoles(testUser.getId())).thenReturn(Optional.of(testUser));
 
         // Create premium plan
         premiumPlan = new SubscriptionPlan();

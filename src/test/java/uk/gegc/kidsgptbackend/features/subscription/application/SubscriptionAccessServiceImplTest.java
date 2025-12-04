@@ -497,10 +497,15 @@ class SubscriptionAccessServiceImplTest extends uk.gegc.kidsgptbackend.test.Base
 
     @Test
     @DisplayName("addUsageCredits - increases image_generation limit within the current period")
-    void addUsageCredits_increasesImageLimit() {
+    void addUsageCredits_increasesImageLimit() throws Exception {
         when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser)).thenReturn(Optional.of(activeSubscription));
-        when(activeSubscription.getCurrentPeriodStart()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
-        when(activeSubscription.getCurrentPeriodEnd()).thenReturn(Instant.now().plus(29, ChronoUnit.DAYS));
+        activeSubscription.setCurrentPeriodStart(Instant.now().minus(1, ChronoUnit.DAYS));
+        activeSubscription.setCurrentPeriodEnd(Instant.now().plus(29, ChronoUnit.DAYS));
+
+        JsonNode featuresNode = mock(JsonNode.class);
+        when(objectMapper.readTree(anyString())).thenReturn(featuresNode);
+        when(featuresNode.get("image_generation")).thenReturn(null); // triggers default limit 2
+
         when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), any(), any())).thenReturn(Optional.empty());
         when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
 

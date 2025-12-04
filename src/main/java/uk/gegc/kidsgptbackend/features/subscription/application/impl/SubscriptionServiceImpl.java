@@ -12,6 +12,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionPlanRepository;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionService;
@@ -31,6 +32,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final GooglePlayClient googlePlayClient;
     private final KidCountingService kidCountingService;
+    private final UserRepository userRepository;
     private final SubscriptionSaver subscriptionSaver;
     private final SubscriptionAcknowledger subscriptionAcknowledger;
 
@@ -96,12 +98,15 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @Transactional(readOnly = true)
     public SubscriptionStatusDto getUserSubscriptionStatus(User user) {
+        // Ensure roles are initialized to avoid lazy-loading issues downstream
+        User hydratedUser = userRepository.findByIdWithRoles(user.getId()).orElse(user);
+
         UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(user)
                 .orElse(null);
 
         // Count current kids using the kid counting service for both free and paid users
-        int currentKidsCount = kidCountingService.countKidsForParent(user);
-        boolean canAddMoreKids = kidCountingService.canAddMoreKids(user);
+        int currentKidsCount = kidCountingService.countKidsForParent(hydratedUser);
+        boolean canAddMoreKids = kidCountingService.canAddMoreKids(hydratedUser);
 
         if (activeSubscription == null) {
             return new SubscriptionStatusDto(

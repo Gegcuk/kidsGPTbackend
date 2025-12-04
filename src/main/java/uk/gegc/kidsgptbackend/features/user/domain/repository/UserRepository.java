@@ -1,6 +1,7 @@
 package uk.gegc.kidsgptbackend.features.user.domain.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 
@@ -17,5 +18,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    @Query("select u from User u left join fetch u.roles where u.id = :id")
+    Optional<User> findByIdWithRoles(UUID id);
 
 }
