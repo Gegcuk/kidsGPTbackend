@@ -6,6 +6,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import uk.gegc.kidsgptbackend.features.jokes.api.dto.DailyJokeDto;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.jokes.application.DailyJokeService;
@@ -13,10 +15,12 @@ import uk.gegc.kidsgptbackend.features.jokes.application.DailyJokeService;
 @RestController
 @RequestMapping("/api/v1/jokes")
 @RequiredArgsConstructor
+@Tag(name = "Jokes", description = "Daily kid-safe jokes")
 public class JokeController {
 
     private final DailyJokeService dailyJokeService;
 
+    @Operation(summary = "Get a daily joke, optionally filtered by age group")
     @GetMapping("/daily")
     public ResponseEntity<DailyJokeDto> getDailyJoke(
             @RequestParam(value = "ageGroup", required = false) String ageGroupParam

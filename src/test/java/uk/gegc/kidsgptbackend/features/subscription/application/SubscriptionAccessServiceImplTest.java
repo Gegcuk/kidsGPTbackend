@@ -387,8 +387,8 @@ class SubscriptionAccessServiceImplTest extends uk.gegc.kidsgptbackend.test.Base
     }
 
     @Test
-    @DisplayName("getRemainingUsage - returns 0 for features not in plan")
-    void getRemainingUsage_returnsZeroForFeaturesNotInPlan() throws JsonProcessingException {
+    @DisplayName("getRemainingUsage - defaults image_generation to 2 when feature missing in plan")
+    void getRemainingUsage_defaultsImageGenerationWhenMissingInPlan() throws JsonProcessingException {
         // Given
         JsonNode featuresNode = mock(JsonNode.class);
         when(objectMapper.readTree(anyString())).thenReturn(featuresNode);
@@ -397,23 +397,17 @@ class SubscriptionAccessServiceImplTest extends uk.gegc.kidsgptbackend.test.Base
         when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser)).thenReturn(Optional.of(activeSubscription));
         when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), any(), any())).thenReturn(Optional.empty());
         
-        // Create a usage record with limit 0 (feature not in plan)
-        SubscriptionUsage usageWithZeroLimit = new SubscriptionUsage();
-        usageWithZeroLimit.setUser(testUser);
-        usageWithZeroLimit.setFeature("image_generation");
-        usageWithZeroLimit.setUsedCount(0);
-        usageWithZeroLimit.setLimitCount(0); // Feature not in plan = 0 limit
-        usageWithZeroLimit.setPeriodKey("GOOGLE_PLAY_token_1234567890");
-        usageWithZeroLimit.setPeriodStart(Instant.now().minus(1, ChronoUnit.DAYS));
-        usageWithZeroLimit.setPeriodEnd(Instant.now().plus(1, ChronoUnit.DAYS));
-        
-        when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenReturn(usageWithZeroLimit);
+        when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenAnswer(invocation -> {
+            SubscriptionUsage usage = invocation.getArgument(0);
+            usage.setId(UUID.randomUUID());
+            return usage;
+        });
 
         // When
         int result = subscriptionAccessService.getRemainingUsage(testUser, "image_generation");
 
         // Then
-        assertThat(result).isEqualTo(0);
+        assertThat(result).isEqualTo(2);
     }
 
     @Test
@@ -499,5 +493,23 @@ class SubscriptionAccessServiceImplTest extends uk.gegc.kidsgptbackend.test.Base
                 any(Instant.class)
         );
         verify(subscriptionUsageRepository, never()).save(any(SubscriptionUsage.class));
+    }
+
+    @Test
+    @DisplayName("addUsageCredits - increases image_generation limit within the current period")
+    void addUsageCredits_increasesImageLimit() {
+        when(userSubscriptionRepository.findActiveSubscriptionByUser(testUser)).thenReturn(Optional.of(activeSubscription));
+        when(activeSubscription.getCurrentPeriodStart()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
+        when(activeSubscription.getCurrentPeriodEnd()).thenReturn(Instant.now().plus(29, ChronoUnit.DAYS));
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), any(), any())).thenReturn(Optional.empty());
+        when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        subscriptionAccessService.addUsageCredits(testUser, "image_generation", 5);
+
+        ArgumentCaptor<SubscriptionUsage> captor = ArgumentCaptor.forClass(SubscriptionUsage.class);
+        verify(subscriptionUsageRepository, atLeastOnce()).save(captor.capture());
+        SubscriptionUsage savedUsage = captor.getValue();
+        assertThat(savedUsage.getFeature()).isEqualTo("image_generation");
+        assertThat(savedUsage.getLimitCount()).isEqualTo(7); // base 2 + 5 credits
     }
 }

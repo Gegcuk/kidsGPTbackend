@@ -32,6 +32,11 @@ public interface SubscriptionAccessService {
     void incrementUsage(User user, String feature);
 
     /**
+     * Add additional usage credits for a feature (e.g., purchased image packs).
+     */
+    void addUsageCredits(User user, String feature, int additionalCredits);
+
+    /**
      * Reset usage counters (typically called monthly)
      */
     void resetUsageCounters(User user);

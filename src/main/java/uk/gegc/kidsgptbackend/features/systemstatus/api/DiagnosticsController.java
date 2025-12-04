@@ -10,6 +10,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -22,6 +24,7 @@ import java.util.Map;
 @RequestMapping("/api/diagnostics")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Diagnostics", description = "Internal diagnostics for OpenAI configuration")
 public class DiagnosticsController {
 
     private final ModerationModel moderationModel;
@@ -36,6 +39,7 @@ public class DiagnosticsController {
      * Returns information about the OpenAI models configured in the application.
      * Public endpoint for diagnostics.
      */
+    @Operation(summary = "Inspect configured OpenAI models")
     @GetMapping("/openai-models")
     public ResponseEntity<Map<String, Object>> getOpenAiModels() {
         log.info("Diagnostics: Checking OpenAI model configuration");
@@ -91,6 +95,7 @@ public class DiagnosticsController {
      * Quick health check for moderation API.
      * Tests if moderation calls work without 400 errors.
      */
+    @Operation(summary = "Test moderation call with configured model")
     @GetMapping("/test-moderation")
     public ResponseEntity<Map<String, Object>> testModeration() {
         log.info("Diagnostics: Testing moderation API");
@@ -129,4 +134,3 @@ public class DiagnosticsController {
         return ResponseEntity.ok(response);
     }
 }
-

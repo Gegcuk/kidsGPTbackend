@@ -124,6 +124,54 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
 
     @Override
     @Transactional
+    public void addUsageCredits(User user, String feature, int additionalCredits) {
+        if (additionalCredits <= 0) {
+            return;
+        }
+
+        UserSubscription activeSubscription = getActiveSubscription(user);
+        if (activeSubscription == null) {
+            throw new IllegalStateException("Active subscription required to add usage credits");
+        }
+
+        final String periodKey;
+        final Instant periodStart;
+        final Instant periodEnd;
+        final int baseLimit = getSubscriptionLimit(activeSubscription, feature);
+
+        String tempPeriodKey = getProviderPeriodKey(activeSubscription);
+        Instant tempPeriodStart = activeSubscription.getCurrentPeriodStart();
+        Instant tempPeriodEnd = activeSubscription.getCurrentPeriodEnd();
+
+        if (tempPeriodStart == null || tempPeriodEnd == null) {
+            // Fallback to monthly
+            periodKey = getCurrentMonthKey();
+            YearMonth currentMonth = YearMonth.now();
+            periodStart = currentMonth.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+            periodEnd = currentMonth.atEndOfMonth().atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
+        } else {
+            periodKey = tempPeriodKey;
+            periodStart = tempPeriodStart;
+            periodEnd = tempPeriodEnd;
+        }
+
+        SubscriptionUsage usage = subscriptionUsageRepository
+                .findByUserAndFeatureAndPeriodKey(user, feature, periodKey)
+                .orElseGet(() -> createUsageRecord(user, feature, periodKey, baseLimit, periodStart, periodEnd));
+
+        if (usage.getLimitCount() == null || usage.getLimitCount() == -1) {
+            // Unlimited already; no need to add credits
+            return;
+        }
+
+        usage.setLimitCount(usage.getLimitCount() + additionalCredits);
+        subscriptionUsageRepository.save(usage);
+
+        log.info("Added {} credits for user {} feature {} in period {}", additionalCredits, user.getId(), feature, periodKey);
+    }
+
+    @Override
+    @Transactional
     public void incrementUsage(User user, String feature) {
         UserSubscription activeSubscription = getActiveSubscription(user);
         
@@ -289,27 +337,34 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         try {
             if (subscription.getSubscriptionPlan() == null) {
                 log.warn("Subscription {} has null plan", subscription.getId());
-                return 0;
+                return defaultLimitForFeature(feature);
             }
             
             String featuresJson = subscription.getSubscriptionPlan().getFeatures();
             if (featuresJson == null || featuresJson.trim().isEmpty()) {
                 log.warn("Subscription {} has null or empty features JSON", subscription.getId());
-                return 0;
+                return defaultLimitForFeature(feature);
             }
             
             JsonNode features = objectMapper.readTree(featuresJson);
             JsonNode featureNode = features.get(feature);
             
             if (featureNode == null || !featureNode.isNumber()) {
-                return 0;
+                return defaultLimitForFeature(feature);
             }
             
             return featureNode.asInt();
         } catch (JsonProcessingException e) {
             log.error("Error parsing features JSON for subscription {}", subscription.getId(), e);
-            return 0;
+            return defaultLimitForFeature(feature);
         }
+    }
+
+    private int defaultLimitForFeature(String feature) {
+        if ("image_generation".equals(feature)) {
+            return 2; // Default monthly allowance for subscribed users
+        }
+        return 0;
     }
     
     private SubscriptionUsage createUsageRecord(User user, String feature, String periodKey, 

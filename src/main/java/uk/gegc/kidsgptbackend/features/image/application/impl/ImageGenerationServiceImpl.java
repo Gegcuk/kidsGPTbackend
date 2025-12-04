@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationRequest;
 import uk.gegc.kidsgptbackend.features.image.api.dto.ImageGenerationResponse;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
 import uk.gegc.kidsgptbackend.features.user.domain.model.AgeGroup;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
@@ -33,6 +34,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
     private final ModerationUtil moderationUtil;
     private final UserRepository userRepository;
     private final Clock clock;
+    private final SubscriptionAccessService subscriptionAccessService;
 
     // Age-appropriate prompt modifiers
     private static final Map<AgeGroup, String> AGE_PROMPT_MODIFIERS = Map.of(
@@ -58,6 +60,11 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
         
         User user = userRepository.findByUsername(principal.getName())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        // Enforce subscription + quota for image generation
+        if (!subscriptionAccessService.hasFeatureAccess(user, "image_generation")) {
+            throw new IllegalStateException("Image generation not available: subscription required or limit reached");
+        }
 
         log.info("Image generation request from user: {} (age: {}), original description: '{}'", 
                 user.getUsername(), user.getAge(), request.description());
@@ -110,6 +117,7 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
             log.debug("OpenAI API response details - Image URL: {}, Generation time: {}ms", 
                     image.getUrl(), latencyMs);
 
+            subscriptionAccessService.incrementUsage(user, "image_generation");
             return new ImageGenerationResponse(
                     image.getUrl(),
                     ageAppropriatePrompt, // Use our enhanced prompt as the revised prompt
@@ -153,4 +161,3 @@ public class ImageGenerationServiceImpl implements ImageGenerationService {
 
     // Removed - now using ModerationUtil for all validation logic
 }
-
