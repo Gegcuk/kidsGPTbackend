@@ -131,4 +131,18 @@ class JokeControllerTest {
                 .andExpect(jsonPath("$.category").value("science"))
                 .andExpect(jsonPath("$.ageGroup").value("AGE_9_10"));
     }
-} 
+
+    @Test
+    @DisplayName("GET /api/v1/jokes/daily when daily limit exhausted returns 429")
+    void getDailyJoke_limitExhausted_returnsTooManyRequests() throws Exception {
+        User kid = new User();
+        kid.setId(java.util.UUID.randomUUID());
+        kid.setUsername("kid");
+        when(userRepository.findByUsername("kid")).thenReturn(java.util.Optional.of(kid));
+        when(subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(kid, kid.getId())).thenReturn(0);
+        when(subscriptionAccessService.hasFeatureAccess(kid, "chat_limit")).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/jokes/daily").with(user("kid")))
+                .andExpect(status().isTooManyRequests());
+    }
+}

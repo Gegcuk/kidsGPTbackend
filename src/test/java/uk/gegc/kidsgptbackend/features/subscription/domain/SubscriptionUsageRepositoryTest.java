@@ -36,6 +36,8 @@ class SubscriptionUsageRepositoryTest {
 
     @BeforeEach
     void setUp() {
+        Instant now = Instant.now();
+        String currentPeriodKey = "PERIOD_" + UUID.randomUUID();
         // Create test users
         testUser = new User();
         testUser.setUsername("testuser");
@@ -55,36 +57,36 @@ class SubscriptionUsageRepositoryTest {
         activeUsage = new SubscriptionUsage();
         activeUsage.setUser(testUser);
         activeUsage.setFeature("chat_limit");
-        activeUsage.setPeriodKey("FREE_" + testUser.getId() + "_" + Instant.now().getEpochSecond());
+        activeUsage.setPeriodKey(currentPeriodKey);
         activeUsage.setUsedCount(5);
-        activeUsage.setPeriodStart(Instant.now().minusSeconds(86400)); // 1 day ago
-        activeUsage.setPeriodEnd(Instant.now().plusSeconds(172800)); // 2 days from now
-        activeUsage.setCreatedAt(Instant.now());
-        activeUsage.setUpdatedAt(Instant.now());
+        activeUsage.setPeriodStart(now.minusSeconds(86400)); // 1 day ago
+        activeUsage.setPeriodEnd(now.plusSeconds(172800)); // 2 days from now
+        activeUsage.setCreatedAt(now);
+        activeUsage.setUpdatedAt(now);
         entityManager.persistAndFlush(activeUsage);
 
         // Create expired usage
         expiredUsage = new SubscriptionUsage();
         expiredUsage.setUser(anotherUser);
         expiredUsage.setFeature("chat_limit");
-        expiredUsage.setPeriodKey("FREE_" + anotherUser.getId() + "_" + (Instant.now().getEpochSecond() - 604800));
+        expiredUsage.setPeriodKey("EXPIRED_" + anotherUser.getId());
         expiredUsage.setUsedCount(10);
-        expiredUsage.setPeriodStart(Instant.now().minusSeconds(691200)); // 8 days ago
-        expiredUsage.setPeriodEnd(Instant.now().minusSeconds(86400)); // 1 day ago (expired)
-        expiredUsage.setCreatedAt(Instant.now());
-        expiredUsage.setUpdatedAt(Instant.now());
+        expiredUsage.setPeriodStart(now.minusSeconds(691200)); // 8 days ago
+        expiredUsage.setPeriodEnd(now.minusSeconds(86400)); // 1 day ago (expired)
+        expiredUsage.setCreatedAt(now);
+        expiredUsage.setUpdatedAt(now);
         entityManager.persistAndFlush(expiredUsage);
 
         // Create usage for different feature
         anotherFeatureUsage = new SubscriptionUsage();
         anotherFeatureUsage.setUser(testUser);
         anotherFeatureUsage.setFeature("story_generation");
-        anotherFeatureUsage.setPeriodKey("FREE_" + testUser.getId() + "_" + Instant.now().getEpochSecond());
+        anotherFeatureUsage.setPeriodKey(currentPeriodKey);
         anotherFeatureUsage.setUsedCount(3);
-        anotherFeatureUsage.setPeriodStart(Instant.now().minusSeconds(86400)); // 1 day ago
-        anotherFeatureUsage.setPeriodEnd(Instant.now().plusSeconds(172800)); // 2 days from now
-        anotherFeatureUsage.setCreatedAt(Instant.now());
-        anotherFeatureUsage.setUpdatedAt(Instant.now());
+        anotherFeatureUsage.setPeriodStart(now.minusSeconds(86400)); // 1 day ago
+        anotherFeatureUsage.setPeriodEnd(now.plusSeconds(172800)); // 2 days from now
+        anotherFeatureUsage.setCreatedAt(now);
+        anotherFeatureUsage.setUpdatedAt(now);
         entityManager.persistAndFlush(anotherFeatureUsage);
 
         entityManager.clear();

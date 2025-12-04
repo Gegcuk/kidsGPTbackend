@@ -103,4 +103,18 @@ class TipControllerTest {
                 .andExpect(jsonPath("$.fact").value("Did you know that honey never spoils?"))
                 .andExpect(jsonPath("$.ageGroup").value("AGE_6_8"));
     }
+
+    @Test
+    @DisplayName("GET /api/v1/tips/daily when daily limit exhausted returns 429")
+    void getDailyTip_limitExhausted_returnsTooManyRequests() throws Exception {
+        User kid = new User();
+        kid.setId(java.util.UUID.randomUUID());
+        kid.setUsername("kid");
+        when(userRepository.findByUsername("kid")).thenReturn(java.util.Optional.of(kid));
+        when(subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(kid, kid.getId())).thenReturn(0);
+        when(subscriptionAccessService.hasFeatureAccess(kid, "chat_limit")).thenReturn(false);
+
+        mockMvc.perform(get("/api/v1/tips/daily").with(user("kid")))
+                .andExpect(status().isTooManyRequests());
+    }
 }
