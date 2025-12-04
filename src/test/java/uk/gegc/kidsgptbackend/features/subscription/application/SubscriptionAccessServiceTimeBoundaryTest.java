@@ -106,8 +106,8 @@ class SubscriptionAccessServiceTimeBoundaryTest {
         // When
         boolean hasAccess = subscriptionAccessService.hasFeatureAccess(testUser, "chat_limit");
 
-        // Then - should NOT have access (72 hours is exclusive boundary)
-        assertThat(hasAccess).isFalse();
+        // Then - daily free messages are not time-windowed; should still allow until daily limit is reached
+        assertThat(hasAccess).isTrue();
     }
 
     @Test
@@ -122,7 +122,7 @@ class SubscriptionAccessServiceTimeBoundaryTest {
         // When
         boolean hasAccess = subscriptionAccessService.hasFeatureAccess(testUser, "chat_limit");
 
-        // Then - should have access (still within 72-hour window)
+        // Then - should have access (daily limit applies, not signup window)
         assertThat(hasAccess).isTrue();
     }
 
@@ -137,8 +137,8 @@ class SubscriptionAccessServiceTimeBoundaryTest {
         // When
         boolean hasAccess = subscriptionAccessService.hasFeatureAccess(testUser, "chat_limit");
 
-        // Then - should NOT have access (past 72-hour window)
-        assertThat(hasAccess).isFalse();
+        // Then - daily free messages are still available until daily limit reached
+        assertThat(hasAccess).isTrue();
     }
 
     @Test
@@ -252,7 +252,7 @@ class SubscriptionAccessServiceTimeBoundaryTest {
     }
 
     @Test
-    @DisplayName("Edge case - user created at exact epoch time")
+    @DisplayName("Edge case - user created at exact epoch time still uses daily allowance")
     void edgeCase_userCreatedAtExactEpochTime() {
         // Given - user created at epoch (1970-01-01T00:00:00Z)
         testUser.setCreatedAt(Instant.EPOCH);
@@ -260,8 +260,8 @@ class SubscriptionAccessServiceTimeBoundaryTest {
         // When
         boolean hasAccess = subscriptionAccessService.hasFeatureAccess(testUser, "chat_limit");
 
-        // Then - should NOT have access (way past 72-hour window)
-        assertThat(hasAccess).isFalse();
+        // Then - daily allowance is independent of signup date, so access is allowed until daily limit is exhausted
+        assertThat(hasAccess).isTrue();
     }
 
     @Test

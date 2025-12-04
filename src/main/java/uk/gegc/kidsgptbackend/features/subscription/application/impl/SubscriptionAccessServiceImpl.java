@@ -46,11 +46,13 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
             return getSubscriptionLimit(activeSubscription, feature) == -1 || 
                    getRemainingUsage(user, feature) > 0;
         }
-        
-        // Free tier - only chat_limit and only within 3-day window
-        return "chat_limit".equals(feature) && 
-               isWithinFreeWindow(user) && 
-               getRemainingUsage(user, feature) > 0;
+
+        // Free tier - only chat_limit is allowed and is governed by the per-day counter
+        if ("chat_limit".equals(feature)) {
+            return getRemainingDailyFreeMessagesForSubject(user, user.getId()) > 0;
+        }
+
+        return false;
     }
 
     @Override
@@ -67,6 +69,11 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
     @Override
     public int getRemainingUsage(User user, String feature) {
         UserSubscription activeSubscription = getActiveSubscription(user);
+
+        // For chat on the free tier, reuse the daily counter
+        if (activeSubscription == null && "chat_limit".equals(feature)) {
+            return getRemainingDailyFreeMessagesForSubject(user, user.getId());
+        }
         
         final int limit;
         final String periodKey;
@@ -174,7 +181,13 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
     @Transactional
     public void incrementUsage(User user, String feature) {
         UserSubscription activeSubscription = getActiveSubscription(user);
-        
+
+        // For chat on the free tier, increment the daily counter and return
+        if (activeSubscription == null && "chat_limit".equals(feature)) {
+            incrementDailyFreeMessagesForSubject(user, user.getId());
+            return;
+        }
+
         final String periodKey;
         final Instant periodStart;
         final Instant periodEnd;
@@ -310,14 +323,9 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
 
     private int getFreeTierLimit(String feature) {
         return switch (feature) {
-            case "chat_limit" -> 15; // 15 messages across the 3-day window (not 10 per month)
+            case "chat_limit" -> 5; // 5 free messages per day, tracked separately
             default -> 0;
         };
-    }
-    
-    private boolean isWithinFreeWindow(User user) {
-        Instant userCreatedAt = user.getCreatedAt(); // Already Instant now
-        return userCreatedAt.plus(3, ChronoUnit.DAYS).isAfter(Instant.now());
     }
 
     private String getCurrentMonthKey() {

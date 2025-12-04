@@ -12,10 +12,13 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionPlanRepository;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionService;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
 
 import java.time.Instant;
 import java.util.List;
@@ -35,6 +38,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserRepository userRepository;
     private final SubscriptionSaver subscriptionSaver;
     private final SubscriptionAcknowledger subscriptionAcknowledger;
+    private final KidRepository kidRepository;
+    private final SubscriptionAccessService subscriptionAccessService;
+    private final ParentRepository parentRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -101,7 +107,7 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         // Ensure roles are initialized to avoid lazy-loading issues downstream
         User hydratedUser = userRepository.findByIdWithRoles(user.getId()).orElse(user);
 
-        UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(user)
+        UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(hydratedUser)
                 .orElse(null);
 
         // Count current kids using the kid counting service for both free and paid users
@@ -134,6 +140,62 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 activeSubscription.getSubscriptionPlan().getMaxKids(),
                 currentKidsCount,
                 canAddMoreKids
+        );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KidSubscriptionStatusDto> getKidsSubscriptionStatuses(User parentUser) {
+        var parent = userRepository.findByIdWithRoles(parentUser.getId()).orElse(parentUser);
+        var parentEntity = parentRepository.findByUserId(parent.getId())
+                .orElseGet(() -> parentRepository.findByEmail(parent.getEmail()).orElse(null));
+        if (parentEntity == null) {
+            return List.of();
+        }
+
+        List<uk.gegc.kidsgptbackend.features.family.domain.model.Kid> kids = kidRepository.findAllByParentId(parentEntity.getId());
+
+        return kids.stream().map(kid -> {
+            User kidUserEntity = kid.getUser();
+            User kidUser = kidUserEntity != null
+                    ? userRepository.findByIdWithRoles(kidUserEntity.getId()).orElse(kidUserEntity)
+                    : null;
+            UserSubscription kidSub = kidUser != null ? userSubscriptionRepository.findActiveSubscriptionByUser(kidUser).orElse(null) : null;
+            boolean hasActiveSubscription = kidSub != null;
+            Integer remainingDaily = (!hasActiveSubscription && kidUser != null)
+                    ? subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(kidUser, kidUser.getId())
+                    : null;
+
+            return new KidSubscriptionStatusDto(
+                    kid.getId(),
+                    kidUser != null ? kidUser.getId() : null,
+                    kid.getNickname(),
+                    hasActiveSubscription,
+                    hasActiveSubscription && kidSub.getSubscriptionPlan() != null ? kidSub.getSubscriptionPlan().getName() : null,
+                    hasActiveSubscription ? kidSub.getCurrentPeriodEnd() : null,
+                    remainingDaily
+            );
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public KidSubscriptionStatusDto getKidSelfStatus(User kidUser) {
+        User hydratedKid = userRepository.findByIdWithRoles(kidUser.getId()).orElse(kidUser);
+        var kidEntity = kidRepository.findByUserId(hydratedKid.getId()).orElse(null);
+        UserSubscription activeSub = userSubscriptionRepository.findActiveSubscriptionByUser(hydratedKid).orElse(null);
+        boolean hasActiveSubscription = activeSub != null;
+        Integer remainingDaily = hasActiveSubscription ? null :
+                subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(hydratedKid, hydratedKid.getId());
+
+        return new KidSubscriptionStatusDto(
+                kidEntity != null ? kidEntity.getId() : null,
+                hydratedKid.getId(),
+                kidEntity != null ? kidEntity.getNickname() : hydratedKid.getUsername(),
+                hasActiveSubscription,
+                hasActiveSubscription && activeSub.getSubscriptionPlan() != null ? activeSub.getSubscriptionPlan().getName() : null,
+                hasActiveSubscription ? activeSub.getCurrentPeriodEnd() : null,
+                remainingDaily
         );
     }
 

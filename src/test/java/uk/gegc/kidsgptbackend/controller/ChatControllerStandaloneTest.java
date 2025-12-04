@@ -22,6 +22,8 @@ import uk.gegc.kidsgptbackend.features.chat.api.dto.Tone;
 import uk.gegc.kidsgptbackend.features.chat.application.AiChatService;
 import uk.gegc.kidsgptbackend.features.chat.application.ChatMessageService;
 import uk.gegc.kidsgptbackend.features.chat.api.ChatController;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.security.Principal;
 import java.util.UUID;
@@ -43,9 +45,24 @@ class ChatControllerStandaloneTest {
     AiChatService chatService;
     @MockitoBean
     ChatMessageService messageService;
+    @MockitoBean
+    SubscriptionAccessService subscriptionAccessService;
+    @MockitoBean
+    UserRepository userRepository;
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setupDefaults() {
+        uk.gegc.kidsgptbackend.features.user.domain.model.User kid = new uk.gegc.kidsgptbackend.features.user.domain.model.User();
+        kid.setId(UUID.randomUUID());
+        kid.setUsername("alice");
+        when(userRepository.findByUsername(anyString())).thenReturn(java.util.Optional.of(kid));
+        when(subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(any(uk.gegc.kidsgptbackend.features.user.domain.model.User.class), any(UUID.class))).thenReturn(5);
+        when(subscriptionAccessService.hasFeatureAccess(any(uk.gegc.kidsgptbackend.features.user.domain.model.User.class), eq("chat_limit"))).thenReturn(true);
+        doNothing().when(subscriptionAccessService).incrementDailyFreeMessagesForSubject(any(uk.gegc.kidsgptbackend.features.user.domain.model.User.class), any(UUID.class));
+    }
 
     @AfterEach
     void clearSecurityContext() {

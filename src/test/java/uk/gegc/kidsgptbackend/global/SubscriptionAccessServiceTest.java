@@ -105,22 +105,27 @@ class SubscriptionAccessServiceTest {
         when(activeSubscription.getExternalSubscriptionId()).thenReturn("sub_123");
         
         when(usageRecord.getUser()).thenReturn(user);
-        when(usageRecord.getFeature()).thenReturn("chat_limit");
-        when(usageRecord.getPeriodKey()).thenReturn("FREE_" + userId + "_1234567890");
+        when(usageRecord.getFeature()).thenReturn("daily_free_ai_messages");
+        when(usageRecord.getPeriodKey()).thenReturn("DAILY_FREE_" + userId + "_" + java.time.LocalDate.now(ZoneOffset.UTC));
         when(usageRecord.getUsedCount()).thenReturn(0);
-        when(usageRecord.getLimitCount()).thenReturn(15);
-        when(usageRecord.getRemainingUsage()).thenReturn(15);
+        when(usageRecord.getLimitCount()).thenReturn(5);
+        when(usageRecord.getRemainingUsage()).thenReturn(5);
+
+        when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenAnswer(invocation -> {
+            SubscriptionUsage usage = invocation.getArgument(0);
+            usage.setId(UUID.randomUUID());
+            return usage;
+        });
     }
 
     @Test
     @DisplayName("Free tier window: Within 3 days from user.createdAt should allow chat_limit")
     void freeTierWindow_withinThreeDaysFromUserCreatedAtShouldAllowChatLimit() {
-        // Given - User created 1 day ago (within 3-day window)
-        when(user.getCreatedAt()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
+        // Given - Daily free counter has remaining messages
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(usageRecord));
-        when(usageRecord.getRemainingUsage()).thenReturn(15);
+        when(usageRecord.getRemainingUsage()).thenReturn(5);
         
         // When
         boolean hasAccess = subscriptionAccessService.hasFeatureAccess(user, "chat_limit");
@@ -128,16 +133,15 @@ class SubscriptionAccessServiceTest {
         
         // Then
         assertThat(hasAccess).isTrue();
-        assertThat(remainingUsage).isEqualTo(15);
+        assertThat(remainingUsage).isEqualTo(5);
     }
 
     @Test
     @DisplayName("Free tier window: After 3 days should deny free tier features")
     void freeTierWindow_afterThreeDaysShouldDenyFreeTierFeatures() {
-        // Given - User created 4 days ago (outside 3-day window)
-        when(user.getCreatedAt()).thenReturn(Instant.now().minus(4, ChronoUnit.DAYS));
+        // Given - Daily free counter exhausted
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(usageRecord));
         when(usageRecord.getRemainingUsage()).thenReturn(0);
         
@@ -288,14 +292,14 @@ class SubscriptionAccessServiceTest {
     void usageTracking_firstIncrementShouldCreateRecordWhenAtomicIncrementReturnsZero() {
         // Given - No existing usage record
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.incrementUsage(any(), eq("chat_limit"), any(), any())).thenReturn(0);
+        when(subscriptionUsageRepository.incrementUsage(any(), eq("daily_free_ai_messages"), any(), any())).thenReturn(0);
         when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenReturn(usageRecord);
         
         // When
         subscriptionAccessService.incrementUsage(user, "chat_limit");
         
         // Then
-        verify(subscriptionUsageRepository).incrementUsage(any(), eq("chat_limit"), any(), any());
+        verify(subscriptionUsageRepository).incrementUsage(any(), eq("daily_free_ai_messages"), any(), any());
         verify(subscriptionUsageRepository, times(2)).save(any(SubscriptionUsage.class)); // Once in createUsageRecord, once in incrementUsage
     }
 
@@ -304,20 +308,20 @@ class SubscriptionAccessServiceTest {
     void usageTracking_subsequentIncrementsShouldDecrementRemainingUsageCorrectly() {
         // Given - Existing usage record with some usage
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.incrementUsage(any(), eq("chat_limit"), any(), any())).thenReturn(1);
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.incrementUsage(any(), eq("daily_free_ai_messages"), any(), any())).thenReturn(1);
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(usageRecord));
-        when(usageRecord.getUsedCount()).thenReturn(5);
-        when(usageRecord.getLimitCount()).thenReturn(15);
-        when(usageRecord.getRemainingUsage()).thenReturn(10);
+        when(usageRecord.getUsedCount()).thenReturn(1);
+        when(usageRecord.getLimitCount()).thenReturn(5);
+        when(usageRecord.getRemainingUsage()).thenReturn(4);
         
         // When
         subscriptionAccessService.incrementUsage(user, "chat_limit");
         int remainingUsage = subscriptionAccessService.getRemainingUsage(user, "chat_limit");
         
         // Then
-        verify(subscriptionUsageRepository).incrementUsage(any(), eq("chat_limit"), any(), any());
-        assertThat(remainingUsage).isEqualTo(10);
+        verify(subscriptionUsageRepository).incrementUsage(any(), eq("daily_free_ai_messages"), any(), any());
+        assertThat(remainingUsage).isEqualTo(4);
     }
 
     @Test
@@ -325,7 +329,7 @@ class SubscriptionAccessServiceTest {
     void usageTracking_hasReachedUsageLimitShouldToggleAtBoundary() {
         // Given - User at usage limit
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(usageRecord));
         when(usageRecord.getRemainingUsage()).thenReturn(0);
         
@@ -341,7 +345,7 @@ class SubscriptionAccessServiceTest {
     void usageTracking_hasReachedUsageLimitShouldReturnFalseWhenUsageRemaining() {
         // Given - User with remaining usage
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(usageRecord));
         when(usageRecord.getRemainingUsage()).thenReturn(5);
         
@@ -384,11 +388,10 @@ class SubscriptionAccessServiceTest {
     @DisplayName("Action routing: canPerformAction('chat') should delegate to hasFeatureAccess")
     void actionRouting_canPerformActionChatShouldDelegateToHasFeatureAccess() {
         // Given
-        when(user.getCreatedAt()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(usageRecord));
-        when(usageRecord.getRemainingUsage()).thenReturn(15);
+        when(usageRecord.getRemainingUsage()).thenReturn(5);
         
         // When
         boolean canChat = subscriptionAccessService.canPerformAction(user, "chat");
@@ -467,9 +470,8 @@ class SubscriptionAccessServiceTest {
     @DisplayName("Free tier: Should create usage record with correct period key format")
     void freeTier_shouldCreateUsageRecordWithCorrectPeriodKeyFormat() {
         // Given - User within free tier window
-        when(user.getCreatedAt()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.empty());
         when(subscriptionUsageRepository.save(any(SubscriptionUsage.class))).thenReturn(usageRecord);
         
@@ -477,11 +479,11 @@ class SubscriptionAccessServiceTest {
         subscriptionAccessService.getRemainingUsage(user, "chat_limit");
         
         // Then
-        // Verify period key format for free tier
-        String expectedPeriodKey = "FREE_" + user.getId() + "_" + user.getCreatedAt().getEpochSecond();
+        // Verify period key format for daily free tier
+        String expectedPeriodKey = "DAILY_FREE_" + user.getId() + "_" + java.time.LocalDate.now(ZoneOffset.UTC);
         verify(subscriptionUsageRepository).findByUserAndFeatureAndPeriodKey(
                 eq(user), 
-                eq("chat_limit"), 
+                eq("daily_free_ai_messages"),
                 eq(expectedPeriodKey)
         );
     }
@@ -526,7 +528,7 @@ class SubscriptionAccessServiceTest {
     void usageTracking_shouldHandleRepositoryExceptionsGracefully() {
         // Given - Repository throws exception
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenThrow(new RuntimeException("Database error"));
         
         // When
