@@ -11,7 +11,6 @@ import org.springframework.data.domain.Persistable;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.Set;
 import java.util.UUID;
 
@@ -34,6 +33,9 @@ public class User implements Persistable<UUID> {
 
     @Column(name = "email", nullable = false)
     private String email;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
 
     @Column(name = "age")
     private Integer age;

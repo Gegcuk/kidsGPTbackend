@@ -17,7 +17,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+import uk.gegc.kidsgptbackend.config.TestClockConfig;
 
 import java.util.Iterator;
 
@@ -35,6 +37,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @MockitoSettings(strictness = Strictness.LENIENT)
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(TestClockConfig.class)
 @DisplayName("Logback Configuration Tests")
 class LogbackConfigurationTest {
 

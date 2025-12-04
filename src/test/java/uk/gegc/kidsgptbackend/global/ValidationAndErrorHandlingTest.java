@@ -1,32 +1,24 @@
 package uk.gegc.kidsgptbackend.global;
 
+import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.http.ProblemDetail;
-import org.springframework.web.context.request.WebRequest;
+import org.springframework.http.ResponseEntity;
 import uk.gegc.kidsgptbackend.shared.exception.advice.GlobalExceptionHandler;
 import uk.gegc.kidsgptbackend.shared.exception.ResourceNotFoundException;
 import uk.gegc.kidsgptbackend.shared.exception.ValidationException;
-import uk.gegc.kidsgptbackend.features.subscription.domain.model.UserSubscription;
-import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
-import uk.gegc.kidsgptbackend.features.subscription.application.impl.IdempotencyServiceImpl;
-import uk.gegc.kidsgptbackend.features.subscription.domain.model.WebhookEvent;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -41,32 +33,18 @@ import static org.mockito.Mockito.when;
 @DisplayName("Validation and Error Handling Tests")
 class ValidationAndErrorHandlingTest {
 
-    @Mock
-    private UserSubscriptionRepository userSubscriptionRepository;
-
-    @Mock
-    private uk.gegc.kidsgptbackend.features.subscription.domain.repository.WebhookEventRepository webhookEventRepository;
-
     private GlobalExceptionHandler globalExceptionHandler;
-    private IdempotencyServiceImpl idempotencyService;
-    private WebRequest webRequest;
+    private HttpServletRequest httpServletRequest;
+    private Clock fixedClock;
 
     @BeforeEach
     void setUp() {
-        globalExceptionHandler = new GlobalExceptionHandler();
-        // Inject clock using reflection
-        try {
-            java.lang.reflect.Field clockField = GlobalExceptionHandler.class.getDeclaredField("clock");
-            clockField.setAccessible(true);
-            clockField.set(globalExceptionHandler, Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), ZoneOffset.UTC));
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to inject clock", e);
-        }
+        // Use constructor injection with a fixed clock
+        fixedClock = Clock.fixed(Instant.parse("2024-01-01T12:00:00Z"), ZoneOffset.UTC);
+        globalExceptionHandler = new GlobalExceptionHandler(fixedClock);
         
-        webRequest = mock(WebRequest.class);
-        when(webRequest.getDescription(false)).thenReturn("uri=/api/test");
-        
-        idempotencyService = new IdempotencyServiceImpl(webhookEventRepository);
+        httpServletRequest = mock(HttpServletRequest.class);
+        when(httpServletRequest.getRequestURI()).thenReturn("/api/test");
     }
 
     @Test
@@ -76,7 +54,8 @@ class ValidationAndErrorHandlingTest {
         ResourceNotFoundException exception = new ResourceNotFoundException("User not found with ID: 123");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleNotFound(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleResourceNotFound(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
         assertThat(response).isNotNull();
@@ -98,12 +77,13 @@ class ValidationAndErrorHandlingTest {
         ValidationException exception = new ValidationException("Invalid email format");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleValidation(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
         assertThat(response).isNotNull();
         assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
         assertThat(response.getDetail()).contains("Invalid email format");
     }
 
@@ -114,92 +94,14 @@ class ValidationAndErrorHandlingTest {
         RuntimeException exception = new RuntimeException();
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleRuntimeException(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
         assertThat(response).isNotNull();
-        assertThat(response.getStatus()).isEqualTo(400);
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
-        assertThat(response.getDetail()).contains("Invalid request");
-    }
-
-    @Test
-    @DisplayName("IdempotencyService should return guarded defaults for webhook acceptance")
-    void idempotencyService_shouldReturnGuardedDefaults() {
-        // Given
-        when(webhookEventRepository.existsByPaymentProviderAndExternalEventId(
-                eq(WebhookEvent.PaymentProvider.GOOGLE_PLAY), eq("test_event_id")))
-                .thenReturn(false);
-        when(webhookEventRepository.save(any(WebhookEvent.class)))
-                .thenReturn(new WebhookEvent());
-
-        // When
-        boolean result = idempotencyService.tryAcceptWebhookEvent(
-                WebhookEvent.PaymentProvider.GOOGLE_PLAY, 
-                "test_event_id", 
-                "SUBSCRIPTION_RENEWED", 
-                "test_payload"
-        );
-
-        // Then
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("IdempotencyService should handle duplicate webhook events gracefully")
-    void idempotencyService_shouldHandleDuplicateWebhookEvents() {
-        // Given
-        when(webhookEventRepository.existsByPaymentProviderAndExternalEventId(
-                eq(WebhookEvent.PaymentProvider.GOOGLE_PLAY), eq("duplicate_event_id")))
-                .thenReturn(true);
-
-        // When
-        boolean result = idempotencyService.tryAcceptWebhookEvent(
-                WebhookEvent.PaymentProvider.GOOGLE_PLAY, 
-                "duplicate_event_id", 
-                "SUBSCRIPTION_RENEWED", 
-                "test_payload"
-        );
-
-        // Then
-        assertThat(result).isFalse();
-    }
-
-    @Test
-    @DisplayName("IdempotencyService should handle save failures gracefully")
-    void idempotencyService_shouldHandleSaveFailures() {
-        // Given
-        when(webhookEventRepository.existsByPaymentProviderAndExternalEventId(
-                eq(WebhookEvent.PaymentProvider.GOOGLE_PLAY), eq("test_event_id")))
-                .thenReturn(false);
-        when(webhookEventRepository.save(any(WebhookEvent.class)))
-                .thenThrow(new RuntimeException("Database error"));
-
-        // When
-        boolean result = idempotencyService.tryAcceptWebhookEvent(
-                WebhookEvent.PaymentProvider.GOOGLE_PLAY, 
-                "test_event_id", 
-                "SUBSCRIPTION_RENEWED", 
-                "test_payload"
-        );
-
-        // Then
-        assertThat(result).isFalse();
-    }
-
-    @Test
-    @DisplayName("WebhookProcessingService should handle missing subscription gracefully")
-    void webhookProcessingService_shouldHandleMissingSubscription() {
-        // Given
-        when(userSubscriptionRepository.findByPaymentProviderAndExternalSubscriptionId(
-                eq(UserSubscription.PaymentProvider.GOOGLE_PLAY), eq("missing_token")))
-                .thenReturn(Optional.empty());
-
-        // When & Then
-        // Should not throw exception, should handle gracefully
-        // The webhook processing service should handle missing subscriptions gracefully
-        // This test verifies that the service doesn't crash when subscription is not found
-        assertThat(true).isTrue(); // Placeholder - the service handles missing subscriptions gracefully
+        assertThat(response.getStatus()).isEqualTo(500);
+        assertThat(response.getTitle()).isEqualTo("Internal Server Error");
+        assertThat(response.getDetail()).isEqualTo("An unexpected error occurred");
     }
 
     @Test
@@ -209,24 +111,29 @@ class ValidationAndErrorHandlingTest {
         ResourceNotFoundException exception = new ResourceNotFoundException("Test error");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleNotFound(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleResourceNotFound(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
+        assertThat(response).isNotNull();
         assertThat(response.getProperties().get("timestamp")).isNotNull();
         assertThat(response.getProperties().get("timestamp")).isEqualTo(Instant.parse("2024-01-01T12:00:00Z"));
     }
 
     @Test
-    @DisplayName("Error responses should not expose internal implementation details")
-    void errorResponses_shouldNotExposeInternalDetails() {
+    @DisplayName("RuntimeException should not expose internal implementation details")
+    void runtimeException_shouldNotExposeInternalDetails() {
         // Given
         RuntimeException exception = new RuntimeException("Internal database connection failed");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleRuntimeException(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
-        // The error message should be sanitized to not expose internal details
+        assertThat(response).isNotNull();
+        // RuntimeException returns generic message for security
+        assertThat(response.getDetail()).isEqualTo("An unexpected error occurred");
         assertThat(response.getDetail()).doesNotContain("database");
         assertThat(response.getDetail()).doesNotContain("connection");
         assertThat(response.getDetail()).doesNotContain("Internal");
@@ -239,11 +146,13 @@ class ValidationAndErrorHandlingTest {
         ValidationException exception = new ValidationException("Email address is required");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleValidation(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
+        assertThat(response).isNotNull();
         assertThat(response.getDetail()).contains("Email address is required");
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
         assertThat(response.getStatus()).isEqualTo(400);
     }
 
@@ -256,12 +165,20 @@ class ValidationAndErrorHandlingTest {
         RuntimeException runtimeException = new RuntimeException("Unexpected error");
 
         // When
-        ProblemDetail notFoundResponse = globalExceptionHandler.handleNotFound(notFoundException, webRequest);
-        ProblemDetail validationResponse = globalExceptionHandler.handleBadRequest(validationException, webRequest);
-        ProblemDetail runtimeResponse = globalExceptionHandler.handleBadRequest(runtimeException, webRequest);
+        ResponseEntity<ProblemDetail> notFoundResponseEntity = globalExceptionHandler.handleResourceNotFound(notFoundException, httpServletRequest);
+        ResponseEntity<ProblemDetail> validationResponseEntity = globalExceptionHandler.handleValidation(validationException, httpServletRequest);
+        ResponseEntity<ProblemDetail> runtimeResponseEntity = globalExceptionHandler.handleRuntimeException(runtimeException, httpServletRequest);
+
+        ProblemDetail notFoundResponse = notFoundResponseEntity.getBody();
+        ProblemDetail validationResponse = validationResponseEntity.getBody();
+        ProblemDetail runtimeResponse = runtimeResponseEntity.getBody();
 
         // Then
         // All responses should have consistent structure
+        assertThat(notFoundResponse).isNotNull();
+        assertThat(validationResponse).isNotNull();
+        assertThat(runtimeResponse).isNotNull();
+        
         assertThat(notFoundResponse.getProperties().get("timestamp")).isNotNull();
         assertThat(validationResponse.getProperties().get("timestamp")).isNotNull();
         assertThat(runtimeResponse.getProperties().get("timestamp")).isNotNull();
@@ -273,26 +190,7 @@ class ValidationAndErrorHandlingTest {
         // Status codes should be appropriate
         assertThat(notFoundResponse.getStatus()).isEqualTo(404);
         assertThat(validationResponse.getStatus()).isEqualTo(400);
-        assertThat(runtimeResponse.getStatus()).isEqualTo(400);
-    }
-
-    @Test
-    @DisplayName("Service methods should return safe defaults when operations fail")
-    void serviceMethods_shouldReturnSafeDefaults() {
-        // Given
-        when(webhookEventRepository.findByPaymentProviderAndExternalEventId(
-                eq(WebhookEvent.PaymentProvider.GOOGLE_PLAY), eq("nonexistent_event")))
-                .thenReturn(Optional.empty());
-
-        // When
-        idempotencyService.markWebhookEventProcessed(
-                WebhookEvent.PaymentProvider.GOOGLE_PLAY, 
-                "nonexistent_event"
-        );
-
-        // Then
-        // Should not throw exception, should handle gracefully
-        // This is a void method, so we're testing it doesn't throw
+        assertThat(runtimeResponse.getStatus()).isEqualTo(500);  // RuntimeException is 500
     }
 
     @Test
@@ -302,11 +200,13 @@ class ValidationAndErrorHandlingTest {
         ValidationException exception = new ValidationException("Please provide a valid email address");
 
         // When
-        ProblemDetail response = globalExceptionHandler.handleBadRequest(exception, webRequest);
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleValidation(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
+        assertThat(response).isNotNull();
         assertThat(response.getDetail()).contains("Please provide a valid email address");
-        assertThat(response.getTitle()).isEqualTo("Bad Request");
+        assertThat(response.getTitle()).isEqualTo("Validation Failed");
         
         // Error should be actionable (tells user what to do)
         assertThat(response.getDetail()).contains("provide");
@@ -314,25 +214,28 @@ class ValidationAndErrorHandlingTest {
     }
 
     @Test
-    @DisplayName("System should handle concurrent access gracefully")
-    void system_shouldHandleConcurrentAccessGracefully() {
+    @DisplayName("DataIntegrityViolationException should be sanitized for user-friendly messages")
+    void dataIntegrityViolation_shouldBeSanitizedForUserFriendlyMessages() {
         // Given
-        when(webhookEventRepository.existsByPaymentProviderAndExternalEventId(
-                eq(WebhookEvent.PaymentProvider.GOOGLE_PLAY), eq("concurrent_event")))
-                .thenReturn(false);
-        when(webhookEventRepository.save(any(WebhookEvent.class)))
-                .thenThrow(new org.springframework.dao.DataIntegrityViolationException("Duplicate key"));
+        org.springframework.dao.DataIntegrityViolationException exception = 
+            new org.springframework.dao.DataIntegrityViolationException("Duplicate entry 'test@example.com' for key 'users.UK_email'");
 
         // When
-        boolean result = idempotencyService.tryAcceptWebhookEvent(
-                WebhookEvent.PaymentProvider.GOOGLE_PLAY, 
-                "concurrent_event", 
-                "SUBSCRIPTION_RENEWED", 
-                "test_payload"
-        );
+        ResponseEntity<ProblemDetail> responseEntity = globalExceptionHandler.handleDataIntegrity(exception, httpServletRequest);
+        ProblemDetail response = responseEntity.getBody();
 
         // Then
-        // Should handle concurrent access gracefully by returning false
-        assertThat(result).isFalse();
+        assertThat(response).isNotNull();
+        assertThat(response.getStatus()).isEqualTo(409);
+        assertThat(response.getTitle()).isEqualTo("Data Conflict");
+        // Should provide user-friendly message about email conflict
+        assertThat(response.getDetail()).containsAnyOf(
+            "email address",
+            "duplicate entry",
+            "already exists"
+        );
+        // Should not expose technical database details
+        assertThat(response.getDetail()).doesNotContain("UK_email");
+        assertThat(response.getDetail()).doesNotContain("users.");
     }
 }

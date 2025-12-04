@@ -161,7 +161,7 @@ class ConsentControllerHistoryIntegrationTest {
                 .accept(MediaType.APPLICATION_PROBLEM_JSON))
            .andExpect(status().isBadRequest())
            .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
-           .andExpect(jsonPath("$.detail").value("Parameter 'userId' should be of type UUID"));
+           .andExpect(jsonPath("$.detail").value("Invalid value for parameter 'userId'. Expected type: UUID."));
 
         // Ensure service is not called
         verifyNoInteractions(consentService);

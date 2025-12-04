@@ -1,22 +1,16 @@
 package uk.gegc.kidsgptbackend.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 import uk.gegc.kidsgptbackend.features.consent.api.dto.VerificationInitiateRequest;
 import uk.gegc.kidsgptbackend.features.consent.domain.model.VerificationMethod;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
-import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.test.BaseIntegrationTest;
 
 import java.util.UUID;
 
@@ -24,35 +18,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@SpringBootTest
-@ActiveProfiles("test")
-@AutoConfigureMockMvc
-@Transactional
-class VerificationControllerIntegrationTest {
-
-    @Autowired
-    MockMvc mockMvc;
-
-    @Autowired
-    ObjectMapper objectMapper;
+class VerificationControllerIntegrationTest extends BaseIntegrationTest {
 
     @Autowired
     UserRepository userRepository;
-
-    @Autowired
-    RoleRepository roleRepository;
 
     private User testParent;
     private UUID parentId;
 
     @BeforeEach
-    void setUp() {
-        // Create parent role if it doesn't exist
-        roleRepository.findByRole("ROLE_PARENT").orElseGet(() -> {
-            uk.gegc.kidsgptbackend.features.user.domain.model.Role role = new uk.gegc.kidsgptbackend.features.user.domain.model.Role();
-            role.setRole("ROLE_PARENT");
-            return roleRepository.save(role);
-        });
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp(); // Ensure roles are created (ROLE_ADMIN, ROLE_PARENT, ROLE_CHILD)
 
         // Create a test parent user
         testParent = new User();
@@ -213,7 +190,7 @@ class VerificationControllerIntegrationTest {
                         .content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")));
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'parentId')].message").value(org.hamcrest.Matchers.hasItem("Parent ID is required")));
     }
 
     @Test
@@ -232,7 +209,7 @@ class VerificationControllerIntegrationTest {
                         .content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("verificationMethod: Verification method is required")));
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'verificationMethod')].message").value(org.hamcrest.Matchers.hasItem("Verification method is required")));
     }
 
     @Test
@@ -251,7 +228,7 @@ class VerificationControllerIntegrationTest {
                         .content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")));
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("Contact information is required")));
     }
 
     @Test
@@ -269,7 +246,7 @@ class VerificationControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL")));
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("contactInfo must be a valid email address when verificationMethod=EMAIL")));
     }
 
     @Test
@@ -287,7 +264,7 @@ class VerificationControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")));
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")));
     }
 
     @Test
@@ -307,7 +284,7 @@ class VerificationControllerIntegrationTest {
                         .content(json))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("verificationMethod: Unsupported verification method")));
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'verificationMethod')].message").value(org.hamcrest.Matchers.hasItem("Unsupported verification method")));
     }
 
     @Test
@@ -333,7 +310,7 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(json))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Malformed Request"));
+                .andExpect(jsonPath("$.title").value("Malformed JSON"));
     }
 
     // Section 1.3: Normalization properties tests
@@ -668,7 +645,7 @@ class VerificationControllerIntegrationTest {
 
     // Section 2.2: Validation failures → 400 tests
     @Test
-    @DisplayName("Validation failures return 400 with proper ProblemDetail format (RFC 7807)")
+    @DisplayName("Validation failures return 400 with proper ProblemDetail format (RFC 9457)")
     @WithMockUser(username = "testparent", roles = {"PARENT"})
     void initiateVerification_validationFailures_return400WithErrorResponse() throws Exception {
         // Test missing parentId returns 400 with ProblemDetail
@@ -684,7 +661,7 @@ class VerificationControllerIntegrationTest {
                         .content(jsonMissingParentId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'parentId')].message").value(org.hamcrest.Matchers.hasItem("Parent ID is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test missing verificationMethod returns 400 with ProblemDetail
@@ -700,7 +677,7 @@ class VerificationControllerIntegrationTest {
                         .content(jsonMissingMethod))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("verificationMethod: Verification method is required")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'verificationMethod')].message").value(org.hamcrest.Matchers.hasItem("Verification method is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test missing contactInfo returns 400 with ProblemDetail
@@ -716,7 +693,7 @@ class VerificationControllerIntegrationTest {
                         .content(jsonMissingContact))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("Contact information is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test invalid email format returns 400 with ProblemDetail
@@ -731,7 +708,7 @@ class VerificationControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(invalidEmailRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be a valid email address when verificationMethod=EMAIL")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("contactInfo must be a valid email address when verificationMethod=EMAIL")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test invalid SMS format returns 400 with ProblemDetail
@@ -746,7 +723,7 @@ class VerificationControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(invalidSmsRequest)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("contactInfo must be an E.164 phone (e.g. +15551234567) when verificationMethod=SMS")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test unsupported method returns 400 with ProblemDetail
@@ -763,7 +740,7 @@ class VerificationControllerIntegrationTest {
                         .content(jsonUnsupportedMethod))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("verificationMethod: Unsupported verification method")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'verificationMethod')].message").value(org.hamcrest.Matchers.hasItem("Unsupported verification method")))
                 .andExpect(jsonPath("$.timestamp").exists());
 
         // Test empty JSON body returns 400 with ProblemDetail
@@ -783,7 +760,7 @@ class VerificationControllerIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(malformedJson))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.title").value("Malformed Request"))
+                .andExpect(jsonPath("$.title").value("Malformed JSON"))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
@@ -803,13 +780,13 @@ class VerificationControllerIntegrationTest {
                         .content(jsonMultipleErrors))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title").value("Validation Failed"))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("parentId: Parent ID is required")))
-                .andExpect(jsonPath("$.errors").value(org.hamcrest.Matchers.hasItem("contactInfo: Contact information is required")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'parentId')].message").value(org.hamcrest.Matchers.hasItem("Parent ID is required")))
+                .andExpect(jsonPath("$.fieldErrors[?(@.field == 'contactInfo')].message").value(org.hamcrest.Matchers.hasItem("Contact information is required")))
                 .andExpect(jsonPath("$.timestamp").exists());
     }
 
     @Test
-    @DisplayName("ProblemDetail structure validation for validation failures (RFC 7807)")
+    @DisplayName("ProblemDetail structure validation for validation failures (RFC 9457)")
     @WithMockUser(username = "testparent", roles = {"PARENT"})
     void initiateVerification_errorResponseStructure_validationFailures() throws Exception {
         String json = """
@@ -828,15 +805,16 @@ class VerificationControllerIntegrationTest {
                 .andExpect(jsonPath("$.timestamp").exists())
                 .andReturn().getResponse().getContentAsString();
 
-        // Verify ProblemDetail structure (RFC 7807)
+        // Verify ProblemDetail structure (RFC 9457)
         assertThat(response).contains("\"title\":\"Validation Failed\"");
         assertThat(response).contains("\"type\"");
         assertThat(response).contains("\"status\"");
         assertThat(response).contains("\"timestamp\"");
         
-        // Verify that errors is an array in extensions
-        assertThat(response).contains("\"errors\":[");
-        assertThat(response).contains("parentId: Parent ID is required");
+        // Verify that fieldErrors is an array
+        assertThat(response).contains("\"fieldErrors\":[");
+        assertThat(response).contains("\"field\":\"parentId\"");
+        assertThat(response).contains("\"message\":\"Parent ID is required\"");
      }
 
     // Section 2.3: Parent not found → 404 tests

@@ -1,14 +1,19 @@
 package uk.gegc.kidsgptbackend.shared.exception.advice;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.lang.NonNull;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -20,480 +25,565 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import uk.gegc.kidsgptbackend.shared.api.problem.ErrorTypes;
+import uk.gegc.kidsgptbackend.shared.api.problem.ProblemDetailBuilder;
 import uk.gegc.kidsgptbackend.shared.exception.*;
 
-import java.net.URI;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.stream.Collectors;
 
+/**
+ * Global exception handler for consistent RFC 9457 error responses.
+ * 
+ * <p>This handler catches all exceptions thrown by the application and converts
+ * them to standardized {@link ProblemDetail} responses following RFC 9457.</p>
+ * 
+ * <p>Features:</p>
+ * <ul>
+ *   <li>Consistent error structure using {@link ProblemDetailBuilder}</li>
+ *   <li>Centralized error types from {@link ErrorTypes}</li>
+ *   <li>Database error sanitization to prevent information disclosure</li>
+ *   <li>Clock injection for consistent timestamps</li>
+ *   <li>Comprehensive logging for debugging</li>
+ * </ul>
+ */
 @RestControllerAdvice
+@RequiredArgsConstructor
+@Slf4j
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
-    private static final String ERROR_TYPE_BASE = "/errors";
-    private static final Logger logger = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private final Clock clock;
 
-    @Autowired
-    private Clock clock;
+    // ==================== Resource Errors ====================
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    public ProblemDetail handleNotFound(ResourceNotFoundException exception, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+    public ResponseEntity<ProblemDetail> handleResourceNotFound(ResourceNotFoundException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "The requested resource was not found";
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.NOT_FOUND,
-                exception.getMessage() != null ? exception.getMessage() : "Resource not found"
+                ErrorTypes.RESOURCE_NOT_FOUND,
+                "Resource Not Found",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Resource Not Found");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/not-found"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(problem);
     }
+
+    // ==================== Validation Errors ====================
 
     @ExceptionHandler({
             jakarta.validation.ValidationException.class,
             uk.gegc.kidsgptbackend.shared.exception.ValidationException.class,
             ApiError.class
     })
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleBadRequest(RuntimeException ex, WebRequest request) {
-        // Sanitize error message to avoid exposing internal details
+    public ResponseEntity<ProblemDetail> handleValidation(RuntimeException ex, HttpServletRequest request) {
         String sanitizedMessage = sanitizeErrorMessage(ex.getMessage());
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.BAD_REQUEST,
-                sanitizedMessage
+                ErrorTypes.VALIDATION_FAILED,
+                "Validation Failed",
+                sanitizedMessage,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Bad Request");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/bad-request"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.badRequest().body(problem);
     }
 
     @ExceptionHandler(UnsupportedOperationException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleUnsupportedOperation(UnsupportedOperationException ex, WebRequest request) {
-        ex.printStackTrace(); // DEBUG: print stack trace
+    public ResponseEntity<ProblemDetail> handleUnsupportedOperation(UnsupportedOperationException ex, HttpServletRequest request) {
         String msg = ex.getMessage() != null ? ex.getMessage() : "Operation not supported";
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, msg);
-        problemDetail.setTitle("Unsupported Operation");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/unsupported-operation"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.UNSUPPORTED_OPERATION,
+                "Unsupported Operation",
+                msg,
+                request,
+                Instant.now(clock)
+        );
+        return ResponseEntity.badRequest().body(problem);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleIllegalArgument(IllegalArgumentException exception, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+    public ResponseEntity<ProblemDetail> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Invalid argument provided";
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.BAD_REQUEST,
-                exception.getMessage() != null ? exception.getMessage() : "Invalid argument"
+                ErrorTypes.INVALID_ARGUMENT,
+                "Invalid Argument",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Invalid Argument");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/invalid-argument"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.badRequest().body(problem);
     }
 
     @ExceptionHandler(IllegalStateException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ProblemDetail handleIllegalState(IllegalStateException ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.CONFLICT,
-                ex.getMessage() != null ? ex.getMessage() : "Invalid state"
+    public ResponseEntity<ProblemDetail> handleIllegalState(IllegalStateException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Invalid state detected";
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.UNPROCESSABLE_ENTITY,
+                ErrorTypes.ILLEGAL_STATE,
+                "Illegal State",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Conflict");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/conflict"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY).body(problem);
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ProblemDetail> handleResponseStatusException(ResponseStatusException ex, WebRequest request) {
-        String reason = ex.getReason() != null ? ex.getReason() : "Unknown error";
-        HttpStatusCode statusCode = ex.getStatusCode();
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(statusCode, reason);
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ProblemDetail> handleConstraintViolation(ConstraintViolationException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.CONSTRAINT_VIOLATION,
+                "Constraint Violation",
+                "One or more validation constraints were violated",
+                request,
+                Instant.now(clock)
+        );
+        List<ViolationDetail> violations = ex.getConstraintViolations().stream()
+                .map(this::toViolationDetail)
+                .toList();
+        problem.setProperty("violations", violations);
+        return ResponseEntity.badRequest().body(problem);
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(MethodArgumentTypeMismatchException ex, HttpServletRequest request) {
+        String param = ex.getName();
+        Class<?> type = ex.getRequiredType();
+        String requiredType = type != null ? type.getSimpleName() : "unknown";
+        String msg = String.format("Invalid value for parameter '%s'. Expected type: %s.", param, requiredType);
         
-        // Set appropriate title based on status code
-        String title = switch (statusCode.value()) {
-            case 400 -> "Bad Request";
-            case 401 -> "Unauthorized";
-            case 403 -> "Forbidden";
-            case 404 -> "Resource Not Found";
-            case 409 -> "Conflict";
-            case 410 -> "Gone";
-            case 429 -> "Too Many Requests";
-            case 500 -> "Internal Server Error";
-            default -> "Request Failed";
-        };
-        problemDetail.setTitle(title);
-        
-        // Set appropriate type based on status code
-        String typePath = switch (statusCode.value()) {
-            case 400 -> "/bad-request";
-            case 401 -> "/unauthorized";
-            case 403 -> "/forbidden";
-            case 404 -> "/not-found";
-            case 409 -> "/conflict";
-            case 410 -> "/gone";
-            case 429 -> "/rate-limit";
-            case 500 -> "/internal-server-error";
-            default -> "/response-status";
-        };
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + typePath));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return new ResponseEntity<>(problemDetail, statusCode);
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.TYPE_MISMATCH,
+                "Type Mismatch",
+                msg,
+                request,
+                Instant.now(clock)
+        );
+        problem.setProperty("parameter", param);
+        problem.setProperty("expectedType", requiredType);
+        problem.setProperty("providedValue", ex.getValue());
+        return ResponseEntity.badRequest().body(problem);
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    @ResponseStatus(HttpStatus.CONFLICT)
-    public ProblemDetail handleDataIntegrity(DataIntegrityViolationException ex, WebRequest request) {
-        String causeMessage = ex.getMostSpecificCause() != null ?
-                ex.getMostSpecificCause().getMessage() : "Database constraint violation";
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.CONFLICT,
-                "Database error: " + causeMessage
-        );
-        problemDetail.setTitle("Data Integrity Violation");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/data-integrity-violation"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        problemDetail.setProperty("errors", List.of("Database error: " + causeMessage));
-        return problemDetail;
-    }
+    // ==================== Content/Moderation Errors ====================
 
-    @ExceptionHandler(RateLimitException.class)
-    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
-    public ProblemDetail handleRateLimit(RateLimitException ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.TOO_MANY_REQUESTS,
-                ex.getMessage() != null ? ex.getMessage() : "Rate limit exceeded"
+    @ExceptionHandler(ConversationFormatException.class)
+    public ResponseEntity<ProblemDetail> handleConversationFormat(ConversationFormatException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Invalid conversation format";
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.CONVERSATION_FORMAT_ERROR,
+                "Invalid Conversation Format",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Too Many Requests");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/rate-limit"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.badRequest().body(problem);
     }
 
     @ExceptionHandler(ModerationServiceException.class)
-    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
-    public ProblemDetail handleModerationUnavailable(ModerationServiceException ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+    public ResponseEntity<ProblemDetail> handleModerationUnavailable(ModerationServiceException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Content moderation service is temporarily unavailable";
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.SERVICE_UNAVAILABLE,
-                ex.getMessage() != null ? ex.getMessage() : "Moderation service unavailable"
+                ErrorTypes.MODERATION_FAILED,
+                "Moderation Service Unavailable",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Service Unavailable");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/service-unavailable"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(problem);
     }
 
-    @ExceptionHandler(ConversationFormatException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleConversationFormat(ConversationFormatException ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage() != null ? ex.getMessage() : "Invalid conversation message sequence"
-        );
-        problemDetail.setTitle("Invalid Conversation Format");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/conversation-format"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
-    }
+    // ==================== Security/Authentication Errors ====================
 
     @ExceptionHandler(UnauthorizedException.class)
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ProblemDetail handleUnauthorized(UnauthorizedException ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+    public ResponseEntity<ProblemDetail> handleUnauthorized(UnauthorizedException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Authentication is required to access this resource";
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.UNAUTHORIZED,
-                ex.getMessage() != null ? ex.getMessage() : "Authentication required"
+                ErrorTypes.UNAUTHORIZED,
+                "Unauthorized",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Unauthorized");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/unauthorized"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
 
-    @ExceptionHandler(CredentialUpdateException.class)
-    public ResponseEntity<ProblemDetail> handleCredentialUpdate(CredentialUpdateException ex, WebRequest request) {
-        // Check if it's an email conflict error
-        if (ex.getMessage() != null && ex.getMessage().contains("Email already in use")) {
-            ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                    HttpStatus.CONFLICT,
-                    ex.getMessage()
-            );
-            problemDetail.setTitle("Conflict");
-            problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/credential-conflict"));
-            problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-            problemDetail.setProperty("timestamp", Instant.now(clock));
-            return new ResponseEntity<>(problemDetail, HttpStatus.CONFLICT);
-        }
-        
-        // Default to Bad Request for other credential update errors
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage() != null ? ex.getMessage() : "Failed to update credentials"
-        );
-        problemDetail.setTitle("Credential Update Failed");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/credential-update-failed"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return new ResponseEntity<>(problemDetail, HttpStatus.BAD_REQUEST);
-    }
-
-    // Handle Spring Security authentication exceptions
     @ExceptionHandler({
             AuthenticationException.class,
             BadCredentialsException.class,
             AuthenticationCredentialsNotFoundException.class,
             InsufficientAuthenticationException.class
     })
-    @ResponseStatus(HttpStatus.UNAUTHORIZED)
-    public ProblemDetail handleAuthenticationException(AuthenticationException ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+    public ResponseEntity<ProblemDetail> handleAuthenticationException(AuthenticationException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.UNAUTHORIZED,
-                ex.getMessage() != null ? ex.getMessage() : "Authentication failed"
+                ErrorTypes.AUTHENTICATION_FAILED,
+                "Authentication Failed",
+                ex.getMessage() != null ? ex.getMessage() : "Authentication failed",
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Unauthorized");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/authentication-failed"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(problem);
     }
 
     @ExceptionHandler({AccessDeniedException.class, AuthorizationDeniedException.class})
-    @ResponseStatus(HttpStatus.FORBIDDEN)
-    public ProblemDetail handleAccessDenied(Exception ex, WebRequest request) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
+    public ResponseEntity<ProblemDetail> handleAccessDenied(Exception ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "You do not have permission to access this resource";
+        ProblemDetail problem = ProblemDetailBuilder.create(
                 HttpStatus.FORBIDDEN,
-                ex.getMessage() != null ? ex.getMessage() : "You do not have permission to access this resource"
+                ErrorTypes.ACCESS_DENIED,
+                "Access Denied",
+                detail,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Access Denied");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/access-denied"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
     }
 
-    @ExceptionHandler(ConstraintViolationException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleConstraintViolation(ConstraintViolationException ex, WebRequest request) {
-        List<String> errors = ex.getConstraintViolations().stream()
-                .map(ConstraintViolation::getMessage)
-                .collect(Collectors.toList());
+    // ==================== User/Credential Errors ====================
 
-        String detail = errors.isEmpty() ? "Validation constraint violated" : errors.get(0);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.BAD_REQUEST,
-                detail
-        );
-        problemDetail.setTitle("Validation Failed");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/validation-failed"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        // Store all validation errors in extensions
-        if (!errors.isEmpty()) {
-            problemDetail.setProperty("errors", errors);
+    @ExceptionHandler(CredentialUpdateException.class)
+    public ResponseEntity<ProblemDetail> handleCredentialUpdate(CredentialUpdateException ex, HttpServletRequest request) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Failed to update credentials";
+        
+        // Check if it's an email conflict error
+        if (message.contains("Email already in use")) {
+            ProblemDetail problem = ProblemDetailBuilder.create(
+                    HttpStatus.CONFLICT,
+                    ErrorTypes.EMAIL_ALREADY_EXISTS,
+                    "Email Already Exists",
+                    message,
+                    request,
+                    Instant.now(clock)
+            );
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
         }
-        return problemDetail;
+        
+        // Default to Bad Request for other credential update errors
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.CREDENTIAL_UPDATE_FAILED,
+                "Credential Update Failed",
+                message,
+                request,
+                Instant.now(clock)
+        );
+        return ResponseEntity.badRequest().body(problem);
     }
 
-    // Handle method argument type mismatch
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    public ProblemDetail handleMethodArgumentTypeMismatch(MethodArgumentTypeMismatchException ex, WebRequest request) {
-        String message = String.format("Parameter '%s' should be of type %s",
-                ex.getName(), ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
-        problemDetail.setTitle("Invalid Parameter Type");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/invalid-parameter-type"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        problemDetail.setProperty("parameter", ex.getName());
-        problemDetail.setProperty("expectedType", ex.getRequiredType() != null ? ex.getRequiredType().getSimpleName() : "unknown");
-        return problemDetail;
+    // ==================== State/Data Errors ====================
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ProblemDetail> handleDataIntegrity(DataIntegrityViolationException ex, HttpServletRequest request) {
+        // Log the full technical error for debugging
+        String causeMessage = ex.getMostSpecificCause() != null ? ex.getMostSpecificCause().getMessage() : ex.getMessage();
+        log.error("Data integrity violation: {}", causeMessage, ex);
+        
+        // Sanitize the error message for users
+        String userFriendlyMessage = sanitizeDatabaseError(ex);
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.CONFLICT,
+                ErrorTypes.DATA_INTEGRITY_VIOLATION,
+                "Data Conflict",
+                userFriendlyMessage,
+                request,
+                Instant.now(clock)
+        );
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
     }
 
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ProblemDetail> handleOptimisticLock(OptimisticLockingFailureException ex, HttpServletRequest request) {
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.CONFLICT,
+                ErrorTypes.OPTIMISTIC_LOCK_CONFLICT,
+                "Conflict",
+                "Resource has been modified by another process. Please refresh and try again.",
+                request,
+                Instant.now(clock)
+        );
+        problem.setProperty("errorCode", "VERSION_CONFLICT");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(problem);
+    }
 
+    // ==================== Rate Limiting ====================
 
-    // Override Spring's default handlers to ensure they return ProblemDetail (RFC 7807)
+    @ExceptionHandler(RateLimitException.class)
+    public ResponseEntity<ProblemDetail> handleRateLimit(RateLimitException ex, HttpServletRequest request) {
+        String detail = ex.getMessage() != null ? ex.getMessage() : "Too many requests. Please try again later";
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.TOO_MANY_REQUESTS,
+                ErrorTypes.RATE_LIMIT_EXCEEDED,
+                "Rate Limit Exceeded",
+                detail,
+                request,
+                Instant.now(clock)
+        );
+        // TODO: Add retryAfterSeconds when RateLimitException supports it
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(problem);
+    }
+
+    // ==================== ResponseStatusException ====================
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ProblemDetail> handleResponseStatus(ResponseStatusException ex, HttpServletRequest request) {
+        HttpStatus status = HttpStatus.valueOf(ex.getStatusCode().value());
+        String reason = ex.getReason() != null ? ex.getReason() : ex.getMessage();
+        
+        // Map specific status codes to specific error types and titles
+        var errorType = switch (status) {
+            case UNAUTHORIZED -> ErrorTypes.UNAUTHORIZED;
+            case FORBIDDEN -> ErrorTypes.ACCESS_DENIED;
+            case NOT_FOUND -> ErrorTypes.RESOURCE_NOT_FOUND;
+            case CONFLICT -> ErrorTypes.DATA_CONFLICT;
+            case UNPROCESSABLE_ENTITY -> ErrorTypes.ILLEGAL_STATE;
+            case BAD_REQUEST -> ErrorTypes.VALIDATION_FAILED;
+            default -> ErrorTypes.GENERIC_ERROR;
+        };
+        
+        var title = switch (status) {
+            case UNAUTHORIZED -> "Unauthorized";
+            case FORBIDDEN -> "Access Denied";
+            case NOT_FOUND -> "Resource Not Found";
+            case CONFLICT -> "Conflict";
+            case UNPROCESSABLE_ENTITY -> "Illegal State";
+            case BAD_REQUEST -> "Validation Failed";
+            default -> status.getReasonPhrase();
+        };
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                status,
+                errorType,
+                title,
+                reason,
+                request,
+                Instant.now(clock)
+        );
+        return ResponseEntity.status(status).body(problem);
+    }
+
+    // ==================== Generic Exception Handler ====================
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ProblemDetail> handleRuntimeException(RuntimeException ex, HttpServletRequest request) {
+        log.error("RuntimeException occurred: {}", ex.getMessage(), ex);
+        
+        // Handle special runtime exception cases
+        if (ex.getMessage() != null && "Access denied".equalsIgnoreCase(ex.getMessage())) {
+            ProblemDetail problem = ProblemDetailBuilder.create(
+                    HttpStatus.FORBIDDEN,
+                    ErrorTypes.ACCESS_DENIED,
+                    "Access Denied",
+                    ex.getMessage(),
+                    request,
+                    Instant.now(clock)
+            );
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(problem);
+        }
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ErrorTypes.INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "An unexpected error occurred",
+                request,
+                Instant.now(clock)
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ProblemDetail> handleAllOthers(Exception ex, HttpServletRequest request) {
+        log.error("Unhandled exception: {}", ex.getMessage(), ex);
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ErrorTypes.INTERNAL_SERVER_ERROR,
+                "Internal Server Error",
+                "An unexpected error occurred",
+                request,
+                Instant.now(clock)
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(problem);
+    }
+
+    // ==================== Override Spring's Default Handlers ====================
 
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(
-            HttpMessageNotReadableException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
+            @NonNull HttpMessageNotReadableException ex,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request
     ) {
-        String msg = ex.getMostSpecificCause() != null ?
-                ex.getMostSpecificCause().getMessage() : "Malformed request body";
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, msg);
-        problemDetail.setTitle("Malformed Request");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/malformed-request"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
+        String msg = ex.getMostSpecificCause() != null 
+                ? ex.getMostSpecificCause().getMessage() 
+                : "Request body is malformed or cannot be read";
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.MALFORMED_JSON,
+                "Malformed JSON",
+                msg,
+                request,
+                Instant.now(clock)
+        );
+        return new ResponseEntity<>(problem, headers, HttpStatus.BAD_REQUEST);
     }
 
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(
-            MethodArgumentNotValidException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
+            @NonNull MethodArgumentNotValidException ex,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request
     ) {
-        List<String> fieldErrors = ex.getBindingResult()
+        List<FieldValidationError> fieldErrors = ex.getBindingResult()
                 .getFieldErrors()
                 .stream()
-                .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .map(error -> new FieldValidationError(error.getField(), error.getDefaultMessage(), error.getRejectedValue()))
                 .toList();
-
-        String detail = fieldErrors.isEmpty() ? "Validation failed" : fieldErrors.get(0);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, detail);
-        problemDetail.setTitle("Validation Failed");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/validation-failed"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        // Store all validation errors in extensions
-        if (!fieldErrors.isEmpty()) {
-            problemDetail.setProperty("errors", fieldErrors);
-        }
-        return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.VALIDATION_FAILED,
+                "Validation Failed",
+                "Validation failed for one or more fields",
+                request,
+                Instant.now(clock)
+        );
+        problem.setProperty("fieldErrors", fieldErrors);
+        return new ResponseEntity<>(problem, headers, HttpStatus.BAD_REQUEST);
     }
 
     @Override
     protected ResponseEntity<Object> handleMissingServletRequestParameter(
-            MissingServletRequestParameterException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
+            @NonNull MissingServletRequestParameterException ex,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request
     ) {
         String message = String.format("Required parameter '%s' is missing", ex.getParameterName());
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, message);
-        problemDetail.setTitle("Missing Parameter");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/missing-parameter"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        problemDetail.setProperty("parameter", ex.getParameterName());
-        return new ResponseEntity<>(problemDetail, headers, HttpStatus.BAD_REQUEST);
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.BAD_REQUEST,
+                ErrorTypes.INVALID_ARGUMENT,
+                "Missing Parameter",
+                message,
+                request,
+                Instant.now(clock)
+        );
+        problem.setProperty("parameter", ex.getParameterName());
+        return new ResponseEntity<>(problem, headers, HttpStatus.BAD_REQUEST);
     }
 
     @Override
     protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(
-            HttpRequestMethodNotSupportedException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
+            @NonNull HttpRequestMethodNotSupportedException ex,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request
     ) {
-        String supportedMethods = ex.getSupportedHttpMethods() != null ?
-                ex.getSupportedHttpMethods().toString() : "unknown";
+        String supportedMethods = ex.getSupportedHttpMethods() != null 
+                ? ex.getSupportedHttpMethods().toString() 
+                : "unknown";
         String message = String.format("Method '%s' is not supported. Supported methods: %s",
                 ex.getMethod(), supportedMethods);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.METHOD_NOT_ALLOWED, message);
-        problemDetail.setTitle("Method Not Allowed");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/method-not-allowed"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        problemDetail.setProperty("method", ex.getMethod());
-        problemDetail.setProperty("supportedMethods", supportedMethods);
-        return new ResponseEntity<>(problemDetail, headers, HttpStatus.METHOD_NOT_ALLOWED);
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.METHOD_NOT_ALLOWED,
+                ErrorTypes.UNSUPPORTED_OPERATION,
+                "Method Not Allowed",
+                message,
+                request,
+                Instant.now(clock)
+        );
+        problem.setProperty("method", ex.getMethod());
+        problem.setProperty("supportedMethods", supportedMethods);
+        return new ResponseEntity<>(problem, headers, HttpStatus.METHOD_NOT_ALLOWED);
     }
 
     @Override
     protected ResponseEntity<Object> handleHttpMediaTypeNotSupported(
-            HttpMediaTypeNotSupportedException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
+            @NonNull HttpMediaTypeNotSupportedException ex,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request
     ) {
-        String supportedTypes = ex.getSupportedMediaTypes() != null ?
-                ex.getSupportedMediaTypes().toString() : "unknown";
+        String supportedTypes = ex.getSupportedMediaTypes() != null 
+                ? ex.getSupportedMediaTypes().toString() 
+                : "unknown";
         String message = String.format("Media type '%s' is not supported. Supported types: %s",
                 ex.getContentType(), supportedTypes);
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.UNSUPPORTED_MEDIA_TYPE, message);
-        problemDetail.setTitle("Unsupported Media Type");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/unsupported-media-type"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        problemDetail.setProperty("contentType", ex.getContentType() != null ? ex.getContentType().toString() : "unknown");
-        problemDetail.setProperty("supportedTypes", supportedTypes);
-        return new ResponseEntity<>(problemDetail, headers, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
+        
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                ErrorTypes.UNSUPPORTED_OPERATION,
+                "Unsupported Media Type",
+                message,
+                request,
+                Instant.now(clock)
+        );
+        problem.setProperty("contentType", ex.getContentType() != null ? ex.getContentType().toString() : "unknown");
+        problem.setProperty("supportedTypes", supportedTypes);
+        return new ResponseEntity<>(problem, headers, HttpStatus.UNSUPPORTED_MEDIA_TYPE);
     }
 
     @Override
     protected ResponseEntity<Object> handleNoHandlerFoundException(
-            NoHandlerFoundException ex,
-            HttpHeaders headers,
-            HttpStatusCode status,
-            WebRequest request
+            @NonNull NoHandlerFoundException ex,
+            @NonNull HttpHeaders headers,
+            @NonNull HttpStatusCode status,
+            @NonNull WebRequest request
     ) {
         String message = String.format("No handler found for %s %s", ex.getHttpMethod(), ex.getRequestURL());
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, message);
-        problemDetail.setTitle("Not Found");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/not-found"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        problemDetail.setProperty("method", ex.getHttpMethod());
-        problemDetail.setProperty("requestURL", ex.getRequestURL());
-        return new ResponseEntity<>(problemDetail, headers, HttpStatus.NOT_FOUND);
-    }
-
-    // Catch-all handler - this should handle any exception not caught by more specific handlers
-    @ExceptionHandler(Exception.class)
-    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ProblemDetail handleAllOthers(Exception ex, WebRequest request) {
-        // Log the exception for debugging
-        logger.error("Unhandled exception: ", ex);
-
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                "An unexpected error occurred"
+        ProblemDetail problem = ProblemDetailBuilder.create(
+                HttpStatus.NOT_FOUND,
+                ErrorTypes.RESOURCE_NOT_FOUND,
+                "Resource Not Found",
+                message,
+                request,
+                Instant.now(clock)
         );
-        problemDetail.setTitle("Internal Server Error");
-        problemDetail.setType(URI.create(ERROR_TYPE_BASE + "/internal-server-error"));
-        problemDetail.setInstance(URI.create(request.getDescription(false).replace("uri=", "")));
-        problemDetail.setProperty("timestamp", Instant.now(clock));
-        return problemDetail;
+        problem.setProperty("method", ex.getHttpMethod());
+        problem.setProperty("requestURL", ex.getRequestURL());
+        return new ResponseEntity<>(problem, headers, HttpStatus.NOT_FOUND);
     }
+
+    // ==================== Helper Methods ====================
 
     /**
      * Sanitizes error messages to avoid exposing internal implementation details.
-     * Replaces sensitive internal details with generic messages.
      */
     private String sanitizeErrorMessage(String message) {
         if (message == null || message.trim().isEmpty()) {
             return "Invalid request";
         }
         
-        // List of sensitive terms that should be replaced
         String[] sensitiveTerms = {
             "database", "connection", "sql", "jdbc", "hibernate", "jpa",
             "internal", "stack", "trace", "exception", "timeout", "deadlock", 
             "constraint", "violation", "duplicate"
         };
         
-        String sanitized = message.toLowerCase();
+        String lowerMessage = message.toLowerCase();
         for (String term : sensitiveTerms) {
-            if (sanitized.contains(term)) {
+            if (lowerMessage.contains(term)) {
                 return "Invalid request";
             }
         }
@@ -501,4 +591,102 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return message;
     }
 
+    /**
+     * Sanitizes database error messages to avoid exposing internal database details.
+     * Provides user-friendly messages without revealing schema, constraints, or binary data.
+     */
+    private String sanitizeDatabaseError(DataIntegrityViolationException ex) {
+        Throwable specificCause = ex.getMostSpecificCause();
+        String technicalMessage = specificCause != null ? specificCause.getMessage() : null;
+        
+        if (technicalMessage == null) {
+            return "A data conflict occurred. Please check your input and try again.";
+        }
+        
+        String lowerMessage = technicalMessage.toLowerCase();
+        
+        // Handle duplicate key violations
+        if (lowerMessage.contains("duplicate entry") || lowerMessage.contains("duplicate key")) {
+            // Try to extract a user-friendly field name from the constraint
+            String fieldHint = extractFieldFromConstraint(technicalMessage);
+            if (fieldHint != null) {
+                return "A " + fieldHint + " with this value already exists. Please use a different value.";
+            }
+            return "This record already exists. Please check for duplicates.";
+        }
+        
+        // Handle foreign key violations
+        if (lowerMessage.contains("foreign key constraint") || lowerMessage.contains("cannot delete or update a parent row")) {
+            return "This record cannot be modified because it is referenced by other data.";
+        }
+        
+        // Handle null constraint violations
+        if (lowerMessage.contains("cannot be null") || lowerMessage.contains("not-null")) {
+            return "A required field is missing. Please provide all required information.";
+        }
+        
+        // Handle check constraint violations
+        if (lowerMessage.contains("check constraint")) {
+            return "The data does not meet validation requirements. Please check your input.";
+        }
+        
+        // Generic fallback
+        return "A data conflict occurred. Please check your input and try again.";
+    }
+
+    /**
+     * Attempts to extract a user-friendly field name from a database constraint name.
+     * Returns null if no recognizable pattern is found.
+     */
+    private String extractFieldFromConstraint(String technicalMessage) {
+        try {
+            // Pattern: for key 'table.UK_fieldname' or for key 'UK_fieldname'
+            if (technicalMessage.contains("for key '")) {
+                int startIdx = technicalMessage.indexOf("for key '") + 9;
+                int endIdx = technicalMessage.indexOf("'", startIdx);
+                if (endIdx > startIdx) {
+                    String constraintName = technicalMessage.substring(startIdx, endIdx);
+                    
+                    // Remove table prefix if present (e.g., "users.UK_email" -> "UK_email")
+                    if (constraintName.contains(".")) {
+                        constraintName = constraintName.substring(constraintName.lastIndexOf(".") + 1);
+                    }
+                    
+                    // Map common constraint patterns to user-friendly names
+                    String lowerConstraint = constraintName.toLowerCase();
+                    if (lowerConstraint.contains("email")) return "email address";
+                    if (lowerConstraint.contains("username")) return "username";
+                    if (lowerConstraint.contains("title")) return "title";
+                    if (lowerConstraint.contains("name")) return "name";
+                    if (lowerConstraint.contains("slug")) return "slug";
+                    
+                    // Generic: "record"
+                    return "record";
+                }
+            }
+        } catch (Exception e) {
+            // If parsing fails, return null to use generic message
+            log.debug("Failed to extract field from constraint: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    private ViolationDetail toViolationDetail(ConstraintViolation<?> violation) {
+        String field = violation.getPropertyPath() != null 
+                ? violation.getPropertyPath().toString() 
+                : "unknown";
+        return new ViolationDetail(
+                field,
+                violation.getMessage(),
+                violation.getInvalidValue()
+        );
+    }
+
+    // ==================== Internal DTOs ====================
+
+    private record ViolationDetail(String field, String message, Object invalidValue) {
+    }
+
+    private record FieldValidationError(String field, String message, Object rejectedValue) {
+    }
 }
