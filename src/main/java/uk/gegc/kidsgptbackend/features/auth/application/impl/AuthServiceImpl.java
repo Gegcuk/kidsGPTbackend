@@ -140,7 +140,8 @@ public class AuthServiceImpl implements AuthService {
 
         // Enforce per-parent kid cap (subscription limits with global maximum)
         if (!kidCountingService.canAddMoreKids(parentUser)) {
-            throw new ValidationException("You have reached the maximum number of kids (5) for this account");
+            int maxKids = kidCountingService.getEffectiveMaxKids(parentUser);
+            throw new ValidationException("You have reached the maximum number of kids allowed by your plan (" + maxKids + "). Please upgrade to add more.");
         }
         kidUser.setRoles(new HashSet<>(java.util.Arrays.asList(kidRole)));
 

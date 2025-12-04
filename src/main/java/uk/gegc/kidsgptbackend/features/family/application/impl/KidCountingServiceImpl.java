@@ -78,13 +78,18 @@ public class KidCountingServiceImpl implements KidCountingService {
         int currentKidsCount = countKidsForParent(parentUser);
         
         // Get subscription limits
-        int maxKidsAllowed = getMaxKidsForUser(parentUser);
+        int maxKidsAllowed = getEffectiveMaxKids(parentUser);
         
         boolean canAdd = currentKidsCount < maxKidsAllowed;
         log.debug("Parent {} has {}/{} kids, can add more: {}", 
                 parentUser.getUsername(), currentKidsCount, maxKidsAllowed, canAdd);
         
         return canAdd;
+    }
+
+    @Override
+    public int getEffectiveMaxKids(User parentUser) {
+        return getMaxKidsForUser(parentUser);
     }
     
     private boolean isParentUser(User user) {
