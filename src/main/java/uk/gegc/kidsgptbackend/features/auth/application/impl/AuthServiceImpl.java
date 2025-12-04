@@ -33,6 +33,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
 import uk.gegc.kidsgptbackend.features.auth.application.AuthService;
+import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -56,6 +57,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
     private final RevokedTokenRepository revokedTokenRepository;
+    private final KidCountingService kidCountingService;
 
     @Override
     @Transactional
@@ -135,6 +137,11 @@ public class AuthServiceImpl implements AuthService {
 
         Role kidRole = roleRepository.findByRole(RoleName.ROLE_CHILD.name())
                 .orElseThrow(() -> new IllegalStateException("ROLE_CHILD not found"));
+
+        // Enforce per-parent kid cap (subscription limits with global maximum)
+        if (!kidCountingService.canAddMoreKids(parentUser)) {
+            throw new ValidationException("You have reached the maximum number of kids (5) for this account");
+        }
         kidUser.setRoles(new HashSet<>(java.util.Arrays.asList(kidRole)));
 
         User savedKidUser = userRepository.save(kidUser);

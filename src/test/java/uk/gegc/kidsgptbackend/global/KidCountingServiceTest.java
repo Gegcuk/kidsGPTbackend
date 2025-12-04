@@ -77,7 +77,7 @@ class KidCountingServiceTest extends BaseUnitTest {
     protected void setUp() {
         super.setUp();
         fixedClock = createDefaultFixedClock();
-        kidCountingService = new KidCountingServiceImpl(kidRepository, parentRepository, userSubscriptionRepository);
+        kidCountingService = new KidCountingServiceImpl(kidRepository, parentRepository, userSubscriptionRepository, fixedClock);
         
         // Set up common mocks
         UUID parentUserId = UUID.randomUUID();
@@ -316,11 +316,12 @@ class KidCountingServiceTest extends BaseUnitTest {
         boolean canAddMore = kidCountingService.canAddMoreKids(parentUser);
         
         // Then
-        assertThat(canAddMore).isFalse(); // 3 > 1 (free tier) - subscription lookup might be failing
+        // Plan maxKids is 5 (from setup), global cap is 5, current kids = 3 → can add more
+        assertThat(canAddMore).isTrue();
     }
 
     @Test
-    @DisplayName("Limits: User with no active subscription should use free tier (1 kid)")
+    @DisplayName("Limits: User with no active subscription should use free tier up to global cap")
     void limits_userWithNoActiveSubscriptionShouldUseFreeTier() {
         // Given - Parent user with ROLE_PARENT but no subscription
         Set<Role> parentRoles = new HashSet<>();
@@ -339,11 +340,11 @@ class KidCountingServiceTest extends BaseUnitTest {
         boolean canAddMore = kidCountingService.canAddMoreKids(parentUser);
         
         // Then
-        assertThat(canAddMore).isTrue(); // 0 < 1 (free tier)
+        assertThat(canAddMore).isTrue(); // 0 < 5 (free tier/global cap)
     }
 
     @Test
-    @DisplayName("Limits: User with expired subscription should be treated as free tier")
+    @DisplayName("Limits: User with expired subscription should be treated as free tier with global cap")
     void limits_userWithExpiredSubscriptionShouldBeTreatedAsFreeTier() {
         // Given - Parent user with ROLE_PARENT and expired subscription
         Set<Role> parentRoles = new HashSet<>();
@@ -353,7 +354,7 @@ class KidCountingServiceTest extends BaseUnitTest {
         when(parentUser.getRoles()).thenReturn(parentRoles);
         
         when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(parent));
-        when(kidRepository.countByParentId(parent.getId())).thenReturn(1);
+        when(kidRepository.countByParentId(parent.getId())).thenReturn(5);
         
         when(userSubscriptionRepository.findActiveSubscriptionByUser(parentUser))
                 .thenReturn(Optional.of(expiredSubscription));
@@ -364,7 +365,7 @@ class KidCountingServiceTest extends BaseUnitTest {
         boolean canAddMore = kidCountingService.canAddMoreKids(parentUser);
         
         // Then
-        assertThat(canAddMore).isFalse(); // 1 >= 1 (free tier limit reached)
+        assertThat(canAddMore).isFalse(); // 5 >= 5 (free tier/global cap reached)
     }
 
     @Test
@@ -390,6 +391,44 @@ class KidCountingServiceTest extends BaseUnitTest {
         
         // Then
         assertThat(canAddMore).isFalse(); // 5 >= 5 (at limit)
+    }
+
+    @Test
+    @DisplayName("Limits: Plan maxKids greater than global cap should be capped to 5")
+    void limits_planMaxKidsGreaterThanGlobalCapShouldBeCapped() {
+        // Given - Parent user with ROLE_PARENT and subscription whose plan allows >5 kids
+        Set<Role> parentRoles = new HashSet<>();
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentRoles.add(parentRole);
+        when(parentUser.getRoles()).thenReturn(parentRoles);
+
+        when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(parent));
+
+        // Simulate plan with very high maxKids (e.g. 10)
+        when(subscriptionPlan.getMaxKids()).thenReturn(10);
+        when(userSubscriptionRepository.findActiveSubscriptionByUser(parentUser))
+                .thenReturn(Optional.of(activeSubscription));
+        when(activeSubscription.getCurrentPeriodEnd())
+                .thenReturn(Instant.now(fixedClock).plusSeconds(86400)); // 1 day in future
+
+        // Current kids below global cap
+        when(kidRepository.countByParentId(parent.getId())).thenReturn(4);
+
+        // When
+        boolean canAddMoreBelowCap = kidCountingService.canAddMoreKids(parentUser);
+
+        // Then - 4 < 5 (global cap) → can add more
+        assertThat(canAddMoreBelowCap).isTrue();
+
+        // Now at the global cap
+        when(kidRepository.countByParentId(parent.getId())).thenReturn(5);
+
+        // When
+        boolean canAddMoreAtCap = kidCountingService.canAddMoreKids(parentUser);
+
+        // Then - 5 >= 5 (global cap) → cannot add more
+        assertThat(canAddMoreAtCap).isFalse();
     }
 
     @Test
@@ -432,7 +471,7 @@ class KidCountingServiceTest extends BaseUnitTest {
         boolean canAddMore = kidCountingService.canAddMoreKids(parentUser);
         
         // Then
-        assertThat(canAddMore).isTrue(); // Defaults to free tier (1 kid), 0 < 1
+        assertThat(canAddMore).isTrue(); // Defaults to free tier/global cap, 0 < 5
     }
 
     @Test
@@ -485,7 +524,7 @@ class KidCountingServiceTest extends BaseUnitTest {
         when(parentUser.getRoles()).thenReturn(parentRoles);
         
         when(parentRepository.findByUserId(parentUser.getId())).thenReturn(Optional.of(parent));
-        when(kidRepository.countByParentId(parent.getId())).thenReturn(1);
+        when(kidRepository.countByParentId(parent.getId())).thenReturn(5);
         
         when(userSubscriptionRepository.findActiveSubscriptionByUser(parentUser))
                 .thenReturn(Optional.of(activeSubscription));
@@ -495,7 +534,7 @@ class KidCountingServiceTest extends BaseUnitTest {
         boolean canAddMore = kidCountingService.canAddMoreKids(parentUser);
         
         // Then
-        assertThat(canAddMore).isFalse(); // 1 >= 1 (treated as free tier)
+        assertThat(canAddMore).isFalse(); // 5 >= 5 (treated as free tier/global cap)
     }
 
     @Test
@@ -521,6 +560,6 @@ class KidCountingServiceTest extends BaseUnitTest {
         boolean canAddMore = kidCountingService.canAddMoreKids(parentUser);
         
         // Then
-        assertThat(canAddMore).isTrue(); // Defaults to free tier (1 kid), 0 < 1
+        assertThat(canAddMore).isTrue(); // Defaults to free tier/global cap, 0 < 5
     }
 }

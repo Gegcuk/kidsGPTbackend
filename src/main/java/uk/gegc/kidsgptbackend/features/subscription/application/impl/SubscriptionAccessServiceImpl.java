@@ -16,16 +16,21 @@ import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
 public class SubscriptionAccessServiceImpl implements SubscriptionAccessService {
+
+    private static final String DAILY_FREE_AI_MESSAGES_FEATURE = "daily_free_ai_messages";
+    private static final int DAILY_FREE_MESSAGES_LIMIT = 5;
 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionUsageRepository subscriptionUsageRepository;
@@ -184,6 +189,70 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         log.info("Cleaned up expired usage records for user {}", user.getId());
     }
 
+    /**
+     * Daily free messages (per subject, e.g. per child) backed by SubscriptionUsage.
+     * This does not consider paid subscriptions; callers decide when to use it.
+     */
+    @Transactional
+    public int getRemainingDailyFreeMessagesForSubject(User user, UUID subjectId) {
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+
+        String periodKey = buildDailyFreeMessagesPeriodKey(subjectId, todayUtc);
+        Instant periodStart = todayUtc.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant periodEnd = todayUtc.plusDays(1).atStartOfDay().minusNanos(1).toInstant(ZoneOffset.UTC);
+
+        try {
+            SubscriptionUsage usage = subscriptionUsageRepository
+                    .findByUserAndFeatureAndPeriodKey(user, DAILY_FREE_AI_MESSAGES_FEATURE, periodKey)
+                    .orElseGet(() ->
+                            createUsageRecord(user,
+                                    DAILY_FREE_AI_MESSAGES_FEATURE,
+                                    periodKey,
+                                    DAILY_FREE_MESSAGES_LIMIT,
+                                    periodStart,
+                                    periodEnd));
+
+            return usage.getRemainingUsage();
+        } catch (Exception e) {
+            log.error("Error getting daily free messages usage for user {} subject {} period {}",
+                    user.getId(), subjectId, periodKey, e);
+            return 0;
+        }
+    }
+
+    @Transactional
+    public void incrementDailyFreeMessagesForSubject(User user, UUID subjectId) {
+        Instant now = Instant.now();
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+
+        String periodKey = buildDailyFreeMessagesPeriodKey(subjectId, todayUtc);
+        Instant periodStart = todayUtc.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant periodEnd = todayUtc.plusDays(1).atStartOfDay().minusNanos(1).toInstant(ZoneOffset.UTC);
+
+        int updated = subscriptionUsageRepository.incrementUsage(
+                user,
+                DAILY_FREE_AI_MESSAGES_FEATURE,
+                periodKey,
+                now
+        );
+
+        if (updated == 0) {
+            SubscriptionUsage usage = createUsageRecord(
+                    user,
+                    DAILY_FREE_AI_MESSAGES_FEATURE,
+                    periodKey,
+                    DAILY_FREE_MESSAGES_LIMIT,
+                    periodStart,
+                    periodEnd
+            );
+            usage.setUsedCount(1);
+            subscriptionUsageRepository.save(usage);
+        }
+
+        log.debug("Incremented daily free messages usage for user {} subject {} in period {}",
+                user.getId(), subjectId, periodKey);
+    }
+
     // Helper methods
     private UserSubscription getActiveSubscription(User user) {
         Optional<UserSubscription> subscription = userSubscriptionRepository.findActiveSubscriptionByUser(user);
@@ -255,6 +324,10 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         usage.setPeriodEnd(periodEnd);
         
         return subscriptionUsageRepository.save(usage);
+    }
+
+    private String buildDailyFreeMessagesPeriodKey(UUID subjectId, LocalDate dateUtc) {
+        return "DAILY_FREE_" + subjectId + "_" + dateUtc;
     }
 
 }

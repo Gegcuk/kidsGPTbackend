@@ -6,11 +6,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import uk.gegc.kidsgptbackend.features.subscription.application.impl.SubscriptionAccessServiceImpl;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionPlan;
 import uk.gegc.kidsgptbackend.features.subscription.domain.model.SubscriptionUsage;
@@ -22,6 +20,7 @@ import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
@@ -33,8 +32,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-class SubscriptionAccessServiceImplTest {
+class SubscriptionAccessServiceImplTest extends uk.gegc.kidsgptbackend.test.BaseUnitTest {
 
     @Mock
     private UserSubscriptionRepository userSubscriptionRepository;
@@ -56,8 +54,9 @@ class SubscriptionAccessServiceImplTest {
     private SubscriptionPlan plusMonthlyPlan;
     private SubscriptionUsage existingUsage;
 
+    @Override
     @BeforeEach
-    void setUp() {
+    protected void setUp() {
         // Create test user
         testUser = new User();
         testUser.setId(UUID.randomUUID());
@@ -441,5 +440,64 @@ class SubscriptionAccessServiceImplTest {
         assertThat(finalUsage.getPeriodEnd()).isEqualTo(testUser.getCreatedAt().plus(3, ChronoUnit.DAYS));
         assertThat(finalUsage.getLimitCount()).isEqualTo(15);
         assertThat(finalUsage.getUsedCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("getRemainingDailyFreeMessagesForSubject - creates daily usage record with 5-message limit")
+    void getRemainingDailyFreeMessagesForSubject_createsDailyUsageRecordWithFiveLimit() {
+        UUID kidId = UUID.randomUUID();
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(
+                any(User.class),
+                eq("daily_free_ai_messages"),
+                anyString())
+        ).thenReturn(Optional.empty());
+        when(subscriptionUsageRepository.save(any(SubscriptionUsage.class)))
+                .thenAnswer(invocation -> {
+                    SubscriptionUsage usage = invocation.getArgument(0);
+                    usage.setId(UUID.randomUUID());
+                    return usage;
+                });
+
+        int remaining = subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(testUser, kidId);
+
+        assertThat(remaining).isEqualTo(5);
+
+        ArgumentCaptor<SubscriptionUsage> captor = ArgumentCaptor.forClass(SubscriptionUsage.class);
+        verify(subscriptionUsageRepository, atLeastOnce()).save(captor.capture());
+        SubscriptionUsage savedUsage = captor.getValue();
+
+        String expectedDate = java.time.LocalDate.now(ZoneOffset.UTC).toString();
+        assertThat(savedUsage.getUser()).isEqualTo(testUser);
+        assertThat(savedUsage.getFeature()).isEqualTo("daily_free_ai_messages");
+        assertThat(savedUsage.getPeriodKey()).isEqualTo("DAILY_FREE_" + kidId + "_" + expectedDate);
+        assertThat(savedUsage.getLimitCount()).isEqualTo(5);
+        assertThat(savedUsage.getUsedCount()).isEqualTo(0);
+        assertThat(savedUsage.getPeriodStart()).isNotNull();
+        assertThat(savedUsage.getPeriodEnd()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("incrementDailyFreeMessagesForSubject - uses atomic increment and does not create new record when row exists")
+    void incrementDailyFreeMessagesForSubject_usesAtomicIncrementWhenRowExists() {
+        UUID kidId = UUID.randomUUID();
+        String expectedDate = java.time.LocalDate.now(ZoneOffset.UTC).toString();
+        String expectedPeriodKey = "DAILY_FREE_" + kidId + "_" + expectedDate;
+
+        when(subscriptionUsageRepository.incrementUsage(
+                eq(testUser),
+                eq("daily_free_ai_messages"),
+                eq(expectedPeriodKey),
+                any(Instant.class)
+        )).thenReturn(1);
+
+        subscriptionAccessService.incrementDailyFreeMessagesForSubject(testUser, kidId);
+
+        verify(subscriptionUsageRepository).incrementUsage(
+                eq(testUser),
+                eq("daily_free_ai_messages"),
+                eq(expectedPeriodKey),
+                any(Instant.class)
+        );
+        verify(subscriptionUsageRepository, never()).save(any(SubscriptionUsage.class));
     }
 }
