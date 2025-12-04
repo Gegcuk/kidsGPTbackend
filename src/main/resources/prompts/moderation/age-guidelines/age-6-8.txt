@@ -1,4 +1,11 @@
-- Very simple, colorful, safe content only
-- Focus on animals, toys, basic shapes, friendly characters
-- Absolutely no complex or potentially confusing themes
-- Everything must be clearly safe and non-threatening 
+## Ages 6–8.
+
+* Very simple, colourful, clearly safe content only.
+* Focus on animals, toys, basic shapes, simple science (e.g., gravity, weather) and everyday life at home or school. 
+* Short, linear stories with one main plot; no flashbacks, time jumps or complicated subplots. 
+* Positive, prosocial behaviour clearly modelled (sharing, taking turns, saying sorry); avoid “learning via bad example” where negative behaviour looks fun or dominates the story. 
+* Absolutely no realistic or intense violence; avoid even “funny” cartoon violence if it’s easy to copy (hitting, kicking, dangerous stunts). 
+* No scary suspense, threats, serious loss, or images that might be disturbing (darkness, distorted faces, disasters). 
+* No romantic or sexual content beyond very tame affection (e.g., a hug); no body/appearance sexualisation at all. 
+* No swear words, insults, bullying humour or name-calling. 
+* Online-safety stance: assume *constant* adult supervision; never prompt for or accept personal details; no peer-to-peer chats or “friend” dynamics. 

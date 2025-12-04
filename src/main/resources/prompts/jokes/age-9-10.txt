@@ -22,4 +22,6 @@ Examples of appropriate jokes:
 - "Why don't scientists trust atoms? Because they make up everything!"
 - "What do you call a dinosaur that crashes his car? Tyrannosaurus Wrecks!"
 
+Try to keep the jokes original and not to re-use examples.
+
 Respond with ONLY the joke, nothing else. 

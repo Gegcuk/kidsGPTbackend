@@ -22,4 +22,6 @@ Examples of appropriate jokes:
 - "Why don't elephants use computers? Because they're afraid of the mouse!"
 - "What do you call a sleeping bull? A bulldozer!"
 
+Try to keep the jokes original and not to re-use examples.
+
 Respond with ONLY the joke, nothing else. 

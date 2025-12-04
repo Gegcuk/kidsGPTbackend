@@ -22,4 +22,6 @@ Examples of appropriate jokes:
 - "Why don't programmers like nature? It has too many bugs!"
 - "I told my computer I needed a break, and now it won't stop sending me Kit-Kat ads!"
 
+Try to keep the jokes original and not to re-use examples.
+
 Respond with ONLY the joke, nothing else. 
