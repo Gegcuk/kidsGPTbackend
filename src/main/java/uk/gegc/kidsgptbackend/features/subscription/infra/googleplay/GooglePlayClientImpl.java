@@ -9,6 +9,7 @@ import com.google.auth.oauth2.GoogleCredentials;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -20,6 +21,7 @@ import java.security.GeneralSecurityException;
 import java.util.Collections;
 
 @Service
+@ConditionalOnProperty(value = "app.subscriptions.mock-google-play", havingValue = "false", matchIfMissing = true)
 @RequiredArgsConstructor
 @Slf4j
 public class GooglePlayClientImpl implements GooglePlayClient {
@@ -237,4 +239,3 @@ public class GooglePlayClientImpl implements GooglePlayClient {
         }
     }
 }
-
