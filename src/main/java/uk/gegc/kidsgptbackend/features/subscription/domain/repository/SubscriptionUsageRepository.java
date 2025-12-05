@@ -35,6 +35,10 @@ public interface SubscriptionUsageRepository extends JpaRepository<SubscriptionU
     @Query("DELETE FROM SubscriptionUsage su WHERE su.periodKey = :periodKey")
     void deleteByPeriodKey(@Param("periodKey") String periodKey);
 
+    @Modifying
+    @Query("DELETE FROM SubscriptionUsage su WHERE su.user = :user")
+    void deleteByUser(@Param("user") User user);
+
     @Query("SELECT COALESCE(SUM(su.usedCount), 0) FROM SubscriptionUsage su " +
            "WHERE su.user = :user AND su.feature = :feature AND su.periodKey = :periodKey")
     Integer getTotalUsageForPeriod(@Param("user") User user, 

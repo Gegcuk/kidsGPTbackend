@@ -31,6 +31,7 @@ import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
 import uk.gegc.kidsgptbackend.features.auth.application.AuthService;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
@@ -58,6 +59,7 @@ public class AuthServiceImpl implements AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final RevokedTokenRepository revokedTokenRepository;
     private final KidCountingService kidCountingService;
+    private final SubscriptionUsageRepository subscriptionUsageRepository;
 
     @Override
     @Transactional
@@ -284,6 +286,9 @@ public class AuthServiceImpl implements AuthService {
 
         // Remove kid from parent's collection to maintain bidirectional relationship
         parent.getKids().remove(kid);
+
+        // Delete usage records to satisfy FK constraints
+        subscriptionUsageRepository.deleteByUser(kid.getUser());
 
         // Delete the kid's user account
         userRepository.delete(kid.getUser());
