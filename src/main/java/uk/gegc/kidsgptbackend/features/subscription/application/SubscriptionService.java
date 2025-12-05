@@ -56,6 +56,11 @@ public interface SubscriptionService {
     UserSubscriptionDto reactivateSubscription(User user);
 
     /**
+     * Purchase a one-time image pack for a kid.
+     */
+    KidSubscriptionStatusDto purchaseImagePack(User parentUser, ImagePackPurchaseRequest request);
+
+    /**
      * Update subscription status from payment provider webhook
      */
     void updateSubscriptionFromWebhook(UserSubscription.PaymentProvider paymentProvider, 

@@ -105,6 +105,27 @@ public class SubscriptionController {
         }
     }
 
+    @PostMapping("/image-packs/purchase")
+    @Operation(summary = "Purchase an image credit pack for a kid", description = "Verifies purchase and adds image credits to the specified kid")
+    public ResponseEntity<KidSubscriptionStatusDto> purchaseImagePack(
+            @Valid @RequestBody ImagePackPurchaseRequest request,
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User principal) {
+        if (principal == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        try {
+            User user = currentUserResolver.getCurrentUser(principal);
+            KidSubscriptionStatusDto status = subscriptionService.purchaseImagePack(user, request);
+            return ResponseEntity.ok(status);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid image pack request for user {}", principal.getUsername(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+        } catch (Exception e) {
+            log.error("Error purchasing image pack for user {}", principal.getUsername(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
     @GetMapping("/kids/me/status")
     @Operation(summary = "Get subscription/daily status for the authenticated kid", description = "Returns the kid's subscription status and remaining daily free messages")
     public ResponseEntity<KidSubscriptionStatusDto> getCurrentKidSubscriptionStatus(

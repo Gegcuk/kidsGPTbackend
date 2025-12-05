@@ -41,6 +41,11 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final KidRepository kidRepository;
     private final SubscriptionAccessService subscriptionAccessService;
     private final ParentRepository parentRepository;
+    private static final java.util.Map<String, Integer> IMAGE_PACK_CREDITS = java.util.Map.of(
+            "image_pack_5", 5,
+            "image_pack_10", 10,
+            "image_pack_20", 20
+    );
 
     @Override
     @Transactional(readOnly = true)
@@ -165,6 +170,9 @@ public class SubscriptionServiceImpl implements SubscriptionService {
             Integer remainingDaily = (!hasActiveSubscription && kidUser != null)
                     ? subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(kidUser, kidUser.getId())
                     : null;
+            Integer imageCredits = kidUser != null
+                    ? subscriptionAccessService.getRemainingUsage(kidUser, "image_generation")
+                    : null;
 
             return new KidSubscriptionStatusDto(
                     kid.getId(),
@@ -173,7 +181,8 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     hasActiveSubscription,
                     hasActiveSubscription && kidSub.getSubscriptionPlan() != null ? kidSub.getSubscriptionPlan().getName() : null,
                     hasActiveSubscription ? kidSub.getCurrentPeriodEnd() : null,
-                    remainingDaily
+                    remainingDaily,
+                    imageCredits
             );
         }).collect(Collectors.toList());
     }
@@ -195,8 +204,35 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 hasActiveSubscription,
                 hasActiveSubscription && activeSub.getSubscriptionPlan() != null ? activeSub.getSubscriptionPlan().getName() : null,
                 hasActiveSubscription ? activeSub.getCurrentPeriodEnd() : null,
-                remainingDaily
+                remainingDaily,
+                subscriptionAccessService.getRemainingUsage(hydratedKid, "image_generation")
         );
+    }
+
+    @Override
+    @Transactional
+    public KidSubscriptionStatusDto purchaseImagePack(User parentUser, ImagePackPurchaseRequest request) {
+        // verify parent owns kid
+        var kidUser = userRepository.findById(request.kidUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Kid user not found"));
+        var kid = kidRepository.findByUserId(kidUser.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Kid profile not found"));
+        var parent = parentRepository.findByUserId(parentUser.getId())
+                .orElseGet(() -> parentRepository.findByEmail(parentUser.getEmail()).orElse(null));
+        if (parent == null || kid.getParent() == null || !kid.getParent().getId().equals(parent.getId())) {
+            throw new IllegalStateException("Kid does not belong to parent");
+        }
+
+        boolean verified = googlePlayClient.verifyPurchaseToken(request.productId(), request.purchaseToken());
+        if (!verified) {
+            throw new IllegalStateException("Invalid purchase token");
+        }
+
+        int credits = IMAGE_PACK_CREDITS.getOrDefault(request.productId(), 5);
+        subscriptionAccessService.addUsageCredits(kidUser, "image_generation", credits);
+
+        // Return updated kid status
+        return getKidSelfStatus(kidUser);
     }
 
     @Override

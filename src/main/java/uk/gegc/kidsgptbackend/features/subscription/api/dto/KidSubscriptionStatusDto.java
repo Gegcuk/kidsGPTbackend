@@ -20,6 +20,8 @@ public record KidSubscriptionStatusDto(
         @Schema(description = "Current period end for the kid subscription")
         Instant currentPeriodEnd,
         @Schema(description = "Remaining free daily messages for this kid")
-        Integer dailyFreeMessagesRemaining
+        Integer dailyFreeMessagesRemaining,
+        @Schema(description = "Remaining image credits for this kid (subscription base + purchased packs)")
+        Integer imageCreditsRemaining
 ) {
 }
