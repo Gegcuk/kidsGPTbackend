@@ -197,7 +197,7 @@
         <dependency>
             <groupId>com.google.apis</groupId>
             <artifactId>google-api-services-androidpublisher</artifactId>
-            <version>v3-rev20240516-2.0.0</version>
+            <version>v3-rev20251211-2.0.0</version>
         </dependency>
 
         <!-- Google API Client Library -->
