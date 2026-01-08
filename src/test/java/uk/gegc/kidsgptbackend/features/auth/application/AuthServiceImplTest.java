@@ -31,6 +31,7 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
@@ -68,6 +69,8 @@ class AuthServiceImplTest extends BaseUnitTest {
     RevokedTokenRepository revokedTokenRepository;
     @Mock
     KidCountingService kidCountingService;
+    @Mock
+    SubscriptionUsageRepository subscriptionUsageRepository;
 
     @InjectMocks
     AuthServiceImpl authService;
@@ -584,8 +587,9 @@ class AuthServiceImplTest extends BaseUnitTest {
         when(kidRepository.findById(kidId)).thenReturn(Optional.of(kid));
         
         authService.deleteKid(kidId, parentUsername);
-        
+
         // Then
+        verify(subscriptionUsageRepository).deleteByUser(kidUser);
         verify(kidRepository).delete(kid);
         verify(userRepository).delete(kidUser);
     }
