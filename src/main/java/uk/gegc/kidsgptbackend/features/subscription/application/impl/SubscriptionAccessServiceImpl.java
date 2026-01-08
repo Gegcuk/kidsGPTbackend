@@ -176,6 +176,7 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
      * Daily free messages (per subject, e.g. per child) backed by SubscriptionUsage.
      * This does not consider paid subscriptions; callers decide when to use it.
      */
+    @Override
     @Transactional
     public int getRemainingDailyFreeMessagesForSubject(User user, UUID subjectId) {
         LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
@@ -203,6 +204,7 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         }
     }
 
+    @Override
     @Transactional
     public void incrementDailyFreeMessagesForSubject(User user, UUID subjectId) {
         Instant now = Instant.now();

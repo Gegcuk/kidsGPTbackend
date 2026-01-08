@@ -29,13 +29,13 @@ public class MockGooglePlayClient implements GooglePlayClient {
 
     @Override
     public GooglePlaySubscriptionPurchase getSubscriptionPurchase(String productId, String purchaseToken) {
-        log.info("MockGooglePlayClient returning active purchase for product {} token {}", productId, maskToken(purchaseToken));
+        log.info("MockGooglePlayClient returning active purchase for product {}", productId);
         return createPurchase(productId, purchaseToken);
     }
 
     @Override
     public boolean verifyPurchaseToken(String productId, String purchaseToken) {
-        log.info("MockGooglePlayClient verifying token for product {} token {}", productId, maskToken(purchaseToken));
+        log.info("MockGooglePlayClient verifying token for product {}", productId);
         // Always valid in mock mode, optionally warn if not using the expected mock productId
         if (!mockProductId.equals(productId)) {
             log.warn("Mock purchase using unexpected productId {} (expected {})", productId, mockProductId);
@@ -45,7 +45,7 @@ public class MockGooglePlayClient implements GooglePlayClient {
 
     @Override
     public void acknowledgeSubscription(String productId, String purchaseToken, String developerPayload) {
-        log.info("MockGooglePlayClient acknowledging subscription product {} token {}", productId, maskToken(purchaseToken));
+        log.info("MockGooglePlayClient acknowledging subscription product {}", productId);
     }
 
     private GooglePlaySubscriptionPurchase createPurchase(String productId, String purchaseToken) {
@@ -64,10 +64,4 @@ public class MockGooglePlayClient implements GooglePlayClient {
         return purchase;
     }
 
-    private String maskToken(String token) {
-        if (token == null || token.length() < 4) {
-            return "****";
-        }
-        return "****" + token.substring(token.length() - 4);
-    }
 }
