@@ -1,5 +1,8 @@
 package uk.gegc.kidsgptbackend.features.subscription.infra.googleplay;
 
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpRequestFactory;
+import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.services.androidpublisher.AndroidPublisher;
 import com.google.api.services.androidpublisher.model.SubscriptionPurchase;
 import com.google.auth.oauth2.GoogleCredentials;
@@ -14,13 +17,17 @@ import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayS
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -136,6 +143,74 @@ class GooglePlayClientImplComprehensiveTest {
     }
 
     @Test
+    @DisplayName("Initialization: File credentials build AndroidPublisher when valid")
+    void initialization_fileCredentialsBuildsAndroidPublisher() throws IOException {
+        Path tempFile = Files.createTempFile("google-play-credentials", ".json");
+        Files.writeString(tempFile, "{\"type\":\"service_account\"}");
+
+        ReflectionTestUtils.setField(googlePlayClient, "credentialsFile", tempFile.toString());
+        ReflectionTestUtils.setField(googlePlayClient, "serviceAccountKey", "");
+
+        GoogleCredentials mockCredentials = mock(GoogleCredentials.class);
+        when(mockCredentials.createScoped(anyCollection())).thenReturn(mockCredentials);
+
+        try (MockedStatic<GoogleCredentials> credentialsMock = mockStatic(GoogleCredentials.class);
+             MockedStatic<GoogleNetHttpTransport> transportMock = mockStatic(GoogleNetHttpTransport.class)) {
+            NetHttpTransport mockTransport = mock(NetHttpTransport.class);
+            when(mockTransport.createRequestFactory(any())).thenReturn(mock(HttpRequestFactory.class));
+            transportMock.when(GoogleNetHttpTransport::newTrustedTransport).thenReturn(mockTransport);
+
+            credentialsMock.when(() -> GoogleCredentials.fromStream(any(InputStream.class)))
+                    .thenReturn(mockCredentials);
+
+            googlePlayClient.initializeAndroidPublisher();
+
+            AndroidPublisher androidPublisher =
+                    (AndroidPublisher) ReflectionTestUtils.getField(googlePlayClient, "androidPublisher");
+            assertThat(androidPublisher).isNotNull();
+        }
+    }
+
+    @Test
+    @DisplayName("Initialization: File credentials attempt falls back to service account key")
+    void initialization_fileCredentialsFallBackToServiceAccountKey() throws IOException {
+        Path tempFile = Files.createTempFile("google-play-credentials", ".json");
+        Files.writeString(tempFile, "{\"type\":\"service_account\"}");
+
+        ReflectionTestUtils.setField(googlePlayClient, "credentialsFile", tempFile.toString());
+        ReflectionTestUtils.setField(googlePlayClient, "serviceAccountKey", testServiceAccountKey);
+
+        try (MockedStatic<GoogleCredentials> credentialsMock = mockStatic(GoogleCredentials.class)) {
+            credentialsMock.when(() -> GoogleCredentials.fromStream(any(InputStream.class)))
+                    .thenThrow(new IOException("file read failed"))
+                    .thenThrow(new IOException("env read failed"));
+
+            assertThatThrownBy(() -> googlePlayClient.initializeAndroidPublisher())
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessage("Failed to initialize Google Play API")
+                    .hasCauseInstanceOf(IOException.class);
+
+            credentialsMock.verify(() -> GoogleCredentials.fromStream(any(InputStream.class)), times(2));
+        }
+    }
+
+    @Test
+    @DisplayName("Initialization: Missing credentials file with no key uses mock path")
+    void initialization_missingCredentialsFileWithoutKeyUsesMockPath() {
+        ReflectionTestUtils.setField(googlePlayClient, "credentialsFile", "nonexistent-file.json");
+        ReflectionTestUtils.setField(googlePlayClient, "serviceAccountKey", "");
+
+        googlePlayClient.initializeAndroidPublisher();
+
+        AndroidPublisher androidPublisher = (AndroidPublisher) ReflectionTestUtils.getField(googlePlayClient, "androidPublisher");
+        assertThat(androidPublisher).isNull();
+
+        GooglePlaySubscriptionPurchase result = googlePlayClient.getSubscriptionPurchase(testProductId, testPurchaseToken);
+        assertThat(result.getProductId()).isEqualTo(testProductId);
+        assertThat(result.getPurchaseToken()).isEqualTo(testPurchaseToken);
+    }
+
+    @Test
     @DisplayName("getSubscriptionPurchase: Maps SubscriptionPurchase fields safely via reflection helpers")
     void getSubscriptionPurchase_mapsFieldsSafelyViaReflectionHelpers() throws IOException {
         // Given - Set up with mock AndroidPublisher
@@ -232,8 +307,64 @@ class GooglePlayClientImplComprehensiveTest {
         // Fields that failed reflection should be null or default values
         assertThat(result.getKind()).isNull();
         assertThat(result.getRegionCode()).isNull();
-        // When reflection fails, the DTO defaults to "0" for priceAmountMicros
         assertThat(result.getPriceAmountMicros()).isEqualTo("0");
+    }
+
+    @Test
+    @DisplayName("getSubscriptionPurchase: Maps purchase and acknowledgement states")
+    void getSubscriptionPurchase_mapsPurchaseAndAcknowledgementStates() throws IOException {
+        AndroidPublisher mockAndroidPublisher = mock(AndroidPublisher.class);
+        AndroidPublisher.Purchases mockPurchases = mock(AndroidPublisher.Purchases.class);
+        AndroidPublisher.Purchases.Subscriptions mockSubscriptions = mock(AndroidPublisher.Purchases.Subscriptions.class);
+        AndroidPublisher.Purchases.Subscriptions.Get mockGet = mock(AndroidPublisher.Purchases.Subscriptions.Get.class);
+
+        SubscriptionPurchase purchase = new SubscriptionPurchase()
+                .setStartTimeMillis(1000L)
+                .setExpiryTimeMillis(2000L)
+                .setAutoRenewing(true)
+                .setAcknowledgementState(1)
+                .setPriceAmountMicros(4990000L)
+                .setPriceCurrencyCode("GBP")
+                .setCountryCode("GB")
+                .setOrderId("GPA.1234-5678");
+
+        when(mockAndroidPublisher.purchases()).thenReturn(mockPurchases);
+        when(mockPurchases.subscriptions()).thenReturn(mockSubscriptions);
+        when(mockSubscriptions.get(anyString(), anyString(), anyString())).thenReturn(mockGet);
+        when(mockGet.execute()).thenReturn(purchase);
+
+        ReflectionTestUtils.setField(googlePlayClient, "androidPublisher", mockAndroidPublisher);
+
+        GooglePlaySubscriptionPurchase result = googlePlayClient.getSubscriptionPurchase(testProductId, testPurchaseToken);
+
+        assertThat(result.getAcknowledgementState()).isEqualTo("ACKNOWLEDGED");
+        assertThat(result.getPriceAmountMicros()).isEqualTo("4990000");
+    }
+
+    @Test
+    @DisplayName("getSubscriptionPurchase: Maps unknown acknowledgement state values to UNKNOWN")
+    void getSubscriptionPurchase_mapsUnknownAcknowledgementStateValuesToUnknown() throws IOException {
+        AndroidPublisher mockAndroidPublisher = mock(AndroidPublisher.class);
+        AndroidPublisher.Purchases mockPurchases = mock(AndroidPublisher.Purchases.class);
+        AndroidPublisher.Purchases.Subscriptions mockSubscriptions = mock(AndroidPublisher.Purchases.Subscriptions.class);
+        AndroidPublisher.Purchases.Subscriptions.Get mockGet = mock(AndroidPublisher.Purchases.Subscriptions.Get.class);
+
+        SubscriptionPurchase purchase = new SubscriptionPurchase()
+                .setStartTimeMillis(1000L)
+                .setExpiryTimeMillis(2000L)
+                .setAutoRenewing(true)
+                .setAcknowledgementState(2);
+
+        when(mockAndroidPublisher.purchases()).thenReturn(mockPurchases);
+        when(mockPurchases.subscriptions()).thenReturn(mockSubscriptions);
+        when(mockSubscriptions.get(anyString(), anyString(), anyString())).thenReturn(mockGet);
+        when(mockGet.execute()).thenReturn(purchase);
+
+        ReflectionTestUtils.setField(googlePlayClient, "androidPublisher", mockAndroidPublisher);
+
+        GooglePlaySubscriptionPurchase result = googlePlayClient.getSubscriptionPurchase(testProductId, testPurchaseToken);
+
+        assertThat(result.getAcknowledgementState()).isEqualTo("UNKNOWN");
     }
 
     @Test
@@ -283,6 +414,36 @@ class GooglePlayClientImplComprehensiveTest {
         
         // Mock data should be valid (purchased and not expired)
         assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("verifyPurchaseToken: Returns false when purchase is canceled")
+    void verifyPurchaseToken_returnsFalseWhenPurchaseIsCanceled() {
+        GooglePlayClientImpl spyClient = spy(googlePlayClient);
+        GooglePlaySubscriptionPurchase purchase = new GooglePlaySubscriptionPurchase();
+        purchase.setPurchaseState("CANCELED");
+        purchase.setExpiryTimeMillis(Instant.now().plusSeconds(3600).toEpochMilli());
+
+        doReturn(purchase).when(spyClient).getSubscriptionPurchase(testProductId, testPurchaseToken);
+
+        boolean result = spyClient.verifyPurchaseToken(testProductId, testPurchaseToken);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("verifyPurchaseToken: Returns false when purchase is expired")
+    void verifyPurchaseToken_returnsFalseWhenPurchaseIsExpired() {
+        GooglePlayClientImpl spyClient = spy(googlePlayClient);
+        GooglePlaySubscriptionPurchase purchase = new GooglePlaySubscriptionPurchase();
+        purchase.setPurchaseState("PURCHASED");
+        purchase.setExpiryTimeMillis(Instant.now().minusSeconds(60).toEpochMilli());
+
+        doReturn(purchase).when(spyClient).getSubscriptionPurchase(testProductId, testPurchaseToken);
+
+        boolean result = spyClient.verifyPurchaseToken(testProductId, testPurchaseToken);
+
+        assertThat(result).isFalse();
     }
 
     @Test

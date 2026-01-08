@@ -30,6 +30,7 @@
         <java.version>17</java.version>
         <jacoco.version>0.8.14</jacoco.version>
         <owasp.dependency-check.version>11.0.0</owasp.dependency-check.version>
+        <bytebuddy.version>1.15.11</bytebuddy.version>
     </properties>
     <dependencies>
 
@@ -115,6 +116,12 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.bytebuddy</groupId>
+            <artifactId>byte-buddy-agent</artifactId>
+            <version>${bytebuddy.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -289,7 +296,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
-                    <argLine>${argLine}</argLine>
+                    <argLine>${argLine} -Djdk.attach.allowAttachSelf=true -javaagent:${settings.localRepository}/net/bytebuddy/byte-buddy-agent/${bytebuddy.version}/byte-buddy-agent-${bytebuddy.version}.jar</argLine>
                 </configuration>
             </plugin>
             <!-- JaCoCo Maven Plugin for Code Coverage -->
