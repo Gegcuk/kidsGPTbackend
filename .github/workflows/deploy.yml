@@ -117,7 +117,29 @@ jobs:
           MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}
           DOCKER_USER=${{ secrets.DOCKER_USER }}
           APP_TAG=${{ github.sha }}
+          GOOGLE_PLAY_PACKAGE_NAME=${{ secrets.GOOGLE_PLAY_PACKAGE_NAME }}
+          GOOGLE_PLAY_APPLICATION_NAME=${{ secrets.GOOGLE_PLAY_APPLICATION_NAME || 'KidsGPT' }}
           EOF
+          
+          # Handle Google Play credentials: prefer file if present, otherwise use service account key
+          # If using file-based auth, upload 'google-play-credentials.json' to the deployment directory
+          # It will be mounted to /etc/google-play-credentials/credentials.json in the container
+          CREDS_FILE_HOST="./google-play-credentials.json"
+          CREDS_FILE_CONTAINER_PATH="${{ secrets.GOOGLE_PLAY_CREDENTIALS_FILE }}"
+          if [ -z "$CREDS_FILE_CONTAINER_PATH" ]; then
+            CREDS_FILE_CONTAINER_PATH="/etc/google-play-credentials/credentials.json"
+          fi
+
+          if [ -f "${CREDS_FILE_HOST}" ]; then
+            echo "GOOGLE_PLAY_CREDENTIALS_FILE=${CREDS_FILE_CONTAINER_PATH}" >> .env
+            echo "✅ Google Play credentials file found, will be mounted to container"
+          elif [ -n "${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}" ]; then
+            echo "GOOGLE_PLAY_SERVICE_ACCOUNT_KEY=${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_KEY }}" >> .env
+            echo "✅ Using Google Play service account key from environment variable"
+          else
+            echo "⚠️ Warning: No Google Play credentials found (file or service account key)"
+            echo "⚠️ Google Play verification will not work. Provide a credentials file or set GOOGLE_PLAY_SERVICE_ACCOUNT_KEY."
+          fi
           
           if [ -f /tmp/previous_tag.txt ]; then
             PREVIOUS_TAG=$(cat /tmp/previous_tag.txt)

@@ -31,6 +31,16 @@ public interface SubscriptionService {
     SubscriptionStatusDto getUserSubscriptionStatus(User user);
 
     /**
+     * Get subscription status for all kids under a parent.
+     */
+    List<KidSubscriptionStatusDto> getKidsSubscriptionStatuses(User parentUser);
+
+    /**
+     * Get subscription/daily free status for the currently authenticated kid.
+     */
+    KidSubscriptionStatusDto getKidSelfStatus(User kidUser);
+
+    /**
      * Get user's subscription history
      */
     List<UserSubscriptionDto> getUserSubscriptionHistory(User user);
@@ -44,6 +54,11 @@ public interface SubscriptionService {
      * Reactivate a cancelled subscription
      */
     UserSubscriptionDto reactivateSubscription(User user);
+
+    /**
+     * Purchase a one-time image pack for a kid.
+     */
+    KidSubscriptionStatusDto purchaseImagePack(User parentUser, ImagePackPurchaseRequest request);
 
     /**
      * Update subscription status from payment provider webhook

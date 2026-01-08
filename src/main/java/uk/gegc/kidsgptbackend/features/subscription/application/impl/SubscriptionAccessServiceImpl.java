@@ -16,16 +16,21 @@ import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 @Transactional(readOnly = true)
 public class SubscriptionAccessServiceImpl implements SubscriptionAccessService {
+
+    private static final String DAILY_FREE_AI_MESSAGES_FEATURE = "daily_free_ai_messages";
+    private static final int DAILY_FREE_MESSAGES_LIMIT = 5;
 
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final SubscriptionUsageRepository subscriptionUsageRepository;
@@ -41,11 +46,16 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
             return getSubscriptionLimit(activeSubscription, feature) == -1 || 
                    getRemainingUsage(user, feature) > 0;
         }
-        
-        // Free tier - only chat_limit and only within 3-day window
-        return "chat_limit".equals(feature) && 
-               isWithinFreeWindow(user) && 
-               getRemainingUsage(user, feature) > 0;
+
+        // Free tier - chat_limit via daily counter; image_generation allowed if packs add credits
+        if ("chat_limit".equals(feature)) {
+            return getRemainingDailyFreeMessagesForSubject(user, user.getId()) > 0;
+        }
+        if ("image_generation".equals(feature)) {
+            return getRemainingUsage(user, feature) > 0;
+        }
+
+        return false;
     }
 
     @Override
@@ -62,52 +72,27 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
     @Override
     public int getRemainingUsage(User user, String feature) {
         UserSubscription activeSubscription = getActiveSubscription(user);
-        
-        final int limit;
-        final String periodKey;
-        final Instant periodStart;
-        final Instant periodEnd;
-        
-        if (activeSubscription == null) {
-            // Free tier - 3-day window from user signup
-            limit = getFreeTierLimit(feature);
-            Instant userCreatedAt = user.getCreatedAt(); // Already Instant now
-            periodKey = "FREE_" + user.getId() + "_" + userCreatedAt.getEpochSecond();
-            periodStart = userCreatedAt;
-            periodEnd = userCreatedAt.plus(3, ChronoUnit.DAYS);
-        } else {
-            // Paid subscription - use provider period
-            limit = getSubscriptionLimit(activeSubscription, feature);
-            if (limit == -1) {
-                return Integer.MAX_VALUE; // Unlimited
-            }
-            
-            String tempPeriodKey = getProviderPeriodKey(activeSubscription);
-            Instant tempPeriodStart = activeSubscription.getCurrentPeriodStart();
-            Instant tempPeriodEnd = activeSubscription.getCurrentPeriodEnd();
-            
-            if (tempPeriodStart == null || tempPeriodEnd == null) {
-                // Fallback to monthly if provider data not available
-                periodKey = getCurrentMonthKey();
-                YearMonth currentMonth = YearMonth.now();
-                periodStart = currentMonth.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
-                periodEnd = currentMonth.atEndOfMonth().atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
-            } else {
-                periodKey = tempPeriodKey;
-                periodStart = tempPeriodStart;
-                periodEnd = tempPeriodEnd;
-            }
+
+        // For chat on the free tier, reuse the daily counter
+        if (activeSubscription == null && "chat_limit".equals(feature)) {
+            return getRemainingDailyFreeMessagesForSubject(user, user.getId());
+        }
+
+        PeriodContext ctx = resolvePeriodContext(activeSubscription, feature, user);
+        int limit = ctx.limit;
+        if (limit == -1) {
+            return Integer.MAX_VALUE;
         }
 
         // Get or create usage record
         try {
             SubscriptionUsage usage = subscriptionUsageRepository
-                    .findByUserAndFeatureAndPeriodKey(user, feature, periodKey)
-                    .orElseGet(() -> createUsageRecord(user, feature, periodKey, limit, periodStart, periodEnd));
+                    .findByUserAndFeatureAndPeriodKey(user, feature, ctx.periodKey)
+                    .orElseGet(() -> createUsageRecord(user, feature, ctx.periodKey, limit, ctx.periodStart, ctx.periodEnd));
 
             return usage.getRemainingUsage();
         } catch (Exception e) {
-            log.error("Error getting usage for user {} feature {} period {}", user.getId(), feature, periodKey, e);
+            log.error("Error getting usage for user {} feature {} period {}", user.getId(), feature, ctx.periodKey, e);
             return 0; // Safe fallback
         }
     }
@@ -119,53 +104,56 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
 
     @Override
     @Transactional
-    public void incrementUsage(User user, String feature) {
-        UserSubscription activeSubscription = getActiveSubscription(user);
-        
-        final String periodKey;
-        final Instant periodStart;
-        final Instant periodEnd;
-        final int limit;
-        
-        if (activeSubscription == null) {
-            // Free tier - 3-day window from user signup
-            limit = getFreeTierLimit(feature);
-            Instant userCreatedAt = user.getCreatedAt(); // Already Instant now
-            periodKey = "FREE_" + user.getId() + "_" + userCreatedAt.getEpochSecond();
-            periodStart = userCreatedAt;
-            periodEnd = userCreatedAt.plus(3, ChronoUnit.DAYS);
-        } else {
-            // Paid subscription
-            limit = getSubscriptionLimit(activeSubscription, feature);
-            String tempPeriodKey = getProviderPeriodKey(activeSubscription);
-            Instant tempPeriodStart = activeSubscription.getCurrentPeriodStart();
-            Instant tempPeriodEnd = activeSubscription.getCurrentPeriodEnd();
-            
-            if (tempPeriodStart == null || tempPeriodEnd == null) {
-                // Fallback to monthly
-                periodKey = getCurrentMonthKey();
-                YearMonth currentMonth = YearMonth.now();
-                periodStart = currentMonth.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
-                periodEnd = currentMonth.atEndOfMonth().atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
-            } else {
-                periodKey = tempPeriodKey;
-                periodStart = tempPeriodStart;
-                periodEnd = tempPeriodEnd;
-            }
+    public void addUsageCredits(User user, String feature, int additionalCredits) {
+        if (additionalCredits <= 0) {
+            return;
         }
 
+        UserSubscription activeSubscription = getActiveSubscription(user);
+        PeriodContext ctx = resolvePeriodContext(activeSubscription, feature, user);
+        int baseLimit = ctx.limit;
+
+        SubscriptionUsage usage = subscriptionUsageRepository
+                .findByUserAndFeatureAndPeriodKey(user, feature, ctx.periodKey)
+                .orElseGet(() -> createUsageRecord(user, feature, ctx.periodKey, baseLimit, ctx.periodStart, ctx.periodEnd));
+
+        if (usage.getLimitCount() == null || usage.getLimitCount() == -1) {
+            // Unlimited already; no need to add credits
+            return;
+        }
+
+        usage.setLimitCount(usage.getLimitCount() + additionalCredits);
+        subscriptionUsageRepository.save(usage);
+
+        log.info("Added {} credits for user {} feature {} in period {}", additionalCredits, user.getId(), feature, ctx.periodKey);
+    }
+
+    @Override
+    @Transactional
+    public void incrementUsage(User user, String feature) {
+        UserSubscription activeSubscription = getActiveSubscription(user);
+
+        // For chat on the free tier, increment the daily counter and return
+        if (activeSubscription == null && "chat_limit".equals(feature)) {
+            incrementDailyFreeMessagesForSubject(user, user.getId());
+            return;
+        }
+
+        PeriodContext ctx = resolvePeriodContext(activeSubscription, feature, user);
+        int limit = ctx.limit;
+
         // Try atomic increment first
-        int updated = subscriptionUsageRepository.incrementUsage(user, feature, periodKey, Instant.now());
-        
+        int updated = subscriptionUsageRepository.incrementUsage(user, feature, ctx.periodKey, Instant.now());
+
         if (updated == 0) {
             // Usage record doesn't exist, create it
-            SubscriptionUsage usage = createUsageRecord(user, feature, periodKey, limit, periodStart, periodEnd);
+            SubscriptionUsage usage = createUsageRecord(user, feature, ctx.periodKey, limit, ctx.periodStart, ctx.periodEnd);
             usage.setUsedCount(1);
             subscriptionUsageRepository.save(usage);
         }
         
         log.debug("Incremented usage for user {} feature {} in period {}", 
-                user.getId(), feature, periodKey);
+                user.getId(), feature, ctx.periodKey);
     }
 
     @Override
@@ -184,6 +172,72 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         log.info("Cleaned up expired usage records for user {}", user.getId());
     }
 
+    /**
+     * Daily free messages (per subject, e.g. per child) backed by SubscriptionUsage.
+     * This does not consider paid subscriptions; callers decide when to use it.
+     */
+    @Override
+    @Transactional
+    public int getRemainingDailyFreeMessagesForSubject(User user, UUID subjectId) {
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+
+        String periodKey = buildDailyFreeMessagesPeriodKey(subjectId, todayUtc);
+        Instant periodStart = todayUtc.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant periodEnd = todayUtc.plusDays(1).atStartOfDay().minusNanos(1).toInstant(ZoneOffset.UTC);
+
+        try {
+            SubscriptionUsage usage = subscriptionUsageRepository
+                    .findByUserAndFeatureAndPeriodKey(user, DAILY_FREE_AI_MESSAGES_FEATURE, periodKey)
+                    .orElseGet(() ->
+                            createUsageRecord(user,
+                                    DAILY_FREE_AI_MESSAGES_FEATURE,
+                                    periodKey,
+                                    DAILY_FREE_MESSAGES_LIMIT,
+                                    periodStart,
+                                    periodEnd));
+
+            return usage.getRemainingUsage();
+        } catch (Exception e) {
+            log.error("Error getting daily free messages usage for user {} subject {} period {}",
+                    user.getId(), subjectId, periodKey, e);
+            return 0;
+        }
+    }
+
+    @Override
+    @Transactional
+    public void incrementDailyFreeMessagesForSubject(User user, UUID subjectId) {
+        Instant now = Instant.now();
+        LocalDate todayUtc = LocalDate.now(ZoneOffset.UTC);
+
+        String periodKey = buildDailyFreeMessagesPeriodKey(subjectId, todayUtc);
+        Instant periodStart = todayUtc.atStartOfDay().toInstant(ZoneOffset.UTC);
+        Instant periodEnd = todayUtc.plusDays(1).atStartOfDay().minusNanos(1).toInstant(ZoneOffset.UTC);
+
+        int updated = subscriptionUsageRepository.incrementUsage(
+                user,
+                DAILY_FREE_AI_MESSAGES_FEATURE,
+                periodKey,
+                now
+        );
+
+        if (updated == 0) {
+            SubscriptionUsage usage = createUsageRecord(
+                    user,
+                    DAILY_FREE_AI_MESSAGES_FEATURE,
+                    periodKey,
+                    DAILY_FREE_MESSAGES_LIMIT,
+                    periodStart,
+                    periodEnd
+            );
+            usage.setUsedCount(1);
+            subscriptionUsageRepository.save(usage);
+        }
+
+        log.debug("Incremented daily free messages usage for user {} subject {} in period {}",
+                user.getId(), subjectId, periodKey);
+    }
+
     // Helper methods
     private UserSubscription getActiveSubscription(User user) {
         Optional<UserSubscription> subscription = userSubscriptionRepository.findActiveSubscriptionByUser(user);
@@ -193,14 +247,9 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
 
     private int getFreeTierLimit(String feature) {
         return switch (feature) {
-            case "chat_limit" -> 15; // 15 messages across the 3-day window (not 10 per month)
+            case "chat_limit" -> 5; // 5 free messages per day, tracked separately
             default -> 0;
         };
-    }
-    
-    private boolean isWithinFreeWindow(User user) {
-        Instant userCreatedAt = user.getCreatedAt(); // Already Instant now
-        return userCreatedAt.plus(3, ChronoUnit.DAYS).isAfter(Instant.now());
     }
 
     private String getCurrentMonthKey() {
@@ -220,27 +269,76 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         try {
             if (subscription.getSubscriptionPlan() == null) {
                 log.warn("Subscription {} has null plan", subscription.getId());
-                return 0;
+                return defaultLimitForFeature(feature);
             }
             
             String featuresJson = subscription.getSubscriptionPlan().getFeatures();
             if (featuresJson == null || featuresJson.trim().isEmpty()) {
                 log.warn("Subscription {} has null or empty features JSON", subscription.getId());
-                return 0;
+                return defaultLimitForFeature(feature);
             }
             
             JsonNode features = objectMapper.readTree(featuresJson);
             JsonNode featureNode = features.get(feature);
             
             if (featureNode == null || !featureNode.isNumber()) {
-                return 0;
+                return defaultLimitForFeature(feature);
             }
             
             return featureNode.asInt();
         } catch (JsonProcessingException e) {
             log.error("Error parsing features JSON for subscription {}", subscription.getId(), e);
-            return 0;
+            return defaultLimitForFeature(feature);
         }
+    }
+
+    private int defaultLimitForFeature(String feature) {
+        if ("image_generation".equals(feature)) {
+            return 2; // Default monthly allowance for subscribed users
+        }
+        return 0;
+    }
+
+    private record PeriodContext(String periodKey, Instant periodStart, Instant periodEnd, int limit) {}
+
+    private PeriodContext resolvePeriodContext(UserSubscription activeSubscription, String feature, User user) {
+        final String periodKey;
+        final Instant periodStart;
+        final Instant periodEnd;
+        final int limit;
+
+        if (activeSubscription != null) {
+            limit = getSubscriptionLimit(activeSubscription, feature);
+            String tempPeriodKey = getProviderPeriodKey(activeSubscription);
+            Instant tempPeriodStart = activeSubscription.getCurrentPeriodStart();
+            Instant tempPeriodEnd = activeSubscription.getCurrentPeriodEnd();
+
+            if (tempPeriodStart == null || tempPeriodEnd == null) {
+                YearMonth currentMonth = YearMonth.now();
+                periodKey = getCurrentMonthKey();
+                periodStart = currentMonth.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+                periodEnd = currentMonth.atEndOfMonth().atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
+            } else {
+                periodKey = tempPeriodKey;
+                periodStart = tempPeriodStart;
+                periodEnd = tempPeriodEnd;
+            }
+        } else {
+            if ("image_generation".equals(feature)) {
+                YearMonth currentMonth = YearMonth.now();
+                periodKey = getCurrentMonthKey();
+                periodStart = currentMonth.atDay(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+                periodEnd = currentMonth.atEndOfMonth().atTime(23, 59, 59).toInstant(ZoneOffset.UTC);
+                limit = 0; // base free tier for images
+            } else {
+                Instant userCreatedAt = user.getCreatedAt() != null ? user.getCreatedAt() : Instant.now();
+                limit = getFreeTierLimit(feature);
+                periodKey = "FREE_" + user.getId() + "_" + userCreatedAt.getEpochSecond();
+                periodStart = userCreatedAt;
+                periodEnd = userCreatedAt.plus(3, ChronoUnit.DAYS);
+            }
+        }
+        return new PeriodContext(periodKey, periodStart, periodEnd, limit);
     }
     
     private SubscriptionUsage createUsageRecord(User user, String feature, String periodKey, 
@@ -255,6 +353,10 @@ public class SubscriptionAccessServiceImpl implements SubscriptionAccessService 
         usage.setPeriodEnd(periodEnd);
         
         return subscriptionUsageRepository.save(usage);
+    }
+
+    private String buildDailyFreeMessagesPeriodKey(UUID subjectId, LocalDate dateUtc) {
+        return "DAILY_FREE_" + subjectId + "_" + dateUtc;
     }
 
 }

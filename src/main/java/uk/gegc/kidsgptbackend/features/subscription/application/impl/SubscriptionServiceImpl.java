@@ -12,9 +12,13 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionPlanRepository;
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
+import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlayClient;
 import uk.gegc.kidsgptbackend.features.subscription.infra.googleplay.GooglePlaySubscriptionPurchase;
 import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionService;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
 
 import java.time.Instant;
 import java.util.List;
@@ -31,8 +35,17 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     private final UserSubscriptionRepository userSubscriptionRepository;
     private final GooglePlayClient googlePlayClient;
     private final KidCountingService kidCountingService;
+    private final UserRepository userRepository;
     private final SubscriptionSaver subscriptionSaver;
     private final SubscriptionAcknowledger subscriptionAcknowledger;
+    private final KidRepository kidRepository;
+    private final SubscriptionAccessService subscriptionAccessService;
+    private final ParentRepository parentRepository;
+    private static final java.util.Map<String, Integer> IMAGE_PACK_CREDITS = java.util.Map.of(
+            "image_pack_5", 5,
+            "image_pack_10", 10,
+            "image_pack_20", 20
+    );
 
     @Override
     @Transactional(readOnly = true)
@@ -96,12 +109,15 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     @Override
     @Transactional(readOnly = true)
     public SubscriptionStatusDto getUserSubscriptionStatus(User user) {
-        UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(user)
+        // Ensure roles are initialized to avoid lazy-loading issues downstream
+        User hydratedUser = userRepository.findByIdWithRoles(user.getId()).orElse(user);
+
+        UserSubscription activeSubscription = userSubscriptionRepository.findActiveSubscriptionByUser(hydratedUser)
                 .orElse(null);
 
         // Count current kids using the kid counting service for both free and paid users
-        int currentKidsCount = kidCountingService.countKidsForParent(user);
-        boolean canAddMoreKids = kidCountingService.canAddMoreKids(user);
+        int currentKidsCount = kidCountingService.countKidsForParent(hydratedUser);
+        boolean canAddMoreKids = kidCountingService.canAddMoreKids(hydratedUser);
 
         if (activeSubscription == null) {
             return new SubscriptionStatusDto(
@@ -130,6 +146,93 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                 currentKidsCount,
                 canAddMoreKids
         );
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KidSubscriptionStatusDto> getKidsSubscriptionStatuses(User parentUser) {
+        var parent = userRepository.findByIdWithRoles(parentUser.getId()).orElse(parentUser);
+        var parentEntity = parentRepository.findByUserId(parent.getId())
+                .orElseGet(() -> parentRepository.findByEmail(parent.getEmail()).orElse(null));
+        if (parentEntity == null) {
+            return List.of();
+        }
+
+        List<uk.gegc.kidsgptbackend.features.family.domain.model.Kid> kids = kidRepository.findAllByParentId(parentEntity.getId());
+
+        return kids.stream().map(kid -> {
+            User kidUserEntity = kid.getUser();
+            User kidUser = kidUserEntity != null
+                    ? userRepository.findByIdWithRoles(kidUserEntity.getId()).orElse(kidUserEntity)
+                    : null;
+            UserSubscription kidSub = kidUser != null ? userSubscriptionRepository.findActiveSubscriptionByUser(kidUser).orElse(null) : null;
+            boolean hasActiveSubscription = kidSub != null;
+            Integer remainingDaily = (!hasActiveSubscription && kidUser != null)
+                    ? subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(kidUser, kidUser.getId())
+                    : null;
+            Integer imageCredits = kidUser != null
+                    ? subscriptionAccessService.getRemainingUsage(kidUser, "image_generation")
+                    : null;
+
+            return new KidSubscriptionStatusDto(
+                    kid.getId(),
+                    kidUser != null ? kidUser.getId() : null,
+                    kid.getNickname(),
+                    hasActiveSubscription,
+                    hasActiveSubscription && kidSub.getSubscriptionPlan() != null ? kidSub.getSubscriptionPlan().getName() : null,
+                    hasActiveSubscription ? kidSub.getCurrentPeriodEnd() : null,
+                    remainingDaily,
+                    imageCredits
+            );
+        }).collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public KidSubscriptionStatusDto getKidSelfStatus(User kidUser) {
+        User hydratedKid = userRepository.findByIdWithRoles(kidUser.getId()).orElse(kidUser);
+        var kidEntity = kidRepository.findByUserId(hydratedKid.getId()).orElse(null);
+        UserSubscription activeSub = userSubscriptionRepository.findActiveSubscriptionByUser(hydratedKid).orElse(null);
+        boolean hasActiveSubscription = activeSub != null;
+        Integer remainingDaily = hasActiveSubscription ? null :
+                subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(hydratedKid, hydratedKid.getId());
+
+        return new KidSubscriptionStatusDto(
+                kidEntity != null ? kidEntity.getId() : null,
+                hydratedKid.getId(),
+                kidEntity != null ? kidEntity.getNickname() : hydratedKid.getUsername(),
+                hasActiveSubscription,
+                hasActiveSubscription && activeSub.getSubscriptionPlan() != null ? activeSub.getSubscriptionPlan().getName() : null,
+                hasActiveSubscription ? activeSub.getCurrentPeriodEnd() : null,
+                remainingDaily,
+                subscriptionAccessService.getRemainingUsage(hydratedKid, "image_generation")
+        );
+    }
+
+    @Override
+    @Transactional
+    public KidSubscriptionStatusDto purchaseImagePack(User parentUser, ImagePackPurchaseRequest request) {
+        // verify parent owns kid
+        var kidUser = userRepository.findById(request.kidUserId())
+                .orElseThrow(() -> new IllegalArgumentException("Kid user not found"));
+        var kid = kidRepository.findByUserId(kidUser.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Kid profile not found"));
+        var parent = parentRepository.findByUserId(parentUser.getId())
+                .orElseGet(() -> parentRepository.findByEmail(parentUser.getEmail()).orElse(null));
+        if (parent == null || kid.getParent() == null || !kid.getParent().getId().equals(parent.getId())) {
+            throw new IllegalStateException("Kid does not belong to parent");
+        }
+
+        boolean verified = googlePlayClient.verifyPurchaseToken(request.productId(), request.purchaseToken());
+        if (!verified) {
+            throw new IllegalStateException("Invalid purchase token");
+        }
+
+        int credits = IMAGE_PACK_CREDITS.getOrDefault(request.productId(), 5);
+        subscriptionAccessService.addUsageCredits(kidUser, "image_generation", credits);
+
+        // Return updated kid status
+        return getKidSelfStatus(kidUser);
     }
 
     @Override

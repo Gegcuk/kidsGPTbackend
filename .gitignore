@@ -37,6 +37,10 @@ build/
 /.env.example
 /src/main/resources/secret.properties
 
+# Google Play credentials (sensitive)
+google-play-credentials.json
+*credentials*.json
+
 # Chat message logs
 logs/
 *.log

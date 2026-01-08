@@ -12,6 +12,7 @@ import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository
 import uk.gegc.kidsgptbackend.features.subscription.domain.repository.UserSubscriptionRepository;
 import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.Optional;
 
@@ -19,10 +20,13 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Slf4j
 public class KidCountingServiceImpl implements KidCountingService {
-    
+
+    private static final int GLOBAL_MAX_KIDS_PER_PARENT = 5;
+    private static final int FREE_TIER_MAX_KIDS = GLOBAL_MAX_KIDS_PER_PARENT;
     private final KidRepository kidRepository;
     private final ParentRepository parentRepository;
     private final UserSubscriptionRepository userSubscriptionRepository;
+    private final Clock clock;
     
     @Override
     public int countKidsForParent(User parentUser) {
@@ -74,13 +78,18 @@ public class KidCountingServiceImpl implements KidCountingService {
         int currentKidsCount = countKidsForParent(parentUser);
         
         // Get subscription limits
-        int maxKidsAllowed = getMaxKidsForUser(parentUser);
+        int maxKidsAllowed = getEffectiveMaxKids(parentUser);
         
         boolean canAdd = currentKidsCount < maxKidsAllowed;
         log.debug("Parent {} has {}/{} kids, can add more: {}", 
                 parentUser.getUsername(), currentKidsCount, maxKidsAllowed, canAdd);
         
         return canAdd;
+    }
+
+    @Override
+    public int getEffectiveMaxKids(User parentUser) {
+        return getMaxKidsForUser(parentUser);
     }
     
     private boolean isParentUser(User user) {
@@ -94,29 +103,41 @@ public class KidCountingServiceImpl implements KidCountingService {
             // Find active subscription
             Optional<UserSubscription> subscriptionOpt = userSubscriptionRepository
                     .findActiveSubscriptionByUser(parentUser);
-            
+
+            int baseLimit = FREE_TIER_MAX_KIDS;
+
             if (subscriptionOpt.isPresent()) {
                 UserSubscription subscription = subscriptionOpt.get();
-                
+
                 // Check if subscription is still valid (not expired)
-                if (subscription.getCurrentPeriodEnd() != null && 
-                    subscription.getCurrentPeriodEnd().isAfter(Instant.now())) {
-                    
-                    int maxKids = subscription.getSubscriptionPlan().getMaxKids();
-                    log.debug("User {} has active subscription with max {} kids", 
-                            parentUser.getUsername(), maxKids);
-                    return maxKids;
+                if (subscription.getCurrentPeriodEnd() != null &&
+                    subscription.getCurrentPeriodEnd().isAfter(Instant.now(clock)) &&
+                    subscription.getSubscriptionPlan() != null &&
+                    subscription.getSubscriptionPlan().getMaxKids() != null &&
+                    subscription.getSubscriptionPlan().getMaxKids() > 0) {
+
+                    baseLimit = subscription.getSubscriptionPlan().getMaxKids();
+                    log.debug("User {} has active subscription with plan maxKids={}",
+                            parentUser.getUsername(), baseLimit);
                 }
             }
-            
-            // No active subscription - free tier allows 1 kid
-            log.debug("User {} has no active subscription, free tier allows 1 kid", parentUser.getUsername());
-            return 1;
-            
+
+            int effectiveLimit = Math.max(1, Math.min(baseLimit, GLOBAL_MAX_KIDS_PER_PARENT));
+
+            if (subscriptionOpt.isEmpty()) {
+                log.debug("User {} has no active subscription, free tier allows {} kids (global cap {})",
+                        parentUser.getUsername(), FREE_TIER_MAX_KIDS, GLOBAL_MAX_KIDS_PER_PARENT);
+            } else {
+                log.debug("User {} effective max kids after applying global cap {} is {}",
+                        parentUser.getUsername(), GLOBAL_MAX_KIDS_PER_PARENT, effectiveLimit);
+            }
+
+            return effectiveLimit;
+
         } catch (Exception e) {
             log.error("Error getting max kids for user: {}", parentUser.getUsername(), e);
             // Default to free tier limit on error
-            return 1;
+            return FREE_TIER_MAX_KIDS;
         }
     }
 }

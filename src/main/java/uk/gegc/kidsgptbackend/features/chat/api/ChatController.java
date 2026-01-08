@@ -11,11 +11,16 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageDto;
 import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageRequest;
 import uk.gegc.kidsgptbackend.features.chat.api.dto.ChatMessageResponse;
 import uk.gegc.kidsgptbackend.features.chat.application.AiChatService;
 import uk.gegc.kidsgptbackend.features.chat.application.ChatMessageService;
+import uk.gegc.kidsgptbackend.features.subscription.application.SubscriptionAccessService;
+import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 
 import java.security.Principal;
 
@@ -23,12 +28,15 @@ import java.security.Principal;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Tag(name = "Chat", description = "Kid-friendly AI chat and transcript retrieval")
 public class ChatController {
 
     private final AiChatService chatService;
     private final ChatMessageService messageService;
+    private final SubscriptionAccessService subscriptionAccessService;
+    private final UserRepository userRepository;
 
-
+    @Operation(summary = "Send a chat message and receive an AI reply", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/chat")
     public ResponseEntity<ChatMessageResponse> chat(
             @Valid @RequestBody ChatMessageRequest request,
@@ -36,6 +44,18 @@ public class ChatController {
     ) {
         if (principal == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        uk.gegc.kidsgptbackend.features.user.domain.model.User domainUser = userRepository.findByUsername(principal.getUsername())
+                .orElse(null);
+        if (domainUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        int remaining = subscriptionAccessService.getRemainingDailyFreeMessagesForSubject(domainUser, domainUser.getId());
+        boolean hasFeatureAccess = subscriptionAccessService.hasFeatureAccess(domainUser, "chat_limit");
+        if (remaining <= 0 && !hasFeatureAccess) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).build();
         }
 
         // Log detailed request with full message content
@@ -65,11 +85,13 @@ public class ChatController {
         log.info("Tokens Used: {}", response.tokensUsed());
         log.info("AI Reply: '{}'", response.reply());
         log.info("=== CHAT RESPONSE END ===");
-        
+
+        subscriptionAccessService.incrementDailyFreeMessagesForSubject(domainUser, domainUser.getId());
         return ResponseEntity.ok(response);
     }
 
 
+    @Operation(summary = "Get paged chat history for a conversation", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/chat/{contextId}/messages")
     public ResponseEntity<Page<ChatMessageDto>> getMessages(
             @PathVariable("contextId") java.util.UUID contextId,
@@ -109,4 +131,3 @@ public class ChatController {
         return ResponseEntity.ok(page);
     }
 }
-

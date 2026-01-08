@@ -28,4 +28,9 @@ public interface KidCountingService {
      * @return true if they can add more kids, false otherwise
      */
     boolean canAddMoreKids(User parentUser);
+
+    /**
+     * Effective kid cap for the parent (plan max_kids constrained by global cap).
+     */
+    int getEffectiveMaxKids(User parentUser);
 }

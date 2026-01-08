@@ -145,13 +145,12 @@ class SubscriptionAccessServiceIntegrationTest {
     @Test
     @DisplayName("Integration: User transitions from free tier to premium subscription")
     void integration_userTransitionsFromFreeTierToPremiumSubscription() {
-        // Given - User within free tier window (ensure user is within 3-day window)
-        when(user.getCreatedAt()).thenReturn(Instant.now().minus(1, ChronoUnit.DAYS));
+        // Given - User on free tier with daily allowance remaining
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.empty());
-        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("chat_limit"), any()))
+        when(subscriptionUsageRepository.findByUserAndFeatureAndPeriodKey(any(), eq("daily_free_ai_messages"), any()))
                 .thenReturn(Optional.of(chatUsage));
-        when(chatUsage.getLimitCount()).thenReturn(15);
-        when(chatUsage.getRemainingUsage()).thenReturn(15);
+        when(chatUsage.getLimitCount()).thenReturn(5);
+        when(chatUsage.getRemainingUsage()).thenReturn(5);
         
         // When - Check free tier access
         boolean freeTierAccess = subscriptionAccessService.hasFeatureAccess(user, "chat_limit");
@@ -159,7 +158,7 @@ class SubscriptionAccessServiceIntegrationTest {
         
         // Then - Free tier should work
         assertThat(freeTierAccess).isTrue();
-        assertThat(freeTierRemaining).isEqualTo(15);
+        assertThat(freeTierRemaining).isEqualTo(5);
         
         // Given - User gets premium subscription
         when(userSubscriptionRepository.findActiveSubscriptionByUser(user)).thenReturn(Optional.of(premiumSubscription));

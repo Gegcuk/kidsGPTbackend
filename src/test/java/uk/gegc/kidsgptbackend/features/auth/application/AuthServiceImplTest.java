@@ -31,11 +31,13 @@ import uk.gegc.kidsgptbackend.features.user.domain.model.RoleName;
 import uk.gegc.kidsgptbackend.features.user.domain.model.User;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.KidRepository;
 import uk.gegc.kidsgptbackend.features.family.domain.repository.ParentRepository;
+import uk.gegc.kidsgptbackend.features.subscription.domain.repository.SubscriptionUsageRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.RoleRepository;
 import uk.gegc.kidsgptbackend.features.user.domain.repository.UserRepository;
 import uk.gegc.kidsgptbackend.shared.security.JwtTokenProvider;
 import uk.gegc.kidsgptbackend.features.auth.application.impl.AuthServiceImpl;
 import uk.gegc.kidsgptbackend.features.auth.domain.repository.RevokedTokenRepository;
+import uk.gegc.kidsgptbackend.features.family.application.KidCountingService;
 
 import java.util.*;
 
@@ -65,6 +67,10 @@ class AuthServiceImplTest extends BaseUnitTest {
     JwtTokenProvider jwtTokenProvider;
     @Mock
     RevokedTokenRepository revokedTokenRepository;
+    @Mock
+    KidCountingService kidCountingService;
+    @Mock
+    SubscriptionUsageRepository subscriptionUsageRepository;
 
     @InjectMocks
     AuthServiceImpl authService;
@@ -168,6 +174,7 @@ class AuthServiceImplTest extends BaseUnitTest {
         // When
         when(userRepository.findByUsername("parent")).thenReturn(Optional.of(parentUser));
         when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidCountingService.canAddMoreKids(parentUser)).thenReturn(true);
         when(userRepository.existsByUsername("johnny_kid")).thenReturn(false);
         when(roleRepository.findByRole(RoleName.ROLE_CHILD.name())).thenReturn(Optional.of(childRole));
         when(passwordEncoder.encode("password123")).thenReturn("hashedPassword");
@@ -286,6 +293,7 @@ class AuthServiceImplTest extends BaseUnitTest {
         // When
         when(userRepository.findByUsername("parent")).thenReturn(Optional.of(parentUser));
         when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        when(kidCountingService.canAddMoreKids(parentUser)).thenReturn(true);
         when(userRepository.existsByUsername("johnny_kid")).thenReturn(true); // First collision
         when(userRepository.existsByUsername("johnny_kid1")).thenReturn(false); // Success
         when(roleRepository.findByRole(RoleName.ROLE_CHILD.name())).thenReturn(Optional.of(childRole));
@@ -298,6 +306,41 @@ class AuthServiceImplTest extends BaseUnitTest {
         // Then
         assertThat(result.username()).isEqualTo("johnny_kid1");
         verify(userRepository, atLeast(2)).existsByUsername(anyString());
+    }
+
+    @Test
+    @DisplayName("registerKid: throws ValidationException when parent reached kid cap")
+    void registerKid_parentAtKidCap_throwsValidationException() {
+        // Given
+        KidRegistrationRequest request = new KidRegistrationRequest("Johnny", "password123", AgeGroup.AGE_6_8);
+
+        User parentUser = new User();
+        parentUser.setId(UUID.randomUUID());
+        parentUser.setUsername("parent");
+        parentUser.setEmail("parent@example.com");
+        Role parentRole = new Role();
+        parentRole.setRole(RoleName.ROLE_PARENT.name());
+        parentUser.setRoles(Set.of(parentRole));
+
+        Parent parent = new Parent();
+        parent.setId(UUID.randomUUID());
+        parent.setEmail("parent@example.com");
+
+        when(userRepository.findByUsername("parent")).thenReturn(Optional.of(parentUser));
+        when(parentRepository.findByEmail("parent@example.com")).thenReturn(Optional.of(parent));
+        Role childRole = new Role();
+        childRole.setRole(RoleName.ROLE_CHILD.name());
+        when(roleRepository.findByRole(RoleName.ROLE_CHILD.name())).thenReturn(Optional.of(childRole));
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(kidCountingService.canAddMoreKids(parentUser)).thenReturn(false);
+
+        // When / Then
+        assertThatThrownBy(() -> authService.registerKid(request, "parent"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("maximum number of kids");
+
+        verify(userRepository, never()).save(any(User.class));
+        verify(kidRepository, never()).save(any(Kid.class));
     }
 
     @Test
@@ -544,8 +587,9 @@ class AuthServiceImplTest extends BaseUnitTest {
         when(kidRepository.findById(kidId)).thenReturn(Optional.of(kid));
         
         authService.deleteKid(kidId, parentUsername);
-        
+
         // Then
+        verify(subscriptionUsageRepository).deleteByUser(kidUser);
         verify(kidRepository).delete(kid);
         verify(userRepository).delete(kidUser);
     }
