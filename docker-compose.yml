@@ -20,6 +20,11 @@ services:
     image: ${DOCKER_USER}/kidsgptbackend:${APP_TAG:-latest}
     env_file: .env
     ports: [ "8080:8080" ]
+    volumes:
+      # Mount Google Play credentials file if it exists (optional)
+      # Place credentials file as 'google-play-credentials.json' in the same directory as docker-compose.yml
+      # It will be mounted to /etc/google-play-credentials/credentials.json in the container (default path)
+      - ./google-play-credentials.json:${GOOGLE_PLAY_CREDENTIALS_FILE:-/etc/google-play-credentials/credentials.json}:ro
     environment:
       # Database Configuration
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/kidsgptdb?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC
@@ -42,6 +47,13 @@ services:
 
       # Frontend URL
       FRONTEND_URL: ${FRONTEND_URL}
+      
+      # Google Play Configuration (credentials file path inside container)
+      # If using file-based auth, set GOOGLE_PLAY_CREDENTIALS_FILE=/etc/google-play-credentials/credentials.json in .env
+      GOOGLE_PLAY_CREDENTIALS_FILE: ${GOOGLE_PLAY_CREDENTIALS_FILE:-}
+      GOOGLE_PLAY_SERVICE_ACCOUNT_KEY: ${GOOGLE_PLAY_SERVICE_ACCOUNT_KEY:-}
+      GOOGLE_PLAY_PACKAGE_NAME: ${GOOGLE_PLAY_PACKAGE_NAME:-}
+      GOOGLE_PLAY_APPLICATION_NAME: ${GOOGLE_PLAY_APPLICATION_NAME:-KidsGPT}
     depends_on:
       db:
         condition: service_healthy

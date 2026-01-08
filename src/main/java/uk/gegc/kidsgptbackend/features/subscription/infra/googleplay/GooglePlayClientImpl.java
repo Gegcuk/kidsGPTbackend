@@ -16,7 +16,12 @@ import org.springframework.util.StringUtils;
 import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.GeneralSecurityException;
 import java.util.Collections;
 
@@ -29,6 +34,9 @@ public class GooglePlayClientImpl implements GooglePlayClient {
     @Value("${google.play.service-account-key:}")
     private String serviceAccountKey;
 
+    @Value("${google.play.credentials-file:}")
+    private String credentialsFile;
+
     @Value("${google.play.package-name:}")
     private String packageName;
 
@@ -40,15 +48,40 @@ public class GooglePlayClientImpl implements GooglePlayClient {
     @PostConstruct
     public void initializeAndroidPublisher() {
         try {
-            if (!StringUtils.hasText(serviceAccountKey)) {
-                log.warn("Google Play service account key not configured. Using mock implementation.");
-                return;
+            GoogleCredentials credentials = null;
+
+            // Try credentials file first (if provided)
+            if (StringUtils.hasText(credentialsFile)) {
+                Path credentialsPath = Paths.get(credentialsFile);
+                if (Files.isRegularFile(credentialsPath) && Files.isReadable(credentialsPath)) {
+                    log.info("Loading Google Play credentials from file: {}", credentialsFile);
+                    try (InputStream inputStream = Files.newInputStream(credentialsPath)) {
+                        credentials = GoogleCredentials
+                                .fromStream(inputStream)
+                                .createScoped(Collections.singleton("https://www.googleapis.com/auth/androidpublisher"));
+                    } catch (IOException e) {
+                        log.warn("Failed to read Google Play credentials file {}. Falling back to service account key if present.",
+                                credentialsFile, e);
+                    }
+                } else {
+                    log.warn("Google Play credentials file not found or not readable: {}", credentialsFile);
+                }
             }
 
-            // Initialize Google credentials from service account key
-            GoogleCredentials credentials = GoogleCredentials
-                    .fromStream(new ByteArrayInputStream(serviceAccountKey.getBytes()))
-                    .createScoped(Collections.singleton("https://www.googleapis.com/auth/androidpublisher"));
+            if (credentials == null && StringUtils.hasText(serviceAccountKey)) {
+                // Fall back to service account key from env var
+                log.info("Loading Google Play credentials from service account key");
+                try (InputStream inputStream = new ByteArrayInputStream(serviceAccountKey.getBytes(StandardCharsets.UTF_8))) {
+                    credentials = GoogleCredentials
+                            .fromStream(inputStream)
+                            .createScoped(Collections.singleton("https://www.googleapis.com/auth/androidpublisher"));
+                }
+            }
+
+            if (credentials == null) {
+                log.warn("Google Play service account key or credentials file not configured. Using mock implementation.");
+                return;
+            }
 
             // Build Android Publisher service
             this.androidPublisher = new AndroidPublisher.Builder(
@@ -227,7 +260,7 @@ public class GooglePlayClientImpl implements GooglePlayClient {
      * Safely invoke a method on an object using reflection.
      * Returns null if the method doesn't exist or throws an exception.
      */
-    @SuppressWarnings("unchecked")
+    @SuppressWarnings("java:S3011") // Reflection needed for Google API compatibility
     private <T> T getMethodSafely(Object obj, String methodName, Class<T> returnType) {
         try {
             Method method = obj.getClass().getMethod(methodName);

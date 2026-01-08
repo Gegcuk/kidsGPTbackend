@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @Execution(ExecutionMode.CONCURRENT)
@@ -31,6 +31,9 @@ class SubscriptionDataInitializerTest {
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
+        lenient()
+                .when(subscriptionPlanRepository.findByGooglePlayProductId(anyString()))
+                .thenReturn(Optional.empty());
     }
 
     @Test
@@ -38,62 +41,73 @@ class SubscriptionDataInitializerTest {
     void runAfterPropertiesSet_createsFreePlanWhenAbsent() throws Exception {
         // Given
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(2)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(6)).save(captor.capture()); // Free + 5 kids tiers
 
-        SubscriptionPlan freePlan = captor.getAllValues().get(0);
+        SubscriptionPlan freePlan = captor.getAllValues().stream()
+                .filter(plan -> "Free".equals(plan.getName()))
+                .findFirst()
+                .orElseThrow();
         assertThat(freePlan.getName()).isEqualTo("Free");
         assertThat(freePlan.getDescription()).isEqualTo("Limited messages for first 3 days");
         assertThat(freePlan.getPrice()).isEqualByComparingTo(BigDecimal.ZERO);
         assertThat(freePlan.getCurrency()).isEqualTo("GBP");
         assertThat(freePlan.getBillingCycle()).isEqualTo(SubscriptionPlan.BillingCycle.MONTHLY);
-        assertThat(freePlan.getMaxKids()).isEqualTo(1);
+        assertThat(freePlan.getMaxKids()).isEqualTo(5); // Aligned with enforcement
         assertThat(freePlan.getFeatures()).isEqualTo("{\"chat_limit\": 15}");
         assertThat(freePlan.getGooglePlayProductId()).isNull();
         assertThat(freePlan.isActive()).isTrue();
     }
 
     @Test
-    @DisplayName("runAfterPropertiesSet creates Plus Monthly plan when absent")
-    void runAfterPropertiesSet_createsPlusMonthlyPlanWhenAbsent() throws Exception {
+    @DisplayName("runAfterPropertiesSet creates kids_*_monthly plans when absent")
+    void runAfterPropertiesSet_createsKidsTiersWhenAbsent() throws Exception {
         // Given
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(2)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(6)).save(captor.capture()); // Free + 5 tiers
 
-        SubscriptionPlan plusMonthly = captor.getAllValues().get(1);
-        assertThat(plusMonthly.getName()).isEqualTo("Plus Monthly");
-        assertThat(plusMonthly.getDescription()).isEqualTo("Unlimited messaging");
-        assertThat(plusMonthly.getPrice()).isEqualByComparingTo(new BigDecimal("4.99"));
-        assertThat(plusMonthly.getCurrency()).isEqualTo("GBP");
-        assertThat(plusMonthly.getBillingCycle()).isEqualTo(SubscriptionPlan.BillingCycle.MONTHLY);
-        assertThat(plusMonthly.getMaxKids()).isEqualTo(10);
-        assertThat(plusMonthly.getFeatures()).isEqualTo("{\"chat_limit\": -1}");
-        assertThat(plusMonthly.getGooglePlayProductId()).isEqualTo("plus_monthly");
-        assertThat(plusMonthly.isActive()).isTrue();
+        // Verify kids_1_monthly plan
+        SubscriptionPlan kids1Plan = captor.getAllValues().stream()
+                .filter(p -> "kids_1_monthly".equals(p.getGooglePlayProductId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(kids1Plan.getName()).isEqualTo("KidsGPT 1 Kid");
+        assertThat(kids1Plan.getMaxKids()).isEqualTo(1);
+        assertThat(kids1Plan.getFeatures()).isEqualTo("{\"chat_limit\": -1, \"image_generation\": 2}");
+        assertThat(kids1Plan.isActive()).isTrue();
+
+        // Verify kids_5_monthly plan
+        SubscriptionPlan kids5Plan = captor.getAllValues().stream()
+                .filter(p -> "kids_5_monthly".equals(p.getGooglePlayProductId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(kids5Plan.getName()).isEqualTo("KidsGPT 5 Kids");
+        assertThat(kids5Plan.getMaxKids()).isEqualTo(5);
+        assertThat(kids5Plan.getFeatures()).isEqualTo("{\"chat_limit\": -1, \"image_generation\": 2}");
+        assertThat(kids5Plan.isActive()).isTrue();
     }
 
     @Test
-    @DisplayName("runAfterPropertiesSet is idempotent - no duplicates on subsequent runs")
-    void runAfterPropertiesSet_isIdempotent() throws Exception {
-        // Given - simulate existing plans
+    @DisplayName("runAfterPropertiesSet deactivates legacy plus_monthly plan")
+    void runAfterPropertiesSet_deactivatesLegacyPlusMonthly() throws Exception {
+        // Given - legacy plus_monthly plan exists
         SubscriptionPlan existingFree = new SubscriptionPlan();
         existingFree.setName("Free");
         
         SubscriptionPlan existingPlus = new SubscriptionPlan();
         existingPlus.setGooglePlayProductId("plus_monthly");
+        existingPlus.setActive(true);
 
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.List.of(existingFree));
         when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.of(existingPlus));
@@ -102,51 +116,72 @@ class SubscriptionDataInitializerTest {
         subscriptionDataInitializer.run();
 
         // Then
-        verify(subscriptionPlanRepository, never()).save(any());
+        ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
+        verify(subscriptionPlanRepository, atLeastOnce()).save(captor.capture());
+        
+        // Verify plus_monthly was deactivated
+        SubscriptionPlan deactivatedPlan = captor.getAllValues().stream()
+                .filter(p -> "plus_monthly".equals(p.getGooglePlayProductId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(deactivatedPlan.isActive()).isFalse();
     }
 
     @Test
-    @DisplayName("runAfterPropertiesSet creates only missing plans")
-    void runAfterPropertiesSet_createsOnlyMissingPlans() throws Exception {
-        // Given - Free plan exists, Plus Monthly doesn't
+    @DisplayName("runAfterPropertiesSet creates only missing kids tiers")
+    void runAfterPropertiesSet_createsOnlyMissingKidsTiers() throws Exception {
+        // Given - Free plan exists, kids_1_monthly exists, others don't
         SubscriptionPlan existingFree = new SubscriptionPlan();
         existingFree.setName("Free");
+        
+        SubscriptionPlan existingKids1 = new SubscriptionPlan();
+        existingKids1.setGooglePlayProductId("kids_1_monthly");
+        existingKids1.setFeatures("{\"chat_limit\": -1, \"image_generation\": 2}");
 
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.List.of(existingFree));
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
+        when(subscriptionPlanRepository.findByGooglePlayProductId("kids_1_monthly")).thenReturn(Optional.of(existingKids1));
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(1)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(4)).save(captor.capture()); // 4 missing tiers
 
-        SubscriptionPlan createdPlan = captor.getValue();
-        assertThat(createdPlan.getName()).isEqualTo("Plus Monthly");
-        assertThat(createdPlan.getGooglePlayProductId()).isEqualTo("plus_monthly");
+        // Verify only missing tiers were created
+        assertThat(captor.getAllValues()).hasSize(4);
+        assertThat(captor.getAllValues().stream()
+                .map(SubscriptionPlan::getGooglePlayProductId)
+                .filter(id -> id != null && id.startsWith("kids_"))
+        ).containsExactlyInAnyOrder("kids_2_monthly", "kids_3_monthly", "kids_4_monthly", "kids_5_monthly");
     }
 
     @Test
-    @DisplayName("runAfterPropertiesSet creates only Free plan when Plus Monthly exists")
-    void runAfterPropertiesSet_createsOnlyFreePlanWhenPlusMonthlyExists() throws Exception {
-        // Given - Plus Monthly exists, Free doesn't
-        SubscriptionPlan existingPlus = new SubscriptionPlan();
-        existingPlus.setGooglePlayProductId("plus_monthly");
+    @DisplayName("runAfterPropertiesSet updates existing plans with correct features")
+    void runAfterPropertiesSet_updatesExistingPlansWithCorrectFeatures() throws Exception {
+        // Given - Existing kids_1_monthly plan with wrong features
+        SubscriptionPlan existingKids1 = new SubscriptionPlan();
+        existingKids1.setGooglePlayProductId("kids_1_monthly");
+        existingKids1.setMaxKids(1);
+        existingKids1.setFeatures("{\"chat_limit\": 100}"); // Wrong features
+        existingKids1.setActive(true);
 
-        when(subscriptionPlanRepository.findAll()).thenReturn(java.util.List.of(existingPlus));
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.of(existingPlus));
+        when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
+        when(subscriptionPlanRepository.findByGooglePlayProductId("kids_1_monthly")).thenReturn(Optional.of(existingKids1));
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(1)).save(captor.capture());
-
-        SubscriptionPlan createdPlan = captor.getValue();
-        assertThat(createdPlan.getName()).isEqualTo("Free");
-        assertThat(createdPlan.getGooglePlayProductId()).isNull();
+        verify(subscriptionPlanRepository, atLeastOnce()).save(captor.capture());
+        
+        // Verify existing plan was updated with correct features
+        SubscriptionPlan updatedPlan = captor.getAllValues().stream()
+                .filter(p -> "kids_1_monthly".equals(p.getGooglePlayProductId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(updatedPlan.getFeatures()).isEqualTo("{\"chat_limit\": -1, \"image_generation\": 2}");
     }
 
     @Test
@@ -154,37 +189,41 @@ class SubscriptionDataInitializerTest {
     void freePlan_hasCorrectCurrencyAndPriceValues() throws Exception {
         // Given
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(2)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(6)).save(captor.capture());
 
-        SubscriptionPlan freePlan = captor.getAllValues().get(0);
+        SubscriptionPlan freePlan = captor.getAllValues().stream()
+                .filter(plan -> "Free".equals(plan.getName()))
+                .findFirst()
+                .orElseThrow();
         assertThat(freePlan.getCurrency()).isEqualTo("GBP");
         assertThat(freePlan.getPrice()).isEqualByComparingTo(BigDecimal.ZERO.setScale(2));
     }
 
     @Test
-    @DisplayName("Plus Monthly plan has correct currency and price values")
-    void plusMonthlyPlan_hasCorrectCurrencyAndPriceValues() throws Exception {
+    @DisplayName("Kids 1 Monthly plan has correct currency and price values")
+    void kids1MonthlyPlan_hasCorrectCurrencyAndPriceValues() throws Exception {
         // Given
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(2)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(6)).save(captor.capture());
 
-        SubscriptionPlan plusMonthly = captor.getAllValues().get(1);
-        assertThat(plusMonthly.getCurrency()).isEqualTo("GBP");
-        assertThat(plusMonthly.getPrice()).isEqualByComparingTo(new BigDecimal("4.99").setScale(2));
+        SubscriptionPlan kids1Plan = captor.getAllValues().stream()
+                .filter(plan -> "kids_1_monthly".equals(plan.getGooglePlayProductId()))
+                .findFirst()
+                .orElseThrow();
+        assertThat(kids1Plan.getCurrency()).isEqualTo("GBP");
+        assertThat(kids1Plan.getPrice()).isEqualByComparingTo(BigDecimal.ZERO.setScale(2));
     }
 
     @Test
@@ -192,34 +231,41 @@ class SubscriptionDataInitializerTest {
     void freePlan_hasNoProviderIds() throws Exception {
         // Given
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(2)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(6)).save(captor.capture());
 
-        SubscriptionPlan freePlan = captor.getAllValues().get(0);
+        SubscriptionPlan freePlan = captor.getAllValues().stream()
+                .filter(plan -> "Free".equals(plan.getName()))
+                .findFirst()
+                .orElseThrow();
         assertThat(freePlan.getGooglePlayProductId()).isNull();
     }
 
     @Test
-    @DisplayName("Plus Monthly plan has correct Google Play product ID")
-    void plusMonthlyPlan_hasCorrectGooglePlayProductId() throws Exception {
+    @DisplayName("Kids tiers have correct Google Play product IDs")
+    void kidsTiers_haveCorrectGooglePlayProductIds() throws Exception {
         // Given
         when(subscriptionPlanRepository.findAll()).thenReturn(java.util.Collections.emptyList());
-        when(subscriptionPlanRepository.findByGooglePlayProductId("plus_monthly")).thenReturn(Optional.empty());
 
         // When
         subscriptionDataInitializer.run();
 
         // Then
         ArgumentCaptor<SubscriptionPlan> captor = ArgumentCaptor.forClass(SubscriptionPlan.class);
-        verify(subscriptionPlanRepository, times(2)).save(captor.capture());
+        verify(subscriptionPlanRepository, times(6)).save(captor.capture()); // Free + 5 tiers
 
-        SubscriptionPlan plusMonthly = captor.getAllValues().get(1);
-        assertThat(plusMonthly.getGooglePlayProductId()).isEqualTo("plus_monthly");
+        // Verify all product IDs are correct
+        var kidsPlans = captor.getAllValues().stream()
+                .filter(p -> p.getGooglePlayProductId() != null && p.getGooglePlayProductId().startsWith("kids_"))
+                .toList();
+        
+        assertThat(kidsPlans).hasSize(5);
+        assertThat(kidsPlans.stream().map(SubscriptionPlan::getGooglePlayProductId))
+                .containsExactlyInAnyOrder("kids_1_monthly", "kids_2_monthly", "kids_3_monthly", "kids_4_monthly", "kids_5_monthly");
     }
 }
