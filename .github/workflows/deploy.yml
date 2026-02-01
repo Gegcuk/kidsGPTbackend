@@ -51,7 +51,7 @@ jobs:
         
     - name: Get previous deployment version
       id: previous_version
-      uses: appleboy/ssh-action@v1.2.4
+      uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
@@ -78,7 +78,7 @@ jobs:
     
     - name: Deploy to VPS
       id: deploy
-      uses: appleboy/ssh-action@v1.2.4
+      uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
@@ -239,7 +239,7 @@ jobs:
     
     - name: Verify deployed version
       if: steps.health_check.outcome == 'success'
-      uses: appleboy/ssh-action@v1.2.4
+      uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
@@ -270,7 +270,7 @@ jobs:
     - name: Rollback on failure
       id: rollback
       if: failure()
-      uses: appleboy/ssh-action@v1.2.4
+      uses: appleboy/ssh-action@v1.2.5
       with:
         host: ${{ secrets.VPS_HOST }}
         username: ${{ secrets.VPS_USER }}
