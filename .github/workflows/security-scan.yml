@@ -40,7 +40,7 @@ jobs:
             -Ddependency-check.nvd.apiKey="$NVD_API_KEY"
 
       - name: Upload security scan report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: security-scan-report

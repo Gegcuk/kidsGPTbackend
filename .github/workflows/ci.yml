@@ -45,7 +45,7 @@ jobs:
           echo "Build completed in ${BUILD_DURATION} seconds"
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: build-artifacts
           path: |
@@ -151,7 +151,7 @@ jobs:
           fi
 
       - name: Upload JaCoCo coverage report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: jacoco-coverage-report
@@ -204,7 +204,7 @@ jobs:
             -Ddependency-check.nvd.apiKey="$NVD_API_KEY"
 
       - name: Upload security scan report
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: security-scan-report
@@ -313,7 +313,7 @@ jobs:
           echo "Metrics saved to metrics/ci-metrics.json"
 
       - name: Upload metrics
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: ci-metrics
